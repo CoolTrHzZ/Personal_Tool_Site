@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+.env
+.env.*
+*.log
+.codex/models-v1.json
+**/models-v1.json
+.codex/tmp/
+*.pem
+.idea/
+.vscode/
