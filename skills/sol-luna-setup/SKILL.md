@@ -12,9 +12,9 @@ description: |
 
 # Sol + Luna 分层子代理 Setup Skill
 
+> **推荐安装（给用户）**：`npx skills add Yuri-NagaSaki/subagent-skills -g -y`  
 > 源仓库：https://github.com/Yuri-NagaSaki/subagent-skills  
 > 博客：https://catcat.blog/2026/08/sol-luna-layered-subagents-codex-claude-pi.html
-
 
 ## 目标
 
