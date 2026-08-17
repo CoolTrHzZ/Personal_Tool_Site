@@ -84,6 +84,8 @@ attaches the catalog automatically. Details: [catalog fix](docs/sol-luna-catalog
 bash scripts/check-template-sync.sh
 bash tests/test-bootstrap-v2.sh
 bash tests/test-acceptance-gate.sh
+bash tests/test-stop-hook.sh
+bash tests/test-full-delivery-e2e.sh
 ```
 
 The root template is canonical for repository development. The skill carries a synchronized copy so it remains standalone after installation.
@@ -94,7 +96,7 @@ The root template is canonical for repository development. The skill carries a s
 skills/sol-luna-setup/     standalone installable skill
 templates/                 canonical project templates
 scripts/                   bootstrap, catalog, and sync checks
-tests/                     bootstrap and acceptance-gate regression tests
+tests/                     bootstrap, acceptance-gate, Stop Hook, and E2E regression tests
 docs/                      framework details
 demo/                      runnable FULL_DELIVERY example
 ```

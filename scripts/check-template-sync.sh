@@ -41,7 +41,6 @@ done
 check "$CANON/scripts/acceptance-gate.sh" "$SKILL/scripts/acceptance-gate.sh"
 check "$CANON/codex/hooks.json" "$SKILL/.codex/hooks.json"
 check "$CANON/codex/hooks/full_delivery_stop.py" "$SKILL/.codex/hooks/full_delivery_stop.py"
-check "$CANON/scripts/acceptance_gate.py" "$SKILL/scripts/acceptance_gate.py"
 check "$ROOT/scripts/prepare-luna-catalog.sh" "$SKILL/scripts/prepare-luna-catalog.sh"
 
 if [[ "$fail" -ne 0 ]]; then

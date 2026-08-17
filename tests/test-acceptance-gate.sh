@@ -115,6 +115,37 @@ bash "$PROJECT/scripts/acceptance-gate.sh" "$PROJECT" >/dev/null
 set_fields
 bash "$PROJECT/scripts/acceptance-gate.sh" "$PROJECT" | grep -qx 'ACCEPTANCE_GATE_PASS'
 
+# A real TASK.md template with heading-style Status must pass after BACKLOG -> DONE.
+cp "$ROOT/templates/agent/templates/TASK.md" "$PROJECT/.agent/tasks/TASK-TEMPLATE.md"
+python3 - "$PROJECT/.agent/tasks/TASK-TEMPLATE.md" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+p.write_text(p.read_text().replace("BACKLOG", "DONE"))
+PY
+bash "$PROJECT/scripts/acceptance-gate.sh" "$PROJECT" >/dev/null
+rm "$PROJECT/.agent/tasks/TASK-TEMPLATE.md"
+
+# Inline Evidence and Reason must remain valid.
+set_fields
+python3 - "$PROJECT/.agent/ACCEPTANCE.md" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+p.write_text(p.read_text().replace("Evidence: gate evidence\nReason:", "Evidence: inline\nReason: inline reason", 1))
+PY
+bash "$PROJECT/scripts/acceptance-gate.sh" "$PROJECT" >/dev/null
+
+# Multi-line Evidence and Reason must remain valid.
+set_fields
+python3 - "$PROJECT/.agent/ACCEPTANCE.md" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+p.write_text(p.read_text().replace("Evidence: gate evidence\nReason:", "Evidence:\n- multi-line evidence\nReason:\n- multi-line reason", 1))
+PY
+bash "$PROJECT/scripts/acceptance-gate.sh" "$PROJECT" >/dev/null
+
 # STATE and ACCEPTANCE final statuses must match.
 python3 - "$PROJECT/.agent/ACCEPTANCE.md" <<'PY'
 from pathlib import Path

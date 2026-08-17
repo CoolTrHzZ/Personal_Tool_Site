@@ -7,9 +7,23 @@ trap 'rm -rf "$TMP"' EXIT
 PROJECT="$TMP/project"
 mkdir -p "$PROJECT"
 bash "$ROOT/scripts/bootstrap.sh" "$PROJECT" >/dev/null
-HOOK="$PROJECT/.codex/hooks/full_delivery_stop.py"
+DEEP="$PROJECT/src/deep/module"
+mkdir -p "$DEEP"
+HOOK_COMMAND="$(python3 - "$PROJECT/.codex/hooks.json" <<'PY'
+import json
+import sys
+from pathlib import Path
 
-if printf '{"cwd":"%s"}\n' "$PROJECT" | python3 "$HOOK" | grep -q '"decision": "block"'; then
+data = json.loads(Path(sys.argv[1]).read_text())
+print(data["hooks"]["Stop"][0]["hooks"][0]["command"])
+PY
+)"
+
+run_hook() {
+  (cd "$DEEP" && printf '{"cwd":"%s"}\n' "$DEEP" | sh -c "$HOOK_COMMAND")
+}
+
+if run_hook | grep -q '"decision": "block"'; then
   :
 else
   echo "Gate FAIL did not block" >&2
@@ -39,7 +53,7 @@ text = text.replace("Evidence:\nReason:", "Evidence: gate evidence\nReason:")
 acceptance.write_text(text.replace("Status: NOT_READY", "Status: READY_FOR_USER_ACCEPTANCE"), encoding="utf-8")
 PY
 
-[[ "$(printf '{"cwd":"%s"}\n' "$PROJECT" | python3 "$HOOK")" == "{}" ]]
+[[ "$(run_hook)" == "{}" ]]
 
 python3 - "$PROJECT/.agent/STATE.md" <<'PY'
 from pathlib import Path
@@ -47,6 +61,6 @@ import sys
 p = Path(sys.argv[1])
 p.write_text(p.read_text().replace("Project-Status: READY_FOR_USER_ACCEPTANCE", "Project-Status: BLOCKED_BY_USER"))
 PY
-[[ "$(printf '{"cwd":"%s"}\n' "$PROJECT" | python3 "$HOOK")" == "{}" ]]
+[[ "$(run_hook)" == "{}" ]]
 
 echo "STOP_HOOK_TEST_PASS"

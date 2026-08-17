@@ -21,6 +21,27 @@ BLOCKED_TERMINAL = {
 }
 
 
+def project_root(start: Path) -> Path | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=start,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        result = None
+    if result and result.returncode == 0 and result.stdout.strip():
+        root = Path(result.stdout.strip()).resolve()
+        if root.is_dir():
+            return root
+    for candidate in (start, *start.parents):
+        if (candidate / ".agent").is_dir() and (candidate / ".codex").is_dir():
+            return candidate
+    return None
+
+
 def value(text: str, key: str) -> str:
     match = re.search(rf"^{re.escape(key)}:\s*(.*?)\s*$", text, re.MULTILINE)
     return match.group(1).strip() if match else ""
@@ -36,7 +57,9 @@ def main() -> int:
         event = json.load(sys.stdin)
     except (json.JSONDecodeError, OSError):
         event = {}
-    root = Path(event.get("cwd") or os.environ.get("PWD") or ".").resolve()
+    root = project_root(Path(event.get("cwd") or os.environ.get("PWD") or ".").resolve())
+    if root is None:
+        return output({})
     state_path = root / ".agent" / "STATE.md"
     if not state_path.is_file():
         return output({})

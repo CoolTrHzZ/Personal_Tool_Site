@@ -36,7 +36,24 @@ def section(text: str, title: str) -> str:
 
 def field(text: str, name: str) -> str:
     match = re.search(rf"^{re.escape(name)}:\s*(.*?)\s*$", text, re.MULTILINE)
-    return match.group(1).strip() if match else ""
+    if match and match.group(1).strip():
+        return match.group(1).strip()
+    block = re.search(
+        rf"^{re.escape(name)}:\s*$([\s\S]*?)(?=^(?:[A-Za-z][\w -]*):\s*|^## |\Z)",
+        text,
+        re.MULTILINE,
+    )
+    return block.group(1).strip() if block else ""
+
+
+def task_status(text: str) -> str:
+    status = field(text, "Status")
+    if status:
+        return status
+    match = re.search(r"^## Status\s*$([\s\S]*?)(?=^## |\Z)", text, re.MULTILINE)
+    if not match:
+        return ""
+    return next((line.strip() for line in match.group(1).splitlines() if line.strip()), "")
 
 
 def table_rows(text: str) -> list[list[str]]:
@@ -113,8 +130,8 @@ def validate_state(root: Path, text: str) -> tuple[str, list[str]]:
 
     for task_file in sorted((root / ".agent" / "tasks").glob("*.md")):
         task_text = task_file.read_text(encoding="utf-8")
-        task_status = field(task_text, "Status")
-        if task_status != "DONE":
+        task_value = task_status(task_text)
+        if task_value != "DONE":
             raise GateFailure(f"unfinished task file: {task_file}")
 
     return status, values

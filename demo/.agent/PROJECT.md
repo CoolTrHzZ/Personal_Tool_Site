@@ -1,5 +1,8 @@
 # Project Runtime Contract
 
+Complete commands for this project. Keep secrets in environment variables; do
+not put secret values, private hosts, or tokens in this file.
+
 ## Project
 
 Name: sol-luna-auth-demo
@@ -16,7 +19,26 @@ Database: N/A
 
 Other: Node.js built-in test runner
 
-## Dependency Installation
+## Working Directory
+
+```text
+demo/
+```
+
+## Environment Variable Names
+
+```text
+None
+```
+
+## Preflight
+
+```bash
+node --version
+npm --version
+```
+
+## Install
 
 ### Backend
 
@@ -50,28 +72,64 @@ Expected: process starts successfully with no fatal startup errors.
 # N/A: no frontend
 ```
 
-## Health Checks
+## Health
 
 ```bash
 # N/A: the demo has no long-running HTTP health endpoint
 ```
 
-## Unit Tests
+## Expected Ports
+
+```text
+N/A: no long-running service
+```
+
+## Startup Timeout
+
+```text
+30 seconds
+```
+
+## Unit Test
 
 ```bash
 npm test
 ```
 
-## Integration Tests
+## Integration Test
 
 ```bash
 npm test
 ```
 
-## Regression Tests
+## Regression Test
 
 ```bash
 npm test
+```
+
+## Database Migration
+
+```bash
+# N/A: no database
+```
+
+## Smoke Test
+
+```bash
+npm test
+```
+
+## External Dependencies
+
+```text
+None
+```
+
+## Cleanup
+
+```bash
+# N/A: tests do not start persistent services
 ```
 
 ## Runtime Policy
