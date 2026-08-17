@@ -22,5 +22,7 @@ jobs:
         run: bash tests/test-bootstrap-v2.sh
       - name: Acceptance gate regression
         run: bash tests/test-acceptance-gate.sh
+      - name: Stop Hook regression
+        run: bash tests/test-stop-hook.sh
       - name: Full delivery E2E
         run: bash tests/test-full-delivery-e2e.sh

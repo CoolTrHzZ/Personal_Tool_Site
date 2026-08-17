@@ -28,6 +28,7 @@ state.write_text(text, encoding="utf-8")
 
 acceptance = root / ".agent/ACCEPTANCE.md"
 text = acceptance.read_text(encoding="utf-8")
+text = text.replace("Required: NO\nStatus: N/A", "Required: YES\nStatus: PENDING")
 text = text.replace("Status: PENDING", "Status: PASS")
 text = text.replace("Evidence:\nReason:", "Evidence: gate evidence\nReason:")
 text = text.replace("Status: NOT_READY", "Status: READY_FOR_USER_ACCEPTANCE")
@@ -70,6 +71,14 @@ p = Path(sys.argv[1])
 p.write_text("\n".join(line for line in p.read_text().splitlines() if "| TASK-001 | READY | luna_worker | None |" not in line) + "\n")
 PY
 set_fields
+
+# A task file with Status: FAILED must fail even without a STATE task row.
+printf '# TASK-FAILED\n\nStatus: FAILED\n' > "$PROJECT/.agent/tasks/TASK-FAILED.md"
+if bash "$PROJECT/scripts/acceptance-gate.sh" "$PROJECT"; then exit 1; fi
+rm "$PROJECT/.agent/tasks/TASK-FAILED.md"
+
+# A FAILED validation gate must fail.
+set_fields
 python3 - "$PROJECT/.agent/STATE.md" <<'PY'
 from pathlib import Path
 import sys
@@ -78,7 +87,19 @@ p.write_text(p.read_text().replace("| PASS | gate evidence | |", "| FAILED | gat
 PY
 if bash "$PROJECT/scripts/acceptance-gate.sh" "$PROJECT"; then exit 1; fi
 
-# Required:NO only passes with N/A, evidence, and a reason.
+# Required:NO without a reason must fail.
+set_fields
+python3 - "$PROJECT/.agent/ACCEPTANCE.md" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+text = p.read_text()
+text = text.replace("Required: YES\nStatus: PASS\n\nEvidence: gate evidence\nReason:", "Required: NO\nStatus: N/A\n\nEvidence: not applicable\nReason:", 1)
+p.write_text(text)
+PY
+if bash "$PROJECT/scripts/acceptance-gate.sh" "$PROJECT"; then exit 1; fi
+
+# Required:NO passes with N/A, evidence, and a reason.
 set_fields
 python3 - "$PROJECT/.agent/ACCEPTANCE.md" <<'PY'
 from pathlib import Path
