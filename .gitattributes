@@ -1,0 +1,4 @@
+*.sh text eol=lf
+templates/agent/** text eol=lf
+skills/sol-luna-setup/references/project-template/.agent/** text eol=lf
+demo/.agent/** text eol=lf

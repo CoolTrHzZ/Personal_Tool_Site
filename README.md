@@ -1,120 +1,107 @@
-# subagent-skills
+# Sol + Luna Autonomous Development Framework
 
-Project-level templates and a setup skill for **Sol (leader) + Luna (workers)** multi-agent workflows in Codex, Claude Code, and Pi.
+Sol plans, orchestrates, reviews, and controls completion. Luna agents perform bounded exploration, implementation, validation, and adversarial review.
 
-Blog (Chinese, longer write-up):  
-https://catcat.blog/2026/08/sol-luna-layered-subagents-codex-claude-pi.html
+Default development mode: `FULL_DELIVERY`
+
+Requirement → Plan → Task DAG → Parallel Development → Test → Integrate → Build → Runtime Validation → Repair → Review → `READY_FOR_USER_ACCEPTANCE`
 
 ## Install
 
 ```bash
-npx skills add Yuri-NagaSaki/subagent-skills -g -y
-```
-
-Claude Code only:
-
-```bash
-npx skills add Yuri-NagaSaki/subagent-skills -g -a claude-code -y
+npx skills add CoolTrHzZ/subagent-skills -g -y
 ```
 
 Project-local:
 
 ```bash
-npx skills add Yuri-NagaSaki/subagent-skills -y
+npx skills add CoolTrHzZ/subagent-skills -y
 ```
 
-List skills in this repo:
+The installed skill is `sol-luna-setup`.
+
+## Bootstrap a project
 
 ```bash
-npx skills add Yuri-NagaSaki/subagent-skills -l
-```
-
-Installed skill: **`sol-luna-setup`**.
-
-After install, ask the agent to run that skill on the current project.
-
-## Optional: write project files
-
-```bash
-git clone https://github.com/Yuri-NagaSaki/subagent-skills.git
-export OPENAI_API_KEY=...   # env only; never commit
+git clone https://github.com/CoolTrHzZ/subagent-skills.git
 bash subagent-skills/scripts/bootstrap.sh /path/to/project
 ```
 
-Creates or merges:
+Upgrade a V1 project's unmanaged Luna configurations with backups:
 
-- `.codex/config.toml`, `.codex/agents/luna_*.toml`
-- `AGENTS.md`
-- `.claude/agents/luna-*.md`, `CLAUDE.md`
-- `scripts/prepare-luna-catalog.sh`
-
-Edit `base_url` in `.codex/config.toml` for your provider.
-
-## Layout
-
-```text
-skills/sol-luna-setup/     # discovered by npx skills
-templates/                 # codex / claude / pi copies
-scripts/bootstrap.sh
-scripts/prepare-luna-catalog.sh
-demo/                      # tiny auth sample + npm test
-docs/sol-luna-catalog-fix.md
+```bash
+bash subagent-skills/scripts/bootstrap.sh /path/to/project --upgrade-managed
 ```
 
-## Sol cannot spawn Luna
+The bootstrap preserves project-authored `AGENTS.md` content while merging the managed Sol-Luna policy. It creates:
 
-Common error:
+- `.codex/config.toml` and `.codex/agents/luna_*.toml`
+- `.agent/` runtime contract, requirements, architecture, plan, state, acceptance contract, workflow, tasks, and reports
+- `scripts/acceptance-gate.sh` and `scripts/prepare-luna-catalog.sh`
+- optional Claude Code agent templates
 
-```text
-Unknown model `gpt-5.6-luna` for spawn_agent
+Complete `.agent/PROJECT.md` once with the project's install, build, start, health, and test commands.
+
+## Completion control
+
+Code generation, a completed task, or passing unit tests do not finish FULL_DELIVERY. Sol continues through integration, build, runtime, smoke, regression, critic review, repair, final review, and:
+
+```bash
+bash scripts/acceptance-gate.sh
 ```
+
+Only exit code 0 permits `READY_FOR_USER_ACCEPTANCE`.
+
+See [Autonomous development](docs/autonomous-development.md) for the state machine, task DAG, repair loop, and contracts.
+
+## Roles
+
+| Role | Model | Responsibility |
+|---|---|---|
+| Main session | `gpt-5.6-sol` | Planning, orchestration, integration, review, completion control |
+| `luna_scout` | `gpt-5.6-luna` | Read-only architecture, dependency, failure, runtime, and log investigation |
+| `luna_worker` | `gpt-5.6-luna` | Bounded implementation and repair with task validation |
+| `luna_tester` | `gpt-5.6-luna` | Unit, integration, build, runtime, smoke, and regression evidence |
+| `luna_critic` | `gpt-5.6-luna` | Independent adversarial acceptance review |
+
+## Luna catalog compatibility
+
+If spawning Luna reports an unknown model:
 
 ```bash
 bash scripts/prepare-luna-catalog.sh "$(pwd)/.codex/models-v1.json"
 ```
 
-Point `model_catalog_json` at that file. Keep `multi_agent_v2 = false`.  
-Details: [docs/sol-luna-catalog-fix.md](docs/sol-luna-catalog-fix.md).
+Point `model_catalog_json` at the generated absolute path and keep `multi_agent_v2 = false`. Details: [catalog fix](docs/sol-luna-catalog-fix.md).
 
-## Smoke checks
-
-```bash
-codex exec --sandbox read-only -c 'model="gpt-5.6-sol"' \
-  "Reply: SOL_SMOKE_OK" </dev/null
-
-codex exec --sandbox read-only -c 'model="gpt-5.6-luna"' \
-  "Reply: LUNA_SMOKE_OK" </dev/null
-
-codex exec --sandbox read-only \
-  "Use luna_scout per AGENTS.md; start answer with SCOUT_DONE" </dev/null
-```
-
-`codex exec` reads stdin; always redirect `</dev/null` in scripts.
-
-Demo:
+## Repository validation
 
 ```bash
-cd demo && npm test
+bash scripts/check-template-sync.sh
+bash tests/test-bootstrap-v2.sh
+bash tests/test-acceptance-gate.sh
 ```
 
-## Roles
+The root template is canonical for repository development. The skill carries a synchronized copy so it remains standalone after installation.
 
-| Role | Model | Notes |
-|------|--------|--------|
-| Main session | `gpt-5.6-sol` | Plan, review, commit/PR |
-| luna_scout | `gpt-5.6-luna` | Read-only |
-| luna_worker | `gpt-5.6-luna` | Bounded writes; no commit |
-| luna_critic | `gpt-5.6-luna` | Adversarial review |
-| luna_tester | `gpt-5.6-luna` | Run specified tests |
+## Layout
+
+```text
+skills/sol-luna-setup/     standalone installable skill
+templates/                 canonical project templates
+scripts/                   bootstrap, catalog, and sync checks
+tests/                     bootstrap and acceptance-gate regression tests
+docs/                      framework details
+demo/                      runnable FULL_DELIVERY example
+```
 
 ## Safety
 
-- Do not commit API keys, host credentials, or private IPs.
-- Use env vars (`OPENAI_API_KEY`, `GATEWAY_API_KEY`).
-- Ignore `models-v1.json` in git (generated locally).
-- Demo auth code is not production-safe.
+- Keep API keys, credentials, private hosts, and private keys out of files and Git.
+- Use environment variables such as `OPENAI_API_KEY`.
+- Never automatically commit, push, create a PR, or deploy.
+- Do not weaken or delete tests to make validation pass.
 
 ## License
 
 [MIT](LICENSE)
-

@@ -1,6 +1,6 @@
-# Sol + Luna Layered Agents Demo
+# Sol + Luna Autonomous Full Delivery Demo
 
-可运行的小 demo：演示 **Sol 领导 + Luna 工人** 的项目级配置。
+可运行的小 demo：演示 Sol 编排、Luna 执行以及 `.agent` 验收控制面。
 
 配套完整说明：仓库根 [README.md](../README.md)  
 博客长文：[catcat.blog 教程](https://catcat.blog/2026/08/sol-luna-layered-subagents-codex-claude-pi.html)
@@ -10,7 +10,9 @@
 ```text
 .codex/config.toml + agents/luna_*.toml
 AGENTS.md
+.agent/ runtime contract + state + acceptance + workflow
 .claude/agents/ + CLAUDE.md
+scripts/acceptance-gate.sh
 scripts/prepare-luna-catalog.sh
 src/ auth helpers
 tests/
@@ -25,6 +27,9 @@ export OPENAI_API_KEY="sk-..."   # 不要提交
 
 cd demo
 npm test
+
+# 新初始化状态应拒绝提前完成
+bash scripts/acceptance-gate.sh
 
 # 修复 Sol→Luna spawn（如需要）
 bash scripts/prepare-luna-catalog.sh "$(pwd)/.codex/models-v1.json"

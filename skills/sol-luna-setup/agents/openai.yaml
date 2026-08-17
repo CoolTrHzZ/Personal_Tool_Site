@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sol + Luna Full Delivery"
+  short_description: "Install autonomous multi-agent delivery controls"
+  default_prompt: "Use $sol-luna-setup to install or upgrade this project to autonomous FULL_DELIVERY mode and validate the setup."
