@@ -8,9 +8,10 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const dataDir = resolve(root, 'src/data')
 const adminDir = resolve(root, 'admin')
 const files = { navigation: 'navigation.json', categories: 'categories.json', site: 'site.json' }
+const MAX_BODY_SIZE = 1024 * 1024
 const json = async key => JSON.parse(await readFile(resolve(dataDir, files[key]), 'utf8'))
 const send = (res, status, value, type = 'application/json') => { res.writeHead(status, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store' }); res.end(type === 'application/json' ? JSON.stringify(value) : value) }
-const body = req => new Promise((resolveBody, reject) => { let value = ''; req.on('data', chunk => { value += chunk }); req.on('end', () => { try { resolveBody(value ? JSON.parse(value) : {}) } catch { reject(new Error('请求 JSON 无效')) } }) })
+const body = req => new Promise((resolveBody, reject) => { let value = ''; let size = 0; req.on('data', chunk => { size += chunk.length; if (size > MAX_BODY_SIZE) { reject(new Error('请求体不能超过 1MB')); req.destroy(); return } value += chunk }); req.on('end', () => { try { resolveBody(value ? JSON.parse(value) : {}) } catch { reject(new Error('请求 JSON 无效')) } }); req.on('error', reject) })
 let navigationCache = [], categoryCache = []
 function validate(key, value) {
   if (key === 'site') { for (const field of ['name', 'title', 'description', 'github', 'footer', 'logo']) if (typeof value[field] !== 'string') throw new Error(`${field} 必须是字符串`); return }
