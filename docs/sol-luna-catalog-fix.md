@@ -1,4 +1,7 @@
-# 修复 Sol 无法 spawn Luna
+# Legacy compatibility: 修复 Sol 无法 spawn Luna
+
+Bootstrap does not generate or attach a catalog. Use this only when the
+current Codex version reports the legacy Luna model compatibility problem.
 
 ## 症状
 

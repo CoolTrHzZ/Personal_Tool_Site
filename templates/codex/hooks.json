@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .codex/hooks/full_delivery_stop.py",
+            "timeout": 30,
+            "statusMessage": "Running Sol-Luna acceptance gate..."
+          }
+        ]
+      }
+    ]
+  }
+}

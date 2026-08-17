@@ -18,6 +18,10 @@ check() {
 check "$CANON/AGENTS.md" "$SKILL/AGENTS.md"
 check "$CANON/CLAUDE.md" "$SKILL/CLAUDE.md"
 check "$CANON/codex/config.toml" "$SKILL/.codex/config.toml"
+check "$CANON/codex/config.gateway.example.toml" "$SKILL/.codex/config.gateway.example.toml"
+check "$ROOT/scripts/acceptance_gate.py" "$CANON/scripts/acceptance_gate.py"
+check "$ROOT/scripts/acceptance-gate.sh" "$CANON/scripts/acceptance-gate.sh"
+check "$CANON/scripts/acceptance_gate.py" "$SKILL/scripts/acceptance_gate.py"
 
 for f in luna_scout.toml luna_worker.toml luna_tester.toml luna_critic.toml; do
   check "$CANON/codex/agents/$f" "$SKILL/.codex/agents/$f"
@@ -35,6 +39,9 @@ for d in tasks reports decisions; do
   check "$CANON/agent/$d/.gitkeep" "$SKILL/.agent/$d/.gitkeep"
 done
 check "$CANON/scripts/acceptance-gate.sh" "$SKILL/scripts/acceptance-gate.sh"
+check "$CANON/codex/hooks.json" "$SKILL/.codex/hooks.json"
+check "$CANON/codex/hooks/full_delivery_stop.py" "$SKILL/.codex/hooks/full_delivery_stop.py"
+check "$CANON/scripts/acceptance_gate.py" "$SKILL/scripts/acceptance_gate.py"
 check "$ROOT/scripts/prepare-luna-catalog.sh" "$SKILL/scripts/prepare-luna-catalog.sh"
 
 if [[ "$fail" -ne 0 ]]; then

@@ -3,7 +3,7 @@
 name = "luna_tester"
 description = "Validation worker for unit, integration, build, runtime, smoke and regression checks."
 model = "gpt-5.6-luna"
-model_reasoning_effort = "max"
+model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 You are luna_tester.

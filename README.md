@@ -1,4 +1,4 @@
-# Sol + Luna Autonomous Development Framework
+# Sol + Luna Autonomous Development Framework V2.1
 
 Sol plans, orchestrates, reviews, and controls completion. Luna agents perform bounded exploration, implementation, validation, and adversarial review.
 
@@ -18,7 +18,9 @@ Project-local:
 npx skills add CoolTrHzZ/subagent-skills -y
 ```
 
-The installed skill is `sol-luna-setup`.
+The installed skill is `sol-luna-setup`. Its default Codex config is
+provider-neutral and keeps the Luna catalog patch as an explicit legacy
+compatibility action.
 
 ## Bootstrap a project
 
@@ -35,9 +37,9 @@ bash subagent-skills/scripts/bootstrap.sh /path/to/project --upgrade-managed
 
 The bootstrap preserves project-authored `AGENTS.md` content while merging the managed Sol-Luna policy. It creates:
 
-- `.codex/config.toml` and `.codex/agents/luna_*.toml`
+- `.codex/config.toml`, `.codex/hooks.json`, `.codex/hooks/`, and `.codex/agents/luna_*.toml`
 - `.agent/` runtime contract, requirements, architecture, plan, state, acceptance contract, workflow, tasks, and reports
-- `scripts/acceptance-gate.sh` and `scripts/prepare-luna-catalog.sh`
+- `scripts/acceptance-gate.sh`, `scripts/acceptance_gate.py`, and `scripts/prepare-luna-catalog.sh`
 - optional Claude Code agent templates
 
 Complete `.agent/PROJECT.md` once with the project's install, build, start, health, and test commands.
@@ -66,13 +68,15 @@ See [Autonomous development](docs/autonomous-development.md) for the state machi
 
 ## Luna catalog compatibility
 
-If spawning Luna reports an unknown model:
+If spawning Luna reports an unknown model or another legacy catalog issue:
 
 ```bash
 bash scripts/prepare-luna-catalog.sh "$(pwd)/.codex/models-v1.json"
 ```
 
-Point `model_catalog_json` at the generated absolute path and keep `multi_agent_v2 = false`. Details: [catalog fix](docs/sol-luna-catalog-fix.md).
+Point `model_catalog_json` at the generated absolute path and apply the legacy
+feature setting required by that Codex version. Bootstrap never generates or
+attaches the catalog automatically. Details: [catalog fix](docs/sol-luna-catalog-fix.md).
 
 ## Repository validation
 
@@ -94,6 +98,11 @@ tests/                     bootstrap and acceptance-gate regression tests
 docs/                      framework details
 demo/                      runnable FULL_DELIVERY example
 ```
+
+The acceptance gate validates the parsed state and evidence contracts, task
+completion, report paths, and state/acceptance final-status consistency. The
+Stop Hook runs it only for `FULL_DELIVERY`; legal blocking terminal states may
+stop without being reported as user acceptance.
 
 ## Safety
 

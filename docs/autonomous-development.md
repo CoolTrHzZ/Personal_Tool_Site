@@ -1,4 +1,4 @@
-# Autonomous Development V2
+# Autonomous Development V2.1
 
 V2 answers one operational question: when is autonomous development actually finished? It adds a persistent project control plane and an executable acceptance gate around the Sol + Luna roles.
 
@@ -26,7 +26,8 @@ The `.agent/` directory is project state, not Codex configuration:
 | `reports/` | Validation and final delivery evidence |
 | `decisions/` | Architecture decisions when needed |
 
-Update `STATE.md` after material results so a later session can resume from the current phase instead of reconstructing progress.
+Update `STATE.md` after material results so a later session can resume from the current phase instead of reconstructing progress. On resume, read
+`STATE.md` first, reconcile actual `RUNNING` tasks, and continue `Next Action`.
 
 ## Task DAG and write sets
 
@@ -62,7 +63,17 @@ Then run:
 bash scripts/acceptance-gate.sh
 ```
 
-A non-zero exit means the workflow is incomplete or inconsistent. An exit of zero allows Sol to hand the result to the user for acceptance; it does not authorize a commit, push, pull request, or deployment.
+A non-zero exit means the workflow is incomplete or inconsistent. The Python
+validator also checks non-empty evidence, N/A reasons, report paths, task
+files, and final-status consistency. An exit of zero allows Sol to hand the
+result to the user for acceptance; it does not authorize a commit, push, pull
+request, or deployment.
+
+The project Stop Hook invokes the same gate only in `FULL_DELIVERY`. A failed
+gate returns `decision: block` with a continuation instruction. A legal
+`BLOCKED_BY_USER`, `BLOCKED_BY_PERMISSION`, `BLOCKED_BY_EXTERNAL_DEPENDENCY`,
+or `BLOCKED_BY_ENVIRONMENT` terminal state is allowed to stop without being
+represented as `READY_FOR_USER_ACCEPTANCE`.
 
 ## Terminal states
 
@@ -80,4 +91,15 @@ Use a blocking state only when autonomous progress genuinely depends on unavaila
 
 Run the normal bootstrap to create missing files, refresh files already marked `sol-luna-managed`, and merge the managed block in `AGENTS.md`. Use `--upgrade-managed` to replace legacy unmanaged Luna configurations; the bootstrap first writes a `.bak` copy.
 
-Project-owned `.agent` state files are create-only so rerunning bootstrap does not erase active requirements, plans, state, or evidence.
+Project-owned `.agent` state files (`PROJECT.md`, `ARCHITECTURE.md`,
+`REQUIREMENTS.md`, `PLAN.md`, `STATE.md`, and `ACCEPTANCE.md`) are create-only
+so rerunning bootstrap does not erase active requirements, plans, state, or
+evidence. Workflow, task/report templates, agents, hooks, and the acceptance
+gate are framework-managed and may be refreshed safely.
+
+## Repair circuit breaker
+
+Persist `Failure-Signature` and `Repair-Attempts` in `STATE.md`. When one
+signature reaches three attempts, Sol must stop automatic Luna retries,
+perform root-cause analysis, optionally call `luna_scout`, and re-plan the
+repair before another attempt.

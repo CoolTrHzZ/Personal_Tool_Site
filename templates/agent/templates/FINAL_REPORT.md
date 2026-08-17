@@ -1,3 +1,5 @@
+<!-- sol-luna-managed: true -->
+
 # Final Delivery Report
 
 ## Status

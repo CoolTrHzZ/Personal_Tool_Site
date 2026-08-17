@@ -24,7 +24,7 @@ if [[ ! -d "$TPL/.agent" ]]; then
 fi
 
 echo "==> Target project: $ROOT"
-mkdir -p "$ROOT/.codex/agents" "$ROOT/.claude/agents" "$ROOT/scripts" \
+mkdir -p "$ROOT/.codex/agents" "$ROOT/.codex/hooks" "$ROOT/.claude/agents" "$ROOT/scripts" \
   "$ROOT/.agent/tasks" "$ROOT/.agent/reports" "$ROOT/.agent/decisions" "$ROOT/.agent/templates"
 
 copy_if_missing() {
@@ -38,7 +38,7 @@ install_managed_file() {
   local src="$1" dest="$2"
   if [[ ! -e "$dest" ]]; then
     mkdir -p "$(dirname "$dest")"; cp "$src" "$dest"; echo "created: $dest"
-  elif grep -q '^# sol-luna-managed: true' "$dest" 2>/dev/null; then
+  elif grep -qE '^(#|<!--) sol-luna-managed: true' "$dest" 2>/dev/null; then
     cp "$src" "$dest"; echo "updated managed file: $dest"
   elif [[ "$UPGRADE_MANAGED" -eq 1 ]]; then
     cp "$dest" "${dest}.bak"; cp "$src" "$dest"; echo "upgraded unmanaged file: $dest (backup: ${dest}.bak)"
@@ -73,7 +73,33 @@ PY
   echo "merged managed Sol-Luna policy: $dest"
 }
 
+install_stop_hook_config() {
+  local src="$1" dest="$2"
+  if [[ ! -e "$dest" ]]; then
+    cp "$src" "$dest"
+    echo "created: $dest"
+    return
+  fi
+  python3 - "$src" "$dest" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+src, dest = map(Path, sys.argv[1:])
+source = json.loads(src.read_text(encoding="utf-8"))
+current = json.loads(dest.read_text(encoding="utf-8"))
+stop = current.setdefault("hooks", {}).setdefault("Stop", [])
+needed = source["hooks"]["Stop"][0]
+command = needed["hooks"][0]["command"]
+if not any(hook.get("command") == command for item in stop for hook in item.get("hooks", [])):
+    stop.append(needed)
+dest.write_text(json.dumps(current, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+PY
+  echo "merged Sol-Luna Stop Hook: $dest"
+}
+
 copy_if_missing "$TPL/.codex/config.toml" "$ROOT/.codex/config.toml"
+copy_if_missing "$TPL/.codex/config.gateway.example.toml" "$ROOT/.codex/config.gateway.example.toml"
 for f in luna_scout.toml luna_worker.toml luna_critic.toml luna_tester.toml; do
   install_managed_file "$TPL/.codex/agents/$f" "$ROOT/.codex/agents/$f"
 done
@@ -82,32 +108,27 @@ for f in luna-scout.md luna-worker.md luna-critic.md; do
 done
 merge_agents_file "$TPL/AGENTS.md" "$ROOT/AGENTS.md"
 copy_if_missing "$TPL/CLAUDE.md" "$ROOT/CLAUDE.md"
-for f in PROJECT.md ARCHITECTURE.md REQUIREMENTS.md PLAN.md STATE.md ACCEPTANCE.md WORKFLOW.md; do
+for f in PROJECT.md ARCHITECTURE.md REQUIREMENTS.md PLAN.md STATE.md ACCEPTANCE.md; do
   copy_if_missing "$TPL/.agent/$f" "$ROOT/.agent/$f"
 done
+install_managed_file "$TPL/.agent/WORKFLOW.md" "$ROOT/.agent/WORKFLOW.md"
 for f in TASK.md FINAL_REPORT.md; do
-  copy_if_missing "$TPL/.agent/templates/$f" "$ROOT/.agent/templates/$f"
+  install_managed_file "$TPL/.agent/templates/$f" "$ROOT/.agent/templates/$f"
 done
 install_managed_file "$TPL/scripts/acceptance-gate.sh" "$ROOT/scripts/acceptance-gate.sh"
+install_managed_file "$TPL/scripts/acceptance_gate.py" "$ROOT/scripts/acceptance_gate.py"
 install_managed_file "$TPL/scripts/prepare-luna-catalog.sh" "$ROOT/scripts/prepare-luna-catalog.sh"
-chmod +x "$ROOT/scripts/acceptance-gate.sh" "$ROOT/scripts/prepare-luna-catalog.sh" 2>/dev/null || true
+install_stop_hook_config "$TPL/.codex/hooks.json" "$ROOT/.codex/hooks.json"
+install_managed_file "$TPL/.codex/hooks/full_delivery_stop.py" "$ROOT/.codex/hooks/full_delivery_stop.py"
+chmod +x "$ROOT/scripts/acceptance-gate.sh" "$ROOT/scripts/acceptance_gate.py" \
+  "$ROOT/scripts/prepare-luna-catalog.sh" "$ROOT/.codex/hooks/full_delivery_stop.py" 2>/dev/null || true
 
 GI="$ROOT/.gitignore"; touch "$GI"
 for line in '.codex/models-v1.json' '.env' '.env.*'; do grep -qxF "$line" "$GI" 2>/dev/null || echo "$line" >>"$GI"; done
 
 echo
-echo "==> Optional: generate Luna-compatible catalog"
-if command -v codex >/dev/null 2>&1 && { [[ -n "${OPENAI_API_KEY:-}" ]] || [[ -n "${CODEX_API_KEY:-}" ]]; }; then
-  bash "$ROOT/scripts/prepare-luna-catalog.sh" "$ROOT/.codex/models-v1.json" || true
-  ABS="$(cd "$ROOT/.codex" && pwd)/models-v1.json"
-  if [[ -f "$ABS" ]] && ! grep -q 'model_catalog_json' "$ROOT/.codex/config.toml"; then
-    tmp="$(mktemp)"
-    { echo "model_catalog_json = \"$ABS\""; cat "$ROOT/.codex/config.toml"; } >"$tmp"
-    mv "$tmp" "$ROOT/.codex/config.toml"
-    echo "prepended model_catalog_json -> $ABS"
-  fi
-else
-  echo "Skip catalog generation (need codex + OPENAI_API_KEY or CODEX_API_KEY)"
-fi
+echo "==> Legacy Luna catalog patch is opt-in"
+echo "    If Codex reports an unknown Luna model, run:"
+echo "    bash scripts/prepare-luna-catalog.sh \"$ROOT/.codex/models-v1.json\""
 
-echo "==> V2 installed. Complete .agent/PROJECT.md, then use FULL_DELIVERY mode."
+echo "==> V2.1 installed. Complete .agent/PROJECT.md, then use FULL_DELIVERY mode."

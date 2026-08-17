@@ -1,5 +1,8 @@
 # Project Runtime Contract
 
+Complete commands for this project. Keep secrets in environment variables; do
+not put secret values, private hosts, or tokens in this file.
+
 ## Project
 
 Name: TBD
@@ -16,7 +19,25 @@ Database: TBD
 
 Other: TBD
 
-## Dependency Installation
+## Working Directory
+
+```text
+# project root or service working directories
+```
+
+## Environment Variable Names
+
+```text
+# NAME_OF_REQUIRED_VARIABLE
+```
+
+## Preflight
+
+```bash
+# version, service, or environment checks
+```
+
+## Install
 
 ### Backend
 
@@ -50,28 +71,64 @@ Expected: process starts successfully with no fatal startup errors.
 # frontend start command
 ```
 
-## Health Checks
+## Health
 
 ```bash
 # health check command
 ```
 
-## Unit Tests
+## Expected Ports
+
+```text
+# service: port, or N/A with a reason
+```
+
+## Startup Timeout
+
+```text
+# seconds
+```
+
+## Unit Test
 
 ```bash
 # project unit tests
 ```
 
-## Integration Tests
+## Integration Test
 
 ```bash
 # project integration tests
 ```
 
-## Regression Tests
+## Regression Test
 
 ```bash
 # project regression tests
+```
+
+## Database Migration
+
+```bash
+# migration command, or N/A with a reason
+```
+
+## Smoke Test
+
+```bash
+# primary workflow smoke test
+```
+
+## External Dependencies
+
+```text
+# service names and environment variable names only
+```
+
+## Cleanup
+
+```bash
+# stop temporary services and remove temporary data
 ```
 
 ## Runtime Policy

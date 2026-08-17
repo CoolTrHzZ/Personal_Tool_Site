@@ -1,0 +1,26 @@
+name: framework-ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  framework:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Shell syntax
+        run: bash -n scripts/*.sh tests/*.sh
+      - name: Python syntax
+        run: python3 -m py_compile scripts/acceptance_gate.py templates/scripts/acceptance_gate.py templates/codex/hooks/full_delivery_stop.py
+      - name: Template sync
+        run: bash scripts/check-template-sync.sh
+      - name: Bootstrap regression
+        run: bash tests/test-bootstrap-v2.sh
+      - name: Acceptance gate regression
+        run: bash tests/test-acceptance-gate.sh
+      - name: Full delivery E2E
+        run: bash tests/test-full-delivery-e2e.sh

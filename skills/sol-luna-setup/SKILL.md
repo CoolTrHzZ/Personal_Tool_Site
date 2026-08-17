@@ -1,6 +1,11 @@
 ---
 name: sol-luna-setup
-description: Configure or upgrade a project to the Sol + Luna Autonomous Full Delivery Framework, including project-level Codex agents, FULL_DELIVERY task DAGs, persistent development state, automatic validation and repair loops, runtime checks, an executable acceptance gate, and READY_FOR_USER_ACCEPTANCE completion control. Use for new-machine or project setup, Sol-Luna multi-agent configuration, V1-to-V2 upgrades, autonomous complete development, project development loops, automatic testing or repair, runtime validation, acceptance gates, or fixing Sol-to-Luna model catalog spawning.
+description: >-
+  Configure or upgrade a project to the Sol-Luna Autonomous Full Delivery
+  Framework. Use for FULL_DELIVERY work, multi-agent configuration,
+  autonomous development, acceptance gate validation, project setup,
+  persistent state, repair loops, runtime checks, V1-to-V2.1 upgrades, or
+  legacy Luna model compatibility.
 ---
 
 # Sol + Luna Autonomous Full Delivery
@@ -68,6 +73,9 @@ This preserves user-authored `AGENTS.md` content, replaces or appends only the `
 Verify these files exist:
 
 ```text
+.codex/config.toml
+.codex/hooks.json
+.codex/hooks/full_delivery_stop.py
 .codex/agents/luna_{scout,worker,tester,critic}.toml
 .agent/PROJECT.md
 .agent/ARCHITECTURE.md
@@ -79,6 +87,7 @@ Verify these files exist:
 .agent/templates/TASK.md
 .agent/templates/FINAL_REPORT.md
 scripts/acceptance-gate.sh
+scripts/acceptance_gate.py
 scripts/prepare-luna-catalog.sh
 ```
 
@@ -86,13 +95,16 @@ Ask the user to complete `.agent/PROJECT.md` only when project-specific install,
 
 ### 4. Repair Sol-to-Luna spawning when needed
 
-If Codex reports `Unknown model gpt-5.6-luna for spawn_agent`, run:
+If Codex reports `Unknown model gpt-5.6-luna for spawn_agent` or another
+legacy catalog compatibility error, explicitly run:
 
 ```bash
 bash scripts/prepare-luna-catalog.sh "$(pwd)/.codex/models-v1.json"
 ```
 
-Set `model_catalog_json` to the generated absolute path and keep `multi_agent_v2 = false` for the V1-compatible catalog.
+Set `model_catalog_json` to the generated absolute path and use the legacy
+feature setting required by that Codex version. Bootstrap never changes the
+catalog automatically.
 
 ### 5. Validate the installation
 

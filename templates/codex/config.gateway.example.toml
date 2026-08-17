@@ -1,0 +1,12 @@
+# Optional provider example. Copy the provider settings into config.toml only
+# when this project explicitly uses an OpenAI-compatible gateway.
+model_provider = "gateway"
+
+[model_providers.gateway]
+name = "Custom Gateway"
+base_url = "https://your-gateway.example/v1"
+env_key = "OPENAI_API_KEY"
+wire_api = "responses"
+request_max_retries = 4
+stream_max_retries = 5
+stream_idle_timeout_ms = 300000

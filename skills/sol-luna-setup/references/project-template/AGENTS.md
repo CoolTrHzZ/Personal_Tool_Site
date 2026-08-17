@@ -54,6 +54,12 @@ For non-trivial development, read `.agent/PROJECT.md`, `.agent/ARCHITECTURE.md`,
 
 Treat `.agent/STATE.md` as the execution cursor and `.agent/ACCEPTANCE.md` as the completion contract. Keep both current as work proceeds.
 
+Project state files (`PROJECT.md`, `ARCHITECTURE.md`, `REQUIREMENTS.md`,
+`PLAN.md`, `STATE.md`, and `ACCEPTANCE.md`) are create-if-missing and must not
+be overwritten by a framework upgrade. `WORKFLOW.md`, task and report
+templates, the acceptance gate, Stop Hook, and Codex agents are framework
+managed and may be safely refreshed.
+
 ## 6. Task Rules
 
 Define every implementation task with a task ID, objective, dependencies, allowed paths, forbidden paths, acceptance criteria, validation commands, and assigned agent. Luna must not silently expand scope.
@@ -69,6 +75,10 @@ Treat compilation, lint, test, build, startup, local configuration, or changed-c
 FAIL → diagnose → create or focus repair task → repair → rerun the failed gate → rerun affected downstream gates
 
 Normal development failures are not terminal states.
+
+Record `Failure-Signature` and `Repair-Attempts` in `STATE.md`. When the same
+signature reaches three attempts, Sol must stop Luna retrying, perform
+root-cause analysis, optionally call `luna_scout`, and re-plan the repair.
 
 ## 9. User Escalation
 
@@ -91,5 +101,11 @@ If it exits non-zero, continue development or report a legitimate blocking termi
 `FEATURE_COMPLETE != READY_FOR_USER_ACCEPTANCE`
 
 Only `READY_FOR_USER_ACCEPTANCE` means autonomous development has finished and human acceptance can begin.
+
+## 12. Stop Hook
+
+The project Stop Hook runs the acceptance gate only in `FULL_DELIVERY`. A
+failed gate returns `decision: block` and tells Sol to continue from `Next
+Action`. Legal blocking terminal states may stop without claiming acceptance.
 
 <!-- SOL-LUNA:END -->

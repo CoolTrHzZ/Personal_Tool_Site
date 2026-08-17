@@ -1,3 +1,5 @@
+<!-- sol-luna-managed: true -->
+
 # Autonomous Development Workflow
 
 ## Development Modes
@@ -25,6 +27,21 @@
 14. **Final Sol review** — compare the result with `REQUIREMENTS.md` and confirm evidence.
 15. **Acceptance gate** — run `bash scripts/acceptance-gate.sh`; exit 0 means `READY_FOR_USER_ACCEPTANCE`, otherwise continue.
 
+## Resume Protocol
+
+At every new session, read `STATE.md` first, then `PLAN.md` and
+`ACCEPTANCE.md`. If `Terminal-State: false`, resume the existing plan and
+`Next Action`; do not re-plan from zero. Reconcile `RUNNING` tasks against the
+workspace and move them to `READY`, `REVIEW`, or `FAILED` only when actual
+files and validation evidence justify it.
+
+## Repair Circuit Breaker
+
+Record `Failure-Signature` and increment `Repair-Attempts` for the same
+signature. At `Repair-Attempts >= 3`, stop automatic Luna retries: Sol must
+perform root-cause analysis, may call `luna_scout`, and must create a new
+bounded repair plan before retrying.
+
 ## State Maintenance
 
 Update `STATE.md` after each phase or material result. Record commands, exit codes, reports, or concise observations in gate evidence. Mark an inapplicable gate `N/A` in both `STATE.md` and `ACCEPTANCE.md`, with `Required: NO` and a reason.
@@ -32,3 +49,13 @@ Update `STATE.md` after each phase or material result. Record commands, exit cod
 ## Terminal States
 
 Allowed terminal states are `READY_FOR_USER_ACCEPTANCE`, `BLOCKED_BY_USER`, `BLOCKED_BY_PERMISSION`, `BLOCKED_BY_EXTERNAL_DEPENDENCY`, and `BLOCKED_BY_ENVIRONMENT`. Everything else is non-terminal.
+
+Mode terminal mapping:
+
+- `ANALYSIS_ONLY` → `ANALYSIS_COMPLETE`
+- `PLAN_ONLY` → `PLAN_READY`
+- `TARGETED` → `TASK_COMPLETE`
+- `FULL_DELIVERY` → `READY_FOR_USER_ACCEPTANCE`
+
+The Stop Hook controls only `FULL_DELIVERY`. A legal blocking terminal state
+may stop without pretending to be user acceptance.
