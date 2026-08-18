@@ -25,3 +25,7 @@
 .tool-filters > div { display: flex; gap: 7px; flex-wrap: wrap; }
 .tool-filters button { padding: 7px 11px; border: 1px solid var(--border-color); border-radius: 7px; background: transparent; color: var(--text-secondary); }
 .tool-filters button.active { border-color: var(--accent-color); color: var(--accent-color); }
+.tool-card-link { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.tool-card-link > svg { margin-left: auto; color: #b1b5ad; }
+.favorite-button { position: absolute; right: 12px; top: 10px; border: 0; background: transparent; color: var(--accent-color); font-size: 17px; padding: 2px 4px; }
+.tool-card { padding-right: 38px; }
