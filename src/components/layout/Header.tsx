@@ -8,7 +8,7 @@ import { SearchContext } from './Layout'
 const siteConfig = site as SiteConfig
 
 function useTheme() {
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system')
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
   useEffect(() => {
     const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
