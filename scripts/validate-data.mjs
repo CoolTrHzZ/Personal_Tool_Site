@@ -30,8 +30,7 @@ const checkManifests = (manifests, label) => {
   for (const manifest of manifests) {
     if (seen.has(manifest.id)) throw new Error(`duplicate tool manifest in ${label}: ${manifest.id}`)
     seen.add(manifest.id)
-    const packaged = manifest.type !== 'react'
-    const hasEntry = packaged ? existsSync(new URL(`../public/tools/${manifest.id}/${manifest.entry}`, import.meta.url)) : undefined
+    const hasEntry = manifest.runtime === 'static' ? existsSync(new URL(`../public/tools/${manifest.id}/${manifest.entry}`, import.meta.url)) : undefined
     const errors = validateManifest(manifest, { hasEntry })
     if (errors.length) throw new Error(`${label} ${manifest.id}: ${errors[0]}`)
     for (const field of ['author', 'updated', 'tags', 'status', 'readme', 'license']) if (manifest[field] === undefined) throw new Error(`${label} ${manifest.id}: missing ${field}`)

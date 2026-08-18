@@ -1,5 +1,6 @@
 import coreManifests from '../manifests/core.json'
 import { reactTools } from '../registry'
+import { migrateManifest } from './manifest'
 import type { ToolDefinition, ToolManifest } from '../types'
 
 function mergeManifests(remote: ToolManifest[]) {
@@ -17,16 +18,17 @@ export async function loadToolManifests() {
 
 export function buildToolDefinitions(manifests: ToolManifest[]): ToolDefinition[] {
   return manifests.map(manifest => {
-    const reactTool = reactTools.find(tool => tool.id === manifest.id)
+    const resolved = migrateManifest(manifest)
+    const reactTool = reactTools.find(tool => tool.id === resolved.id)
     return {
-      ...manifest,
-      tags: manifest.tags ?? manifest.keywords ?? [],
-      author: manifest.author ?? 'local',
-      updated: manifest.updated ?? '',
-      status: manifest.status ?? (manifest.enabled ? 'active' : 'disabled'),
-      readme: manifest.readme ?? manifest.description,
-      license: manifest.license ?? 'MIT',
-      path: `/tools/${manifest.id}`,
+      ...resolved,
+      tags: resolved.tags ?? resolved.keywords ?? [],
+      author: resolved.author ?? 'local',
+      updated: resolved.updated ?? '',
+      status: resolved.status ?? (resolved.enabled ? 'active' : 'disabled'),
+      readme: resolved.readme ?? resolved.description,
+      license: resolved.license ?? 'MIT',
+      path: `/tools/${resolved.id}`,
       iconComponent: reactTool?.iconComponent,
       component: reactTool?.component,
     }

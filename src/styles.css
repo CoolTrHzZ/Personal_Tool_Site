@@ -100,6 +100,35 @@ h1 span { color: var(--accent-color); }
 .tool-docs { margin-top: 20px; padding: 18px 0; border-top: 1px solid var(--border-color); color: var(--text-secondary); }
 .tool-docs h2 { margin: 0 0 8px; color: var(--text-primary); font-size: 14px; }
 .tool-frame { width: 100%; min-height: 520px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--card-bg); }
+
+/* ---- Display Modes：模式切换条 / workspace / fullscreen ---- */
+.tool-mode-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; padding: 9px 13px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--card-bg); }
+.tool-mode-label { color: var(--text-faint); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.tool-mode-actions { display: flex; gap: 6px; }
+.tool-mode-actions button { display: grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; border: 1px solid var(--border-color); border-radius: 6px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.tool-mode-actions button:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.tool-mode-actions button.active { color: var(--accent-color); border-color: var(--accent-color); background: var(--accent-soft); }
+.tool-workspace { max-width: none; width: min(100% - 40px, 1680px); }
+.tool-workspace-bar { display: flex; align-items: center; gap: 14px; margin: 10px 0 16px; }
+.tool-workspace-bar .back-link { margin: 0; }
+.tool-workspace-bar strong { font-size: 15px; }
+.tool-workspace-bar .tool-mode-bar { flex: 1; margin: 0; }
+.tool-workspace-frame { display: flex; flex-direction: column; min-height: 70vh; }
+.tool-workspace-frame .tool-frame { flex: 1; min-height: 70vh; }
+.tool-fullscreen { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: var(--bg-primary); }
+.tool-fullscreen-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--border-color); }
+.tool-fullscreen-bar .tool-mode-bar { flex: 1; margin: 0; border: none; background: transparent; padding: 0; }
+.tool-fullscreen .tool-frame { flex: 1; min-height: 0; width: 100%; border: none; border-radius: 0; }
+.tool-exit-fullscreen { padding: 7px 12px; border: 1px solid var(--border-strong); border-radius: 6px; background: transparent; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
+.tool-exit-fullscreen:hover { color: var(--text-primary); }
+
+/* ---- Toolbox Toast ---- */
+.tool-toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 95; display: grid; gap: 8px; }
+.tool-toast { max-width: 320px; padding: 11px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--card-bg); color: var(--text-primary); font-size: 13px; box-shadow: var(--shadow-card); animation: tool-toast-in 0.18s ease-out; }
+.tool-toast-success { border-color: var(--accent-color); color: var(--accent-color); }
+.tool-toast-error { border-color: var(--danger-color); color: var(--danger-color); }
+@keyframes tool-toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
 .empty, .not-found { padding: 90px 0; color: var(--text-secondary); text-align: center; }
 .empty h2, .not-found h1 { margin-top: 16px; color: var(--text-primary); font-size: 24px; }
 .tool-error { padding: 35px; border: 1px solid var(--danger-color); border-radius: var(--radius-md); color: var(--danger-color); }

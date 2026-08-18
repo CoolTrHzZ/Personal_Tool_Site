@@ -95,16 +95,17 @@
       <section class="view" data-view-panel="tools">
         <section class="ui-card panel">
           <h2 data-i18n="nav.tools">工具管理</h2>
-          <p class="muted" data-i18n="validate.toolsHint">工具包上传与校验会生成静态工具入口。</p>
-          <form id="tool-upload">
-            <div class="upload-copy">
-              <strong data-i18n="form.uploadTitle">上传工具包</strong>
-              <small data-i18n="form.uploadHint">ZIP / manifest.json / 入口文件 · 最大 20MB</small>
-            </div>
-            <input class="ui-input" name="file" type="file" accept=".zip,application/zip" required>
-            <button class="ui-button ui-button-primary" data-i18n="form.upload">上传工具包</button>
-          </form>
-          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>ID</th><th>Name</th><th>Version</th><th>Type</th><th>Status</th></tr></thead><tbody id="tools"></tbody></table></div>
+          <p class="muted" data-i18n="tools.hint">拖入 .html / .zip 即可导入；向导自动识别格式、生成 manifest 并支持实际预览。</p>
+          <div id="tool-dropzone" class="dropzone" tabindex="0" role="button" aria-label="import tool">
+            <strong data-i18n="tools.dropTitle">拖拽工具到此处，或点击选择文件</strong>
+            <small data-i18n="tools.dropHint">单个 .html / .htm / .zip · 最大 20MB · ZIP 可不含 manifest.json</small>
+            <input type="file" id="tool-file-input" accept=".html,.htm,.zip" hidden>
+          </div>
+          <div class="tools-toolbar">
+            <span class="muted" data-i18n="tools.indexHint">工具目录内 manifest.json 为 Source of Truth，索引自动重建。</span>
+            <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="rebuild-index" data-i18n="tools.rebuild">重建索引</button>
+          </div>
+          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>ID</th><th data-i18n="tools.colName">名称</th><th>Version</th><th>Runtime</th><th>Format</th><th data-i18n="tools.colStatus">状态</th><th data-i18n="tools.colActions">操作</th></tr></thead><tbody id="tools"></tbody></table></div>
         </section>
       </section>
 
@@ -172,6 +173,43 @@
       <div class="ui-modal-actions">
         <button type="button" class="ui-button ui-button-ghost" id="modal-cancel" data-i18n="modal.cancel">取消</button>
         <button type="button" class="ui-button ui-button-danger" id="modal-ok" data-i18n="modal.confirm">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="wizard" class="wizard-backdrop" hidden>
+    <div class="wizard ui-card" role="dialog" aria-modal="true">
+      <header class="wizard-head">
+        <div>
+          <p class="eyebrow">IMPORT WIZARD</p>
+          <h2 id="wizard-title">导入向导</h2>
+        </div>
+        <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="wizard-close" data-i18n="wizard.close">关闭</button>
+      </header>
+      <ol id="wizard-steps" class="wizard-steps">
+        <li data-step="1" data-i18n="wizard.steps.detect">识别</li>
+        <li data-step="2" data-i18n="wizard.steps.meta">元数据</li>
+        <li data-step="3" data-i18n="wizard.steps.perms">权限</li>
+        <li data-step="4" data-i18n="wizard.steps.compat">兼容性</li>
+        <li data-step="5" data-i18n="wizard.steps.preview">预览</li>
+        <li data-step="6" data-i18n="wizard.steps.import">导入</li>
+      </ol>
+      <div id="wizard-body" class="wizard-body"></div>
+      <footer class="wizard-foot">
+        <button type="button" class="ui-button ui-button-ghost" id="wizard-prev" data-i18n="wizard.prev">上一步</button>
+        <span id="wizard-status" class="muted"></span>
+        <button type="button" class="ui-button ui-button-primary" id="wizard-next" data-i18n="wizard.next">下一步</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="tool-edit" class="ui-modal-backdrop" hidden>
+    <div class="ui-modal ui-card tool-edit-modal" role="dialog" aria-modal="true">
+      <h2 id="tool-edit-title">编辑 Manifest</h2>
+      <div id="tool-edit-body"></div>
+      <div class="ui-modal-actions">
+        <button type="button" class="ui-button ui-button-ghost" id="tool-edit-cancel" data-i18n="modal.cancel">取消</button>
+        <button type="button" class="ui-button ui-button-primary" id="tool-edit-save" data-i18n="toolEdit.save">保存</button>
       </div>
     </div>
   </div>
