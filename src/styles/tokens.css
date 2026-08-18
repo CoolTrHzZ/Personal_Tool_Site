@@ -1,0 +1,69 @@
+:root {
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-weight-medium: 600;
+  --font-weight-bold: 700;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  --bg-primary: #080b10;
+  --bg-secondary: #0d1118;
+  --card-bg: #11151c;
+  --card-hover: #151b24;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text-primary: #f1f4f2;
+  --text-secondary: #8d98a4;
+  --text-faint: #5f6a76;
+  --accent-color: #b7ff00;
+  --accent-bright: #b7ff00;
+  --accent-soft: rgba(183, 255, 0, 0.1);
+  --danger-color: #ff7d8a;
+  --success-color: #50d890;
+
+  --shadow-card: 0 14px 40px rgba(0, 0, 0, 0.24);
+  --shadow-glow: 0 0 32px rgba(183, 255, 0, 0.12);
+  --shadow-lift: 0 18px 40px rgba(0, 0, 0, 0.32);
+  --glass-bg: color-mix(in srgb, var(--card-bg) 68%, transparent);
+  --glass-border: color-mix(in srgb, var(--accent-color) 28%, var(--border-color));
+
+  --duration: 180ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root[data-theme="light"] {
+  --bg-primary: #f7f7f4;
+  --bg-secondary: #eef0eb;
+  --card-bg: #ffffff;
+  --card-hover: #f7f9f4;
+  --border-color: #e0e2d9;
+  --border-strong: #cdd2c7;
+  --text-primary: #222;
+  --text-secondary: #687169;
+  --text-faint: #9aa39a;
+  --accent-color: #789100;
+  --accent-bright: #789100;
+  --accent-soft: rgba(120, 145, 0, 0.1);
+  --danger-color: #c74343;
+  --success-color: #2b9d68;
+  --shadow-card: 0 14px 40px rgba(34, 38, 29, 0.08);
+  --shadow-glow: 0 0 32px rgba(120, 145, 0, 0.08);
+  --shadow-lift: 0 18px 40px rgba(34, 38, 29, 0.1);
+  --glass-bg: color-mix(in srgb, var(--card-bg) 78%, transparent);
+}
