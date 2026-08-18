@@ -3,7 +3,7 @@ import { Search } from 'lucide-react'
 import categories from '../data/categories.json'
 import navigation from '../data/navigation.json'
 import type { Category, NavigationItem } from '../types'
-import { tools } from '../tools/registry'
+import { useTools } from '../tools/runtime/ToolCatalog'
 import { SearchContext } from '../components/layout/Layout'
 import NavigationGrid from '../components/navigation/NavigationGrid'
 import ToolCard from '../components/tools/ToolCard'
@@ -14,6 +14,7 @@ const matches = (value: string, query: string) => value.toLowerCase().includes(q
 
 export default function HomePage() {
   const { query, setQuery } = useContext(SearchContext)
+  const tools = useTools()
   const filteredNav = navItems.filter(item => item.enabled && [item.name, item.url, item.description, ...item.tags].some(value => matches(value, query)))
   const filteredTools = tools.filter(tool => tool.enabled && [tool.name, tool.description, ...tool.keywords].some(value => matches(value, query)))
   const groups = categoryItems.map(category => ({ category, items: filteredNav.filter(item => item.category === category.id).sort((a, b) => a.order - b.order) })).filter(group => group.items.length)

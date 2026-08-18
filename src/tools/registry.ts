@@ -2,10 +2,12 @@ import { lazy } from 'react'
 import { Code2, Globe2, Palette, Wrench } from 'lucide-react'
 import type { ToolDefinition } from './types'
 
-export const tools: ToolDefinition[] = [
-  { id: 'cs2-color-text', name: 'CS2 彩色字体', description: '生成社区服务器彩色文本', category: 'development', keywords: ['cs2', '颜色', '字体', '聊天'], path: '/tools/cs2-color-text', icon: Palette, component: lazy(() => import('./cs2-color')), enabled: true, order: 10 },
-  { id: 'json', name: 'JSON 格式化', description: '格式化与校验 JSON', category: 'development', keywords: ['json', '格式化', '校验'], path: '/tools/json', icon: Code2, component: lazy(() => import('./json')), enabled: true, order: 20 },
-  { id: 'timestamp', name: '时间戳转换', description: 'Unix 时间戳互转', category: 'development', keywords: ['时间戳', 'unix', 'date'], path: '/tools/timestamp', icon: Wrench, component: lazy(() => import('./timestamp')), enabled: true, order: 30 },
-  { id: 'base64', name: 'Base64', description: '文本 Base64 编解码', category: 'development', keywords: ['base64', '编码', '解码'], path: '/tools/base64', icon: Code2, component: lazy(() => import('./base64')), enabled: true, order: 40 },
-  { id: 'url', name: 'URL 编解码', description: '处理 URL 编码内容', category: 'development', keywords: ['url', 'encode', 'decode'], path: '/tools/url', icon: Globe2, component: lazy(() => import('./url')), enabled: true, order: 50 },
+export const reactTools: ToolDefinition[] = [
+  { id: 'cs2-color-text', name: 'CS2 彩色字体', description: '生成社区服务器彩色文本', type: 'react', entry: 'react', category: 'game', version: '1.0.0', enabled: true, icon: 'Palette', keywords: ['cs2', '颜色', '字体', '聊天'], favorite: true, order: 10, path: '/tools/cs2-color-text', iconComponent: Palette, component: lazy(() => import('./packages/cs2-color')) },
+  { id: 'json', name: 'JSON 格式化', description: '格式化与校验 JSON', type: 'react', entry: 'react', category: 'development', version: '1.0.0', enabled: true, icon: 'Code2', keywords: ['json', '格式化', '校验'], favorite: true, order: 20, path: '/tools/json', iconComponent: Code2, component: lazy(() => import('./packages/json')) },
+  { id: 'timestamp', name: '时间戳转换', description: 'Unix 时间戳互转', type: 'react', entry: 'react', category: 'development', version: '1.0.0', enabled: true, icon: 'Wrench', keywords: ['时间戳', 'unix', 'date'], favorite: true, order: 30, path: '/tools/timestamp', iconComponent: Wrench, component: lazy(() => import('./packages/timestamp')) },
+  { id: 'base64', name: 'Base64', description: '文本 Base64 编解码', type: 'react', entry: 'react', category: 'development', version: '1.0.0', enabled: true, icon: 'Code2', keywords: ['base64', '编码', '解码'], favorite: true, order: 40, path: '/tools/base64', iconComponent: Code2, component: lazy(() => import('./packages/base64')) },
+  { id: 'url', name: 'URL 编解码', description: '处理 URL 编码内容', type: 'react', entry: 'react', category: 'development', version: '1.0.0', enabled: true, icon: 'Globe2', keywords: ['url', 'encode', 'decode'], order: 50, path: '/tools/url', iconComponent: Globe2, component: lazy(() => import('./packages/url')) },
 ]
+
+export const tools = reactTools

@@ -2,7 +2,7 @@ import { Component, Suspense, useEffect, type ErrorInfo, type ReactNode } from '
 import { Route, Routes, useLocation } from 'react-router-dom'
 import site from '../data/site.json'
 import type { SiteConfig } from '../types'
-import { tools } from '../tools/registry'
+import { useTools } from '../tools/runtime/ToolCatalog'
 import HomePage from '../pages/HomePage'
 import ToolsPage from '../pages/ToolsPage'
 import NotFound from '../pages/NotFound'
@@ -18,9 +18,11 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 function ToolRoute() {
   const location = useLocation()
+  const tools = useTools()
   const tool = tools.find(item => item.path === location.pathname)
   useEffect(() => { document.title = tool ? `${tool.name} | ${siteConfig.name}` : '页面不存在'; return () => { document.title = siteConfig.title } }, [tool])
-  if (!tool) return <NotFound />
+  if (!tool) return tools.length ? <NotFound /> : <div className="tool-panel">加载工具中…</div>
+  if (!tool.component) return <NotFound />
   const ToolComponent = tool.component
   return <ErrorBoundary><Suspense fallback={<div className="tool-panel">加载工具中…</div>}><ToolComponent /></Suspense></ErrorBoundary>
 }
