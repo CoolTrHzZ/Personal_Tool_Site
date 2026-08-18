@@ -138,13 +138,27 @@
       <section class="view" data-view-panel="tags">
         <section class="ui-card panel">
           <h2 data-i18n="nav.tags">标签管理</h2>
-          <p class="muted" data-i18n="tags.hint">标签来自网站导航与工具 manifest。</p>
-          <form id="tag-form">
-            <input class="ui-input" name="from" data-i18n-placeholder="tags.from" required>
-            <input class="ui-input" name="to" data-i18n-placeholder="tags.to" required>
-            <button class="ui-button ui-button-primary" data-i18n="tags.rename">重命名</button>
-          </form>
-          <div id="tags"></div>
+          <p class="muted" data-i18n="tags.hint">标签来自网站导航与工具 manifest（三源统一）。</p>
+          <p id="tag-summary" class="tag-summary">—</p>
+          <div class="tag-toolbar">
+            <input id="tag-query" class="ui-input" data-i18n-placeholder="tags.query" placeholder="搜索标签…">
+            <select id="tag-source" class="ui-input">
+              <option value="all" data-i18n="tags.sourceAll">来源：全部</option>
+              <option value="navigation" data-i18n="tags.sourceNavigation">来源：网站</option>
+              <option value="tools" data-i18n="tags.sourceTools">来源：工具</option>
+            </select>
+            <select id="tag-sort" class="ui-input">
+              <option value="usage" data-i18n="tags.sortUsage">排序：使用次数</option>
+              <option value="name" data-i18n="tags.sortName">排序：名称</option>
+            </select>
+            <select id="tag-size" class="ui-input">
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th data-i18n="tags.colName">标签</th><th data-i18n="tags.colUsage">使用</th><th data-i18n="tags.colSource">来源</th><th data-i18n="tools.colActions">操作</th></tr></thead><tbody id="tags"></tbody></table></div>
+          <div id="tag-pager" class="tag-pager"></div>
         </section>
       </section>
 
@@ -213,6 +227,16 @@
       </div>
     </div>
   </div>
+
+  <aside id="tag-drawer" class="tag-drawer" hidden>
+    <div class="tag-drawer-head">
+      <h2 data-i18n="nav.tags">标签详情</h2>
+      <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="tag-drawer-close" data-i18n="wizard.close">关闭</button>
+    </div>
+    <div id="tag-drawer-body"></div>
+  </aside>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
   <script type="module" src="/admin/admin.js"></script>
 </body>
 </html>

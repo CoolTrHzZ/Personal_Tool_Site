@@ -16,3 +16,9 @@ npm-debug.log*
 
 src/data/*.bak
 src/data/*.tmp
+
+.tool-staging/
+
+test-results/
+
+playwright-report/

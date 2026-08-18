@@ -161,7 +161,7 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
       sandbox={sandbox}
       title={tool.name}
       style={frameStyle}
-      allow={tool.permissions.download ? 'downloads' : undefined}
+      allow={[tool.permissions.clipboard && 'clipboard-read; clipboard-write', tool.permissions.download && 'downloads'].filter(Boolean).join('; ') || undefined}
     />
   )
 

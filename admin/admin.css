@@ -148,14 +148,51 @@ body { margin: 0; min-width: 320px; background: var(--bg-primary); color: var(--
 .market-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 .market-card { padding: 18px; display: grid; gap: 8px; }
 .market-card small, .row small { color: var(--text-secondary); }
-#navigation, #categories, #tags { display: grid; gap: 8px; }
+#navigation, #categories { display: grid; gap: 8px; }
 .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 1fr) auto; gap: 12px; align-items: center; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-secondary); padding: 12px 14px; }
 .row:hover { border-color: var(--border-strong); background: var(--card-hover); }
 #validate-result { margin-top: 16px; display: grid; gap: 8px; }
 .check-ok { color: var(--success-color); }
 .check-fail { color: var(--danger-color); }
 
-@media (max-width: 1100px) { .status-grid, .dashboard-split { grid-template-columns: 1fr; } }
+/* ---------------- v3.0.1：Toast 右上角操作反馈 ---------------- */
+.toasts { position: fixed; top: 18px; right: 18px; z-index: 300; display: grid; gap: 8px; max-width: min(360px, calc(100vw - 36px)); }
+.toast { padding: 11px 16px; border-radius: var(--radius-sm); background: var(--card-bg); border: 1px solid var(--border-strong); box-shadow: var(--shadow-card); font-size: 13px; animation: toast-in 180ms ease-out; }
+.toast-success { border-left: 3px solid var(--success-color); }
+.toast-error { border-left: 3px solid var(--danger-color); }
+.toast-out { opacity: 0; transform: translateY(-6px); transition: opacity 200ms, transform 200ms; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
+
+/* ---------------- v3.0.1：标签管理（工具栏 / 汇总 / 分页 / 详情 Drawer）---------------- */
+.tag-summary { color: var(--text-secondary); font-size: 12px; margin: 2px 0 12px; }
+.tag-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 90px; gap: 10px; margin-bottom: 14px; }
+.tag-pager { display: flex; align-items: center; gap: 10px; margin-top: 12px; justify-content: flex-end; }
+.tag-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, calc(100vw - 32px)); z-index: 280; background: var(--card-bg); border-left: 1px solid var(--border-strong); box-shadow: var(--shadow-card); padding: 20px; overflow-y: auto; animation: drawer-in 200ms ease-out; }
+@keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } }
+.tag-drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.tag-drawer-head h2 { margin: 0; font-size: 16px; }
+.drawer-title { margin: 0 0 4px; font-size: 15px; }
+.drawer-section { margin-top: 14px; display: grid; gap: 6px; }
+.drawer-section h4 { margin: 0; color: var(--text-faint); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+.drawer-item { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-secondary); font-size: 13px; }
+.drawer-actions { display: flex; gap: 10px; margin-top: 18px; }
+
+/* ---------------- v3.0.1：权限分组 + 危险权限徽标 ---------------- */
+.perm-group { border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 12px 12px; display: grid; gap: 9px; align-content: start; margin: 0; }
+.perm-group-title { color: var(--text-faint); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 0 4px; }
+.check-danger-badge { color: var(--danger-color); font-style: normal; font-size: 12px; }
+.check-field.check-danger { border-color: rgba(255, 125, 138, 0.35); }
+.check-field.check-danger:hover { border-color: rgba(255, 125, 138, 0.6); }
+
+.prompt-field { display: grid; gap: 8px; font-size: 13px; }
+
+/* ---------------- v3.0.1：Settings 分区 ---------------- */
+#site { display: grid; gap: 14px; }
+.settings-section { border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 14px 14px; display: grid; gap: 10px; margin: 0; }
+.settings-section legend { color: var(--text-faint); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 0 4px; }
+#site button { justify-self: start; }
+
+@media (max-width: 760px) { .tag-toolbar { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) {
   .admin-shell { display: block; }
   .sidebar { border-right: 0; border-bottom: 1px solid var(--border-color); }

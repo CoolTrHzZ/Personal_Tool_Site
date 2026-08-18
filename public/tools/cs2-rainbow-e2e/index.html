@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="description" content="CS2 彩虹聊天文字生成器（E2E fixture）">
+  <title>CS2 Rainbow Chat</title>
+</head>
+<body>
+  <h3>CS2 彩虹聊天生成器</h3>
+  <input id="text" value="Hello Tool Site" aria-label="text">
+  <button id="make" type="button">生成彩虹文字</button>
+  <button id="copy" type="button">复制</button>
+  <div id="out"></div>
+  <script>
+    // 与真实的 community_rainbow_chat_generator 同类：生成彩虹渐变文字 + navigator.clipboard 复制
+    var colors = ['#ff0000', '#ff8800', '#ffee00', '#00cc44', '#0088ff', '#8800ff']
+    function rainbow(text) {
+      return Array.from(text).map(function (ch, i) {
+        return '<span style="color:' + colors[i % colors.length] + '">' + ch + '</span>'
+      }).join('')
+    }
+    document.getElementById('make').addEventListener('click', function () {
+      document.getElementById('out').innerHTML = rainbow(document.getElementById('text').value)
+    })
+    document.getElementById('copy').addEventListener('click', function () {
+      var html = document.getElementById('out').innerHTML
+      if (navigator.clipboard && html) navigator.clipboard.writeText(html)
+    })
+    document.getElementById('make').click()
+  </script>
+</body>
+</html>

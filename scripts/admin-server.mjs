@@ -19,7 +19,9 @@ const dataDir = resolve(root, 'src/data')
 const adminDir = resolve(root, 'admin')
 const publicDir = resolve(root, 'public')
 const toolsDir = join(publicDir, 'tools')
-const stagingDir = join(toolsDir, '.staging')
+// staging 必须在 public 之外：public 是正式静态资源目录，暂存文件不允许暴露（含 ../ 穿越兜底由 servePreviewAsset 负责）
+const stagingDir = resolve(root, '.tool-staging')
+const legacyStagingDir = join(toolsDir, '.staging')
 const coreManifestPath = resolve(root, 'src/tools/manifests/core.json')
 const indexManifestPath = join(publicDir, 'tools-manifests.json')
 const files = { navigation: 'navigation.json', categories: 'categories.json', site: 'site.json' }
@@ -27,7 +29,8 @@ const MAX_BODY_SIZE = 1024 * 1024
 const MAX_TOOL_BODY_SIZE = 25 * 1024 * 1024
 const execFileAsync = promisify(execFile)
 const json = async key => JSON.parse(await readFile(resolve(dataDir, files[key]), 'utf8'))
-const send = (res, status, value, type = 'application/json') => { res.writeHead(status, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store' }); res.end(type === 'application/json' ? JSON.stringify(value) : value) }
+// Buffer（静态文件，含 .json）原样输出；仅 JSON API 响应走 JSON.stringify（避免 manifest.json 被二次序列化）
+const send = (res, status, value, type = 'application/json') => { res.writeHead(status, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store' }); res.end(Buffer.isBuffer(value) ? value : type === 'application/json' ? JSON.stringify(value) : String(value)) }
 const body = (req, limit = MAX_BODY_SIZE) => new Promise((resolveBody, reject) => { let value = ''; let size = 0; req.on('data', chunk => { size += chunk.length; if (size > limit) { reject(new Error(`请求体不能超过 ${Math.round(limit / 1024 / 1024)}MB`)); req.destroy(); return } value += chunk }); req.on('end', () => { try { resolveBody(value ? JSON.parse(value) : {}) } catch { reject(new Error('请求 JSON 无效')) } }); req.on('error', reject) })
 let navigationCache = [], categoryCache = []
 function validate(key, value) {
@@ -97,6 +100,14 @@ async function cleanStaging() {
     const target = join(stagingDir, name)
     try { if (now - (await stat(target)).mtimeMs > IMPORT_LIMITS.stagingTtlMs) await rm(target, { recursive: true, force: true }) } catch { /* 忽略清理失败 */ }
   }
+}
+
+// 关闭向导 / 导入完成后主动丢弃暂存；TTL 清理作为第二保险
+async function discardStaging(token) {
+  if (!/^[a-f0-9]{8}$/.test(token)) throw new Error('暂存 token 无效')
+  const target = join(stagingDir, token)
+  if (existsSync(target)) await rm(target, { recursive: true, force: true })
+  return { ok: true }
 }
 
 const parseZipListing = output => output.split('\n').map(line => {
@@ -257,7 +268,7 @@ async function analyzeToolSource(payload) {
     manifestDraft,
     compat,
     notes,
-    previewUrl: `/tools/.staging/${token}/package/${entry.split('/').map(encodeURIComponent).join('/')}`,
+    previewUrl: `/__tool_preview/${token}/${entry.split('/').map(encodeURIComponent).join('/')}`,
   }
 }
 
@@ -357,6 +368,87 @@ async function exportTool(id) {
   } finally { await rm(temp, { recursive: true, force: true }) }
 }
 
+// ---------------- Tag Domain API（Source of Truth = navigation + core manifests + static manifests）----------------
+
+async function collectTagUsage() {
+  const [navigation, core] = await Promise.all([json('navigation'), readJsonFile(coreManifestPath, [])])
+  const statics = await staticToolManifests()
+  const map = new Map()
+  const add = (name, source) => {
+    if (!name) return
+    const item = map.get(name) || { name, total: 0, navigationCount: 0, toolCount: 0, sources: [] }
+    item.total += 1
+    if (source.type === 'navigation') item.navigationCount += 1
+    else item.toolCount += 1
+    item.sources.push(source)
+    map.set(name, item)
+  }
+  for (const item of navigation) for (const tag of item.tags || []) add(tag, { type: 'navigation', id: item.id, name: item.name })
+  for (const manifest of [...core, ...statics]) {
+    const tags = (manifest.tags || []).length ? manifest.tags : (manifest.keywords || [])
+    for (const tag of tags) add(tag, { type: 'tool', id: manifest.id, name: manifest.name })
+  }
+  const items = [...map.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+  return {
+    items,
+    navigationTagCount: items.filter(item => item.navigationCount > 0).length,
+    toolTagCount: items.filter(item => item.toolCount > 0).length,
+  }
+}
+
+// to 传空字符串 = 删除该标签；写回三个数据源并重建索引
+async function rewriteTagEverywhere(from, to) {
+  const rewrite = list => [...new Set((list || []).map(tag => (tag === from ? to : tag)).filter(Boolean))]
+  const navigation = await json('navigation')
+  let navigationAffected = 0
+  for (const item of navigation) {
+    if ((item.tags || []).includes(from)) { item.tags = rewrite(item.tags); navigationAffected += 1 }
+  }
+  if (navigationAffected) await save('navigation', navigation)
+
+  let toolsAffected = 0
+  const core = await readJsonFile(coreManifestPath, [])
+  for (const manifest of core) {
+    if ((manifest.tags || []).includes(from) || (manifest.keywords || []).includes(from)) {
+      manifest.tags = rewrite(manifest.tags)
+      manifest.keywords = rewrite(manifest.keywords)
+      toolsAffected += 1
+    }
+  }
+  if (toolsAffected) await writeFileAtomic(coreManifestPath, JSON.stringify(core, null, 2) + '\n')
+
+  if (existsSync(toolsDir)) {
+    for (const name of await readdir(toolsDir)) {
+      if (name.startsWith('.')) continue
+      const manifestPath = join(toolsDir, name, 'manifest.json')
+      const manifest = await readJsonFile(manifestPath, null)
+      if (manifest && ((manifest.tags || []).includes(from) || (manifest.keywords || []).includes(from))) {
+        manifest.tags = rewrite(manifest.tags)
+        manifest.keywords = rewrite(manifest.keywords)
+        await writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
+        toolsAffected += 1
+      }
+    }
+  }
+  await rebuildToolIndex()
+  return { ok: true, affected: navigationAffected + toolsAffected, navigation: navigationAffected, tools: toolsAffected }
+}
+
+async function renameTag(payload) {
+  const from = String(payload.from || '').trim()
+  const to = String(payload.to || '').trim()
+  if (!from) throw new Error('缺少原标签')
+  if (!to) throw new Error('缺少新标签')
+  if (from === to) throw new Error('新旧标签相同')
+  return rewriteTagEverywhere(from, to)
+}
+
+async function deleteTag(name) {
+  const from = String(name || '').trim()
+  if (!from) throw new Error('缺少标签名')
+  return rewriteTagEverywhere(from, '')
+}
+
 // ---------------- 静态工具文件服务（供 Admin 预览）----------------
 
 const MIME_TYPES = { '.html': 'text/html', '.htm': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.wasm': 'application/wasm', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.txt': 'text/plain', '.xml': 'application/xml', '.mp4': 'video/mp4', '.webm': 'video/webm', '.mp3': 'audio/mpeg' }
@@ -364,8 +456,25 @@ const MIME_TYPES = { '.html': 'text/html', '.htm': 'text/html', '.js': 'text/jav
 async function serveToolAsset(requestUrl, res) {
   const path = decodeURIComponent(new URL(requestUrl, 'http://localhost').pathname)
   const relative = path.replace(/^\/tools\/?/, '')
+  if (relative.split('/').some(segment => !segment || segment.startsWith('.'))) return send(res, 404, { error: 'Not found' })
   const target = resolve(toolsDir, `.${relative.startsWith('/') ? relative : `/${relative}`}`)
   if (!target.startsWith(toolsDir)) return send(res, 403, { error: 'Forbidden' })
+  if (!existsSync(target) || !(await stat(target).catch(() => null))?.isFile()) return send(res, 404, { error: 'Not found' })
+  return send(res, 200, await readFile(target), MIME_TYPES[extname(target).toLowerCase()] || 'application/octet-stream')
+}
+
+// Wizard 预览专用路由：只允许访问 .tool-staging/{token}/package 内的文件，禁止穿越
+async function servePreviewAsset(requestUrl, res) {
+  const path = decodeURIComponent(new URL(requestUrl, 'http://localhost').pathname)
+  const relative = path.replace(/^\/__tool_preview\/?/, '')
+  const [token, ...rest] = relative.split('/')
+  if (!/^[a-f0-9]{8}$/.test(token || '')) return send(res, 404, { error: 'Not found' })
+  const filePath = rest.join('/')
+  if (!filePath || filePath.split('/').some(segment => !segment || segment.startsWith('.'))) return send(res, 404, { error: 'Not found' })
+  // 预览里的 toolbox-bridge.js 直接映射正式文件，保证预览与线上一致
+  const target = filePath === 'toolbox-bridge.js' ? join(toolsDir, 'toolbox-bridge.js') : resolve(join(stagingDir, token, 'package'), filePath)
+  const packageRoot = join(stagingDir, token, 'package')
+  if (filePath !== 'toolbox-bridge.js' && !target.startsWith(packageRoot)) return send(res, 403, { error: 'Forbidden' })
   if (!existsSync(target) || !(await stat(target).catch(() => null))?.isFile()) return send(res, 404, { error: 'Not found' })
   return send(res, 200, await readFile(target), MIME_TYPES[extname(target).toLowerCase()] || 'application/octet-stream')
 }
@@ -374,6 +483,12 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', 'http://127.0.0.1')
     if (url.pathname.startsWith('/api/')) {
+      if (url.pathname === '/api/tags' && req.method === 'GET') return send(res, 200, await collectTagUsage())
+      if (url.pathname === '/api/tags/rename' && req.method === 'POST') return send(res, 200, await renameTag(await body(req)))
+      const tagDeleteMatch = url.pathname.match(/^\/api\/tags\/(.+)$/)
+      if (tagDeleteMatch && req.method === 'DELETE') return send(res, 200, await deleteTag(decodeURIComponent(tagDeleteMatch[1])))
+      const stagingMatch = url.pathname.match(/^\/api\/tools\/staging\/([a-f0-9]{8})$/)
+      if (stagingMatch && req.method === 'DELETE') return send(res, 200, await discardStaging(stagingMatch[1]))
       const toolMatch = url.pathname.match(/^\/api\/tools(?:\/(rebuild|analyze|import|upload)|\/([^/]+)(?:\/(toggle|export))?)?$/)
       if (toolMatch) {
         const [, bulkAction, toolId, toolAction] = toolMatch
@@ -397,11 +512,15 @@ const server = createServer(async (req, res) => {
       if (key !== 'site' && id && (req.method === 'PUT' || req.method === 'DELETE')) { const index = value.findIndex(item => item.id === id); if (index < 0) return send(res, 404, { error: 'Not found' }); if (req.method === 'DELETE') { if (key === 'categories' && navigationCache.some(item => item.category === id)) return send(res, 409, { error: '分类仍被网址使用' }); value.splice(index, 1) } else value[index] = { ...value[index], ...(await body(req)), id }; await save(key, value); return send(res, 200, value) }
       return send(res, 405, { error: 'Method not allowed' })
     }
+    if (url.pathname.startsWith('/__tool_preview/')) return servePreviewAsset(req.url || '/', res)
+    if (url.pathname === '/toolbox-bridge.js') return send(res, 200, await readFile(join(toolsDir, 'toolbox-bridge.js')), MIME_TYPES['.js'])
     if (url.pathname.startsWith('/tools/')) return serveToolAsset(req.url || '/', res)
     const file = safeAdminPath(req.url || '/admin'); if (!file) return send(res, 403, { error: 'Forbidden' }); const content = await readFile(file); return send(res, 200, content, MIME_TYPES[extname(file)] || 'application/octet-stream')
   } catch (error) { send(res, 400, { error: error instanceof Error ? error.message : '请求失败' }) }
 })
 await refresh()
+// 历史遗留：把旧 public/tools/.staging 清掉，正式资源目录不再包含暂存文件
+await rm(legacyStagingDir, { recursive: true, force: true }).catch(() => {})
 await rebuildToolIndex().catch(error => console.error('index rebuild failed:', error.message))
 const port = Number(process.env.ADMIN_PORT || 4174)
 server.listen(port, '127.0.0.1', () => console.log(`Admin: http://127.0.0.1:${port}/admin`))

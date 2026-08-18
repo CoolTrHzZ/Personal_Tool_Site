@@ -220,5 +220,42 @@
       "popups": false
     },
     "favorite": false
+  },
+  {
+    "id": "cs2-rainbow-e2e",
+    "name": "CS2 Rainbow Chat",
+    "description": "CS2 彩虹聊天文字生成器（E2E fixture）",
+    "runtime": "static",
+    "format": "single-html",
+    "entry": "index.html",
+    "category": "development",
+    "version": "1.0.0",
+    "enabled": true,
+    "icon": "Wrench",
+    "keywords": [],
+    "author": "import",
+    "tags": [],
+    "status": "active",
+    "readme": "CS2 彩虹聊天文字生成器（E2E fixture）",
+    "license": "MIT",
+    "display": {
+      "mode": "embedded",
+      "height": "auto"
+    },
+    "permissions": {
+      "clipboard": true,
+      "storage": false,
+      "network": false,
+      "notifications": false,
+      "modals": false,
+      "download": false,
+      "externalLinks": false,
+      "sameOrigin": false,
+      "popups": false
+    },
+    "type": "html",
+    "updated": "2026-08-18",
+    "favorite": false,
+    "order": 60
   }
 ]

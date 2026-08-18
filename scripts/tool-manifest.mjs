@@ -99,10 +99,11 @@ export function validateManifest(manifest, { upload = false, hasEntry } = {}) {
   const migrated = migrateManifest(manifest)
   if (upload && migrated.runtime === 'react') errors.push('上传通道不接受 react 工具')
   if (!upload && !TOOL_TYPES.includes(manifest.type)) errors.push(`type 必须是 ${TOOL_TYPES.join(' / ')}`)
-  if (!validateEntryPath(manifest.entry)) {
-    if (migrated.runtime === 'iframe') {
-      if (!/^https?:\/\//.test(String(manifest.entry || ''))) errors.push('iframe 工具的 entry 必须是 http(s) URL')
-    } else errors.push('entry 路径无效')
+  // iframe 的 entry 必须始终是 http(s) URL（形似相对路径的 entry 不能绕过检查）
+  if (migrated.runtime === 'iframe') {
+    if (!/^https?:\/\//.test(String(manifest.entry || ''))) errors.push('iframe 工具的 entry 必须是 http(s) URL')
+  } else if (!validateEntryPath(manifest.entry)) {
+    errors.push('entry 路径无效')
   }
   if (migrated.runtime === 'react' && manifest.entry !== 'react') errors.push('react 工具的 entry 必须是 react')
   if (hasEntry === false) errors.push('manifest.entry 文件不存在')
