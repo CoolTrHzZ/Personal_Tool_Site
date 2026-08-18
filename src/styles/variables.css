@@ -1,0 +1,21 @@
+:root {
+  --bg-primary: #f7f7f4;
+  --bg-secondary: #eef0eb;
+  --card-bg: #ffffff;
+  --border-color: #e0e2d9;
+  --text-primary: #222;
+  --text-secondary: #7f847c;
+  --accent-color: #89a900;
+  --accent-bright: #b7ff00;
+}
+
+:root[data-theme="dark"] {
+  --bg-primary: #080b10;
+  --bg-secondary: #0d1118;
+  --card-bg: #11151c;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --text-primary: #f1f4f2;
+  --text-secondary: #8d98a4;
+  --accent-color: #b7ff00;
+  --accent-bright: #b7ff00;
+}
