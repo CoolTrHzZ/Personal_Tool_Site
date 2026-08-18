@@ -1,14 +1,14 @@
-# Personal Tool Site
+# Personal Tool Site 2.0
 
-一个可部署到 GitHub Pages 的静态网址导航与个人 Web 工具站。项目使用 JSON 数据驱动导航内容，工具通过统一 Registry 注册并独立懒加载，不依赖后端、数据库或长期运行的 Node 服务。
+Personal Tool Site 是一个面向开发者的静态工作台：导航、React 工具、HTML 工具包和本地内容管理集中在一个 GitHub Pages 项目中。
 
 ## 技术栈
 
-- React 18 + TypeScript + Vite
-- React Router HashRouter
-- lucide-react 图标
-- JSON 数据源与本地 Admin
-- GitHub Pages + GitHub Actions
+- React + TypeScript + Vite
+- HashRouter，兼容 GitHub Repository Pages
+- JSON / Manifest 数据源
+- Local Admin，监听本机，不需要数据库、登录或后端服务
+- GitHub Actions 自动构建与 Pages 发布
 
 ## 本地运行
 
@@ -17,80 +17,117 @@ npm install
 npm run dev
 ```
 
-检查命令：
+完整检查：
 
 ```bash
-npm run validate
 npm run lint
 npm run typecheck
+npm run validate
 npm run build
 ```
 
-## Admin
+## Admin Dashboard
 
 ```bash
 npm run admin
 ```
 
-打开终端提示的 `http://127.0.0.1:4174/admin`。Admin 只监听本机，支持站点配置、网址和分类的新增、编辑、删除、启停。保存前会校验数据，并通过临时文件原子替换 JSON；请求体限制为 1MB。分类被网址使用时不能删除。
+打开 `http://127.0.0.1:4174/admin`。Dashboard 提供：
 
-## 添加网址
+- Websites：网址 CRUD、启用/禁用
+- Categories：分类 CRUD
+- Tools：上传并校验 `.zip` 工具包
+- Settings：站点配置
 
-可以在 Admin 页面添加，也可以直接编辑 `src/data/navigation.json`：
+工具包必须包含根目录 `manifest.json` 与 `entry` 指定的入口文件。上传会拒绝路径穿越、隐藏系统文件、重复 id 和无效 manifest；压缩包最大 20MB，请求体最大 25MB。通过校验后写入 `public/tools/<id>/` 和 `public/tools-manifests.json`。
+
+## Manifest
 
 ```json
 {
-  "id": "example",
-  "name": "Example",
-  "url": "https://example.com",
-  "description": "说明",
+  "id": "hello-tool",
+  "name": "Hello Tool",
+  "description": "一个 HTML 工具",
+  "type": "html",
+  "entry": "index.html",
   "category": "development",
-  "icon": "auto",
-  "tags": ["demo"],
+  "version": "1.0.0",
   "enabled": true,
-  "order": 50
+  "icon": "Code2",
+  "keywords": ["demo"],
+  "favorite": false,
+  "order": 100
 }
 ```
 
-`icon: "auto"` 依次尝试 favicon 服务和网站 `/favicon.ico`，失败后显示首字母；也可以填写本地或远程图片 URL。
+支持三种类型：
 
-## 添加分类
+- `react`：内置 React 工具，组件位于 `src/tools/packages/`。
+- `html`：静态 HTML 工具，由 Runtime Loader 自动生成路由并在 sandbox iframe 中运行。
+- `iframe`：与 HTML 工具使用同一安全隔离渲染模式。
 
-在 Admin 页面新增分类，或编辑 `src/data/categories.json`。分类 `id` 必须唯一，网址的 `category` 必须引用已有分类。
+运行时从 `public/tools-manifests.json` 读取 manifest，React 工具通过 id 绑定本地组件；HTML 工具不需要修改首页、工具中心或路由文件。
 
-## 添加工具
+## 新增工具规范
 
-1. 在 `src/tools/<tool-id>/index.tsx` 创建 React Component。
-2. 在 `src/tools/registry.ts` 注册名称、描述、关键词、路径、图标和 lazy component。
+标准工具包结构：
 
-工具卡片、工具中心、首页搜索和工具路由都从 Registry 生成，不需要修改首页、布局或路由文件。工具页面统一使用 `ToolShell`，单个工具加载错误不会影响其他页面。
+```text
+tool-name/
+├── manifest.json
+├── index.html
+├── assets/
+└── README.md
+```
 
-## GitHub Pages 部署
+HTML 工具直接在 Admin 上传 zip。内置 React 工具使用：
 
-仓库的 Pages 来源选择 **GitHub Actions**。推送 `main` 或手动触发 `.github/workflows/deploy.yml` 后，Actions 会依次执行数据校验、lint、类型检查、构建并发布 `dist`。Vite 使用相对资源路径，配合 HashRouter 支持仓库 Pages 地址：
+```text
+src/tools/packages/tool-name/
+├── manifest.json
+└── index.tsx
+```
+
+React 工具组件统一使用 `ToolShell`，页面会显示名称、描述、版本、分类和 Documentation 区域。
+
+## 用户状态
+
+仅写入浏览器 `localStorage`，不会回写公共 JSON：
+
+- `favoriteTools`：收藏工具
+- `recentTools`：最近使用工具
+- `searchHistory`：搜索历史
+
+## GitHub Pages
+
+将仓库 Pages 来源设置为 **GitHub Actions**。推送 `main` 后，`.github/workflows/deploy.yml` 会执行校验、lint、类型检查、构建并发布 `dist`。
 
 ```text
 https://username.github.io/Personal_Tool_Site/
 ```
 
-## 项目目录
+Vite 使用相对资源路径，路由使用 HashRouter，因此支持仓库路径部署。
+
+## 目录
 
 ```text
-src/app/                 应用与路由
+src/app/                 应用与动态路由
 src/components/          布局、导航、工具公共组件
 src/pages/               首页、工具中心、404
-src/tools/               Registry 与独立工具模块
-src/data/                导航、分类、站点配置 JSON
-src/utils/               公共工具函数
-admin/                   本地 Admin 页面
-scripts/                 Admin 服务与数据校验
-.github/workflows/       GitHub Pages 部署工作流
+src/styles/              设计系统变量、主题、组件样式
+src/tools/manifests/     内置 manifest
+src/tools/packages/      React 工具包
+src/tools/runtime/       Manifest Loader、Catalog、HTML 渲染器
+src/data/                导航、分类、站点 JSON
+src/utils/               favicon 与用户状态
+public/tools/            Admin 上传的静态工具包
+admin/                   本地 Admin Dashboard
+scripts/                 Admin API 与数据校验
 ```
 
-## 开发规范
+## 开发约束
 
 - 不提交 `node_modules`、`dist`、日志和本地环境文件。
-- 新工具只新增工具目录并修改 Registry。
-- 修改数据后运行 `npm run validate`。
-- 提交前运行 `npm run lint`、`npm run typecheck` 和 `npm run build`。
-- 保持前端静态部署，不新增后端服务、数据库或复杂状态管理。
+- 不引入数据库、登录、复杂权限、Docker 或常驻后端。
+- 工具包入口必须在包目录内，禁止 `../`、绝对路径和隐藏系统文件。
+- 修改数据或 manifest 后运行四项检查，再提交。

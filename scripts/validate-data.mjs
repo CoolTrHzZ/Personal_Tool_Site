@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { URL } from 'node:url'
 
 const load = name => readFile(new URL(`../src/data/${name}.json`, import.meta.url), 'utf8').then(JSON.parse)
@@ -26,7 +27,8 @@ const manifestIds = new Set()
 for (const manifest of manifests) {
   if (!/^[a-z0-9-]+$/.test(manifest.id) || manifestIds.has(manifest.id)) throw new Error(`invalid or duplicate tool manifest: ${manifest.id}`)
   manifestIds.add(manifest.id)
-  if (!manifest.name || !manifest.version || !['react', 'html', 'iframe'].includes(manifest.type) || !manifest.entry) throw new Error(`invalid tool manifest: ${manifest.id}`)
+  if (!manifest.name || !manifest.version || !['react', 'html', 'iframe'].includes(manifest.type) || !manifest.entry || typeof manifest.enabled !== 'boolean' || !Array.isArray(manifest.keywords)) throw new Error(`invalid tool manifest: ${manifest.id}`)
+  if (manifest.type !== 'react' && (!/^[^/\\]+(?:\/[^/\\]+)*$/.test(manifest.entry) || !existsSync(new URL(`../public/tools/${manifest.id}/${manifest.entry}`, import.meta.url)))) throw new Error(`missing tool entry: ${manifest.id}`)
 }
 if (String.fromCharCode(7) !== '\x07') throw new Error('control character self-check failed')
 console.log(`valid: ${navigation.length} navigation items, ${categories.length} categories, ${manifests.length} tools`)

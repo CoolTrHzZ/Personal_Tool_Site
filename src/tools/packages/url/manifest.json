@@ -1,0 +1,1 @@
+{"id":"url","name":"URL 编解码","description":"处理 URL 编码内容","type":"react","entry":"react","category":"development","version":"1.0.0","enabled":true,"icon":"Globe2","keywords":["url","encode","decode"],"order":50}
