@@ -1,38 +1,32 @@
 const $ = selector => document.querySelector(selector)
-let state = { navigation: [], categories: [], site: {} }
+let state = { navigation: [], categories: [], site: {}, tools: [] }
 const request = async (path, options) => { const response = await fetch(`/api/${path}`, { headers: { 'content-type': 'application/json' }, ...options }); const data = await response.json(); if (!response.ok) throw Error(data.error || '请求失败'); return data }
 const status = message => { $('#status').textContent = message }
 const text = (tag, value) => { const element = document.createElement(tag); element.textContent = value ?? ''; return element }
 const button = (label, data = {}, className = '') => { const element = document.createElement('button'); element.type = 'button'; element.textContent = label; element.className = className; Object.assign(element.dataset, data); return element }
 const input = (name, value, label) => { const wrapper = document.createElement('label'); wrapper.append(label || name); const element = document.createElement('input'); element.name = name; element.value = value ?? ''; element.required = true; wrapper.append(element); return wrapper }
 
-function renderSite() {
-  const target = $('#site')
-  target.replaceChildren(input('name', state.site.name, '站点名称'), input('title', state.site.title, '标题'), input('description', state.site.description, '描述'), input('github', state.site.github, 'GitHub'), input('footer', state.site.footer, 'Footer'), input('logo', state.site.logo, 'Logo'), button('保存配置'))
+function showView(view) {
+  document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view))
+  document.querySelectorAll('[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === view))
+  $('#page-title').textContent = view[0].toUpperCase() + view.slice(1)
 }
 
-function render() {
-  renderSite()
-  const categories = $('#categories')
-  categories.replaceChildren(...state.categories.slice().sort((a, b) => a.order - b.order).map(category => {
-    const row = document.createElement('div'); row.className = 'row'
-    row.append(text('strong', category.name), text('small', `${category.id} · ${category.icon} · order ${category.order}`))
-    const actions = document.createElement('span'); actions.append(button('编辑', { editCategory: category.id }), button('删除', { deleteCategory: category.id }, 'danger')); row.append(actions)
-    return row
-  }))
-  const navigation = $('#navigation')
-  navigation.replaceChildren(...state.navigation.slice().sort((a, b) => a.order - b.order).map(item => {
-    const row = document.createElement('div'); row.className = 'row'
-    row.append(text('strong', `${item.name} ${item.enabled ? '' : '（禁用）'}`), text('small', `${item.url} · ${item.category} · ${item.icon}`))
-    const actions = document.createElement('span'); actions.append(button('编辑', { edit: item.id }), button(item.enabled ? '禁用' : '启用', { toggle: item.id }), button('删除', { delete: item.id }, 'danger')); row.append(actions)
-    return row
-  }))
+function renderSite() { $('#site').replaceChildren(input('name', state.site.name, '站点名称'), input('title', state.site.title, '标题'), input('description', state.site.description, '描述'), input('github', state.site.github, 'GitHub'), input('footer', state.site.footer, 'Footer'), input('logo', state.site.logo, 'Logo'), button('保存配置', {}, 'primary')) }
+function renderStats() { $('#stat-websites').textContent = state.navigation.length; $('#stat-tools').textContent = state.tools.length || '—'; $('#stat-categories').textContent = state.categories.length }
+function renderCategories() {
+  $('#categories').replaceChildren(...state.categories.slice().sort((a, b) => a.order - b.order).map(category => { const row = document.createElement('div'); row.className = 'row'; row.append(text('strong', category.name), text('small', `${category.id} · ${category.icon} · order ${category.order}`)); const actions = document.createElement('span'); actions.append(button('编辑', { editCategory: category.id }), button('删除', { deleteCategory: category.id }, 'danger')); row.append(actions); return row }))
 }
+function renderNavigation() {
+  $('#navigation').replaceChildren(...state.navigation.slice().sort((a, b) => a.order - b.order).map(item => { const row = document.createElement('div'); row.className = 'row'; row.append(text('strong', `${item.name} ${item.enabled ? '' : '（禁用）'}`), text('small', `${item.url} · ${item.category} · ${item.icon}`)); const actions = document.createElement('span'); actions.append(button('编辑', { edit: item.id }), button(item.enabled ? '禁用' : '启用', { toggle: item.id }), button('删除', { delete: item.id }, 'danger')); row.append(actions); return row }))
+}
+function renderTools() { $('#tools').replaceChildren(...state.tools.map(tool => { const row = document.createElement('div'); row.className = 'row'; row.append(text('strong', tool.name), text('small', `${tool.id} · v${tool.version} · ${tool.type}`)); return row })) }
+function render() { renderSite(); renderStats(); renderCategories(); renderNavigation(); renderTools() }
+async function reload(message = '已更新') { const [navigation, categories, site] = await Promise.all([request('navigation'), request('categories'), request('site')]); state.navigation = navigation; state.categories = categories; state.site = site; try { state.tools = await request('tools') } catch { state.tools = [] } render(); status(message) }
 
-async function reload(message = '已更新') { [state.navigation, state.categories, state.site] = await Promise.all([request('navigation'), request('categories'), request('site')]); render(); status(message) }
 $('#site').addEventListener('submit', async event => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.target)); try { await request('site', { method: 'PUT', body: JSON.stringify(data) }); await reload('站点配置已保存') } catch (error) { status(error.message) } })
 $('#category-form').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.target); const data = Object.fromEntries(form); const originalId = data.originalId; delete data.originalId; data.order = Number(data.order); try { await request(originalId ? `categories/${originalId}` : 'categories', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) }); event.target.reset(); event.target.querySelector('button').textContent = '新增分类'; await reload(originalId ? '分类已保存' : '分类已新增') } catch (error) { status(error.message) } })
 $('#nav-form').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.target); const data = Object.fromEntries(form); const originalId = data.originalId; delete data.originalId; data.tags = data.tags.split(',').map(value => value.trim()).filter(Boolean); data.order = Number(data.order); data.enabled = form.has('enabled'); try { await request(originalId ? `navigation/${originalId}` : 'navigation', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) }); event.target.reset(); event.target.querySelector('button').textContent = '新增网址'; await reload(originalId ? '网址已保存' : '网址已新增') } catch (error) { status(error.message) } })
 function fill(form, item, tags = false) { for (const [key, value] of Object.entries(item)) { const field = form.elements[key]; if (!field) continue; if (field.type === 'checkbox') field.checked = Boolean(value); else field.value = tags && Array.isArray(value) ? value.join(', ') : value } form.elements.originalId.value = item.id; form.querySelector('button').textContent = '保存修改'; form.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
-document.addEventListener('click', async event => { const element = event.target.closest('button'); if (!element) return; try { if (element.dataset.edit) fill($('#nav-form'), state.navigation.find(item => item.id === element.dataset.edit), true); if (element.dataset.editCategory) fill($('#category-form'), state.categories.find(item => item.id === element.dataset.editCategory)); if (element.dataset.delete) { await request(`navigation/${element.dataset.delete}`, { method: 'DELETE' }); await reload('网址已删除') } if (element.dataset.toggle) { const item = state.navigation.find(entry => entry.id === element.dataset.toggle); await request(`navigation/${item.id}`, { method: 'PUT', body: JSON.stringify({ enabled: !item.enabled }) }); await reload('状态已更新') } if (element.dataset.deleteCategory) { await request(`categories/${element.dataset.deleteCategory}`, { method: 'DELETE' }); await reload('分类已删除') } } catch (error) { status(error.message) } })
+document.addEventListener('click', async event => { const element = event.target.closest('button'); if (!element) return; if (element.dataset.view) return showView(element.dataset.view); try { if (element.dataset.edit) fill($('#nav-form'), state.navigation.find(item => item.id === element.dataset.edit), true); if (element.dataset.editCategory) fill($('#category-form'), state.categories.find(item => item.id === element.dataset.editCategory)); if (element.dataset.delete) { await request(`navigation/${element.dataset.delete}`, { method: 'DELETE' }); await reload('网址已删除') } if (element.dataset.toggle) { const item = state.navigation.find(entry => entry.id === element.dataset.toggle); await request(`navigation/${item.id}`, { method: 'PUT', body: JSON.stringify({ enabled: !item.enabled }) }); await reload('状态已更新') } if (element.dataset.deleteCategory) { await request(`categories/${element.dataset.deleteCategory}`, { method: 'DELETE' }); await reload('分类已删除') } } catch (error) { status(error.message) } })
 reload().catch(error => status(error.message))
