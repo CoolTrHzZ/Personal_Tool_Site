@@ -5,5 +5,5 @@ export default tseslint.config(
   { ignores: ['dist/**', 'node_modules/**'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
-  { languageOptions: { globals: { console: 'readonly', document: 'readonly', fetch: 'readonly', FormData: 'readonly', URL: 'readonly', process: 'readonly', btoa: 'readonly' } } },
+  { languageOptions: { globals: { console: 'readonly', document: 'readonly', fetch: 'readonly', FormData: 'readonly', URL: 'readonly', process: 'readonly', btoa: 'readonly', localStorage: 'readonly', location: 'readonly', window: 'readonly' } } },
 )

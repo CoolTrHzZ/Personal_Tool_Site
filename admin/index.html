@@ -3,112 +3,177 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Toolbox Admin</title>
+  <title>Developer Console</title>
   <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
   <div class="admin-shell">
     <aside class="sidebar">
-      <div class="admin-brand"><span>+</span><strong>Toolbox Admin</strong></div>
+      <div class="admin-brand"><span>+</span><strong data-i18n="brand">开发者控制台</strong></div>
       <nav>
-        <button class="nav-item active" data-view="dashboard">⌂ <span>Dashboard</span></button>
-        <button class="nav-item" data-view="websites">◎ <span>Websites</span></button>
-        <button class="nav-item" data-view="tools">◇ <span>Tools</span></button>
-        <button class="nav-item" data-view="categories">□ <span>Categories</span></button>
-        <button class="nav-item" data-view="settings">⚙ <span>Settings</span></button>
+        <button class="nav-item active" data-view="dashboard" data-i18n="nav.dashboard">仪表盘</button>
+        <button class="nav-item" data-view="websites" data-i18n="nav.websites">网站导航</button>
+        <button class="nav-item" data-view="tools" data-i18n="nav.tools">工具管理</button>
+        <button class="nav-item" data-view="marketplace" data-i18n="nav.marketplace">工具市场</button>
+        <button class="nav-item" data-view="categories" data-i18n="nav.categories">分类管理</button>
+        <button class="nav-item" data-view="tags" data-i18n="nav.tags">标签管理</button>
+        <button class="nav-item" data-view="settings" data-i18n="nav.settings">系统设置</button>
+        <button class="nav-item" data-view="validate" data-i18n="nav.validate">数据校验</button>
       </nav>
       <div class="sidebar-footer">
-        <a class="site-link" href="/" target="_blank">打开站点 ↗</a>
-        <p class="sidebar-status"><span class="status-dot"></span>CMS · local · ready</p>
+        <label class="locale-control"><span class="sr-only">Language</span><select id="locale-select" class="ui-input" aria-label="Language"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
+        <a class="site-link" href="/" target="_blank" data-i18n="openSite">打开站点 ↗</a>
+        <p class="sidebar-status"><span class="status-dot"></span><span data-i18n="statusReady">CMS · 本地 · 就绪</span></p>
       </div>
     </aside>
     <main class="admin-content">
       <header class="content-header">
         <div>
-          <p class="eyebrow">PERSONAL TOOLBOX</p>
-          <h1 id="page-title">Dashboard</h1>
+          <p class="eyebrow">DEVELOPER OS</p>
+          <h1 id="page-title">仪表盘</h1>
         </div>
-        <p id="status">本地内容管理</p>
+        <p id="status" data-i18n="localCms">本地内容管理</p>
       </header>
+
       <section class="view active" data-view-panel="dashboard">
         <div class="stats-grid">
-          <article class="stat-card"><small>WEBSITES</small><strong id="stat-websites">—</strong></article>
-          <article class="stat-card"><small>TOOLS</small><strong id="stat-tools">—</strong></article>
-          <article class="stat-card"><small>CATEGORIES</small><strong id="stat-categories">—</strong></article>
-          <article class="stat-card"><small>LAST UPDATE</small><strong>Today</strong></article>
+          <article class="ui-card stat-card"><small data-i18n="dash.websites">网站</small><strong id="stat-websites">—</strong></article>
+          <article class="ui-card stat-card"><small data-i18n="dash.tools">工具</small><strong id="stat-tools">—</strong></article>
+          <article class="ui-card stat-card"><small data-i18n="dash.categories">分类</small><strong id="stat-categories">—</strong></article>
+          <article class="ui-card stat-card"><small data-i18n="dash.tags">标签</small><strong id="stat-tags">—</strong></article>
         </div>
         <div class="status-grid">
-          <article class="panel status-card">
-            <small>SYSTEM STATUS</small>
-            <strong>Operational</strong>
-            <p>Admin CMS · Tool Runtime · Manifest Loader</p>
+          <article class="ui-card status-card">
+            <small data-i18n="dash.system">系统状态</small>
+            <strong data-i18n="dash.systemValue">运行中</strong>
+            <p data-i18n="dash.systemHint">Admin CMS · Tool Runtime · Manifest Loader</p>
           </article>
-          <article class="panel status-card">
-            <small>DEPLOYMENT STATUS</small>
-            <strong>Static</strong>
-            <p>Vite build · HashRouter · local JSON</p>
+          <article class="ui-card status-card">
+            <small data-i18n="dash.deploy">部署状态</small>
+            <strong data-i18n="dash.deployValue">静态站点</strong>
+            <p data-i18n="dash.deployHint">Vite build · HashRouter · 本地 JSON</p>
           </article>
         </div>
-        <section class="panel dashboard-panel">
-          <h2>Workspace status</h2>
-          <p>管理导航、工具包、分类和站点配置。所有内容保存到本地 JSON 与静态工具目录。</p>
-        </section>
+        <div class="dashboard-split">
+          <section class="ui-card panel">
+            <h2 data-i18n="dash.recent">最近操作</h2>
+            <ul id="activity-list" class="activity-list"></ul>
+          </section>
+          <section class="ui-card panel">
+            <h2 data-i18n="dash.shortcuts">快捷入口</h2>
+            <div class="shortcut-grid">
+              <button type="button" class="ui-button ui-button-ghost" data-view="websites" data-i18n="nav.websites">网站导航</button>
+              <button type="button" class="ui-button ui-button-ghost" data-view="tools" data-i18n="nav.tools">工具管理</button>
+              <button type="button" class="ui-button ui-button-ghost" data-view="marketplace" data-i18n="nav.marketplace">工具市场</button>
+              <button type="button" class="ui-button ui-button-ghost" data-view="validate" data-i18n="nav.validate">数据校验</button>
+            </div>
+            <p class="muted" data-i18n="dash.workspaceHint">管理导航、工具包、分类和站点配置。</p>
+          </section>
+        </div>
       </section>
+
       <section class="view" data-view-panel="websites">
-        <section class="panel">
-          <h2>Websites</h2>
+        <section class="ui-card panel">
+          <h2 data-i18n="nav.websites">网站导航</h2>
           <form id="nav-form">
             <input type="hidden" name="originalId">
-            <input name="id" placeholder="id" required>
-            <input name="name" placeholder="名称" required>
-            <input name="url" type="url" placeholder="https://example.com" required>
-            <input name="description" placeholder="描述">
-            <input name="tags" placeholder="标签，用逗号分隔">
-            <input name="category" placeholder="分类 id" required>
-            <input name="icon" placeholder="auto" value="auto">
-            <input name="order" type="number" value="10">
-            <label><input name="enabled" type="checkbox" checked> 启用</label>
-            <button class="primary">新增网址</button>
+            <input class="ui-input" name="id" placeholder="id" required>
+            <input class="ui-input" name="name" placeholder="名称" required>
+            <input class="ui-input" name="url" type="url" placeholder="https://example.com" required>
+            <input class="ui-input" name="description" placeholder="描述">
+            <input class="ui-input" name="tags" placeholder="标签，用逗号分隔">
+            <input class="ui-input" name="category" placeholder="分类 id" required>
+            <input class="ui-input" name="icon" placeholder="auto" value="auto">
+            <input class="ui-input" name="order" type="number" value="10">
+            <label><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
+            <button class="ui-button ui-button-primary" data-i18n="form.addWebsite">新增网址</button>
           </form>
           <div id="navigation"></div>
         </section>
       </section>
+
       <section class="view" data-view-panel="tools">
-        <section class="panel">
-          <h2>Tools</h2>
-          <p class="muted">工具包上传与校验会生成静态工具入口。</p>
+        <section class="ui-card panel">
+          <h2 data-i18n="nav.tools">工具管理</h2>
+          <p class="muted" data-i18n="validate.toolsHint">工具包上传与校验会生成静态工具入口。</p>
           <form id="tool-upload">
             <div class="upload-copy">
-              <strong>Upload a tool package</strong>
-              <small>ZIP / manifest.json / entry file · max 20MB</small>
+              <strong data-i18n="form.uploadTitle">上传工具包</strong>
+              <small data-i18n="form.uploadHint">ZIP / manifest.json / 入口文件 · 最大 20MB</small>
             </div>
-            <input name="file" type="file" accept=".zip,application/zip" required>
-            <button class="primary">上传工具包</button>
+            <input class="ui-input" name="file" type="file" accept=".zip,application/zip" required>
+            <button class="ui-button ui-button-primary" data-i18n="form.upload">上传工具包</button>
           </form>
-          <div id="tools"></div>
+          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>ID</th><th>Name</th><th>Version</th><th>Type</th><th>Status</th></tr></thead><tbody id="tools"></tbody></table></div>
         </section>
       </section>
+
+      <section class="view" data-view-panel="marketplace">
+        <section class="ui-card panel">
+          <h2 data-i18n="nav.marketplace">工具市场</h2>
+          <div class="market-filters">
+            <input id="market-query" class="ui-input" data-i18n-placeholder="market.search" placeholder="搜索工具、标签…">
+            <select id="market-category" class="ui-input"></select>
+          </div>
+          <div id="marketplace" class="market-grid"></div>
+        </section>
+      </section>
+
       <section class="view" data-view-panel="categories">
-        <section class="panel">
-          <h2>Categories</h2>
+        <section class="ui-card panel">
+          <h2 data-i18n="nav.categories">分类管理</h2>
           <form id="category-form">
             <input type="hidden" name="originalId">
-            <input name="id" placeholder="id" required>
-            <input name="name" placeholder="名称" required>
-            <input name="icon" placeholder="图标，如 Code2" value="Code2">
-            <input name="order" type="number" value="10">
-            <button class="primary">新增分类</button>
+            <input class="ui-input" name="id" placeholder="id" required>
+            <input class="ui-input" name="name" placeholder="名称" required>
+            <input class="ui-input" name="icon" placeholder="Code2" value="Code2">
+            <input class="ui-input" name="order" type="number" value="10">
+            <button class="ui-button ui-button-primary" data-i18n="form.addCategory">新增分类</button>
           </form>
           <div id="categories"></div>
         </section>
       </section>
+
+      <section class="view" data-view-panel="tags">
+        <section class="ui-card panel">
+          <h2 data-i18n="nav.tags">标签管理</h2>
+          <p class="muted" data-i18n="tags.hint">标签来自网站导航与工具 manifest。</p>
+          <form id="tag-form">
+            <input class="ui-input" name="from" data-i18n-placeholder="tags.from" required>
+            <input class="ui-input" name="to" data-i18n-placeholder="tags.to" required>
+            <button class="ui-button ui-button-primary" data-i18n="tags.rename">重命名</button>
+          </form>
+          <div id="tags"></div>
+        </section>
+      </section>
+
       <section class="view" data-view-panel="settings">
-        <section class="panel">
-          <h2>Settings</h2>
+        <section class="ui-card panel">
+          <h2 data-i18n="nav.settings">系统设置</h2>
           <form id="site"></form>
         </section>
       </section>
+
+      <section class="view" data-view-panel="validate">
+        <section class="ui-card panel">
+          <h2 data-i18n="nav.validate">数据校验</h2>
+          <p class="muted" data-i18n="validate.hint">检查站点数据、工具包、必填字段、入口路径与版本号。</p>
+          <button type="button" id="run-validate" class="ui-button ui-button-primary" data-i18n="validate.run">运行校验</button>
+          <div id="validate-result"></div>
+        </section>
+      </section>
     </main>
+  </div>
+
+  <div id="modal" class="ui-modal-backdrop" hidden>
+    <div class="ui-modal ui-card" role="dialog" aria-modal="true">
+      <h2 id="modal-title"></h2>
+      <div id="modal-body"></div>
+      <div class="ui-modal-actions">
+        <button type="button" class="ui-button ui-button-ghost" id="modal-cancel" data-i18n="modal.cancel">取消</button>
+        <button type="button" class="ui-button ui-button-danger" id="modal-ok" data-i18n="modal.confirm">确认</button>
+      </div>
+    </div>
   </div>
   <script type="module" src="/admin/admin.js"></script>
 </body>

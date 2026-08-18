@@ -16,5 +16,19 @@ export async function loadToolManifests() {
 }
 
 export function buildToolDefinitions(manifests: ToolManifest[]): ToolDefinition[] {
-  return manifests.map(manifest => { const reactTool = reactTools.find(tool => tool.id === manifest.id); return { ...manifest, path: `/tools/${manifest.id}`, iconComponent: reactTool?.iconComponent, component: reactTool?.component } })
+  return manifests.map(manifest => {
+    const reactTool = reactTools.find(tool => tool.id === manifest.id)
+    return {
+      ...manifest,
+      tags: manifest.tags ?? manifest.keywords ?? [],
+      author: manifest.author ?? 'local',
+      updated: manifest.updated ?? '',
+      status: manifest.status ?? (manifest.enabled ? 'active' : 'disabled'),
+      readme: manifest.readme ?? manifest.description,
+      license: manifest.license ?? 'MIT',
+      path: `/tools/${manifest.id}`,
+      iconComponent: reactTool?.iconComponent,
+      component: reactTool?.component,
+    }
+  })
 }

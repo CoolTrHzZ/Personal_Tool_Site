@@ -31,6 +31,12 @@ my-tool.zip
 | `description` | 建议 | 工具中心卡片文案 |
 | `category` | 建议 | 分类 id |
 | `icon` | 建议 | 图标名，如 `Code2` |
+| `author` | 建议 | 作者，缺省 `local` |
+| `updated` | 建议 | 日期字符串，缺省为上传日 |
+| `tags` | 建议 | 字符串数组；缺省回退 `keywords` |
+| `status` | 建议 | `active` / `beta` / `disabled` |
+| `readme` | 建议 | 说明文本，缺省用 description |
+| `license` | 建议 | 缺省 `MIT` |
 | `keywords` | 否 | 字符串数组，缺省为 `[]` |
 | `enabled` | 否 | 缺省 `true` |
 | `favorite` | 否 | 缺省 `false` |
@@ -50,6 +56,12 @@ my-tool.zip
   "enabled": true,
   "icon": "Wrench",
   "keywords": ["uuid", "id"],
+  "tags": ["uuid", "id"],
+  "author": "local",
+  "updated": "2026-08-18",
+  "status": "active",
+  "readme": "生成 UUID v4",
+  "license": "MIT",
   "favorite": false,
   "order": 80
 }
