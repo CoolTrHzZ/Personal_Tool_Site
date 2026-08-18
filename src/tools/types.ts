@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 
-export type ToolShellProps = { title: string; description: string; children: ReactNode }
+export type ToolShellProps = { title?: string; description?: string; version?: string; category?: string; children: ReactNode }
 export type ToolManifest = {
   id: string
   name: string

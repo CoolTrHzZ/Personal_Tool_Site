@@ -6,6 +6,7 @@ import { useTools } from '../tools/runtime/ToolCatalog'
 import HomePage from '../pages/HomePage'
 import ToolsPage from '../pages/ToolsPage'
 import NotFound from '../pages/NotFound'
+import HtmlToolPage from '../tools/runtime/HtmlToolPage'
 
 const siteConfig = site as SiteConfig
 
@@ -22,6 +23,7 @@ function ToolRoute() {
   const tool = tools.find(item => item.path === location.pathname)
   useEffect(() => { document.title = tool ? `${tool.name} | ${siteConfig.name}` : '页面不存在'; return () => { document.title = siteConfig.title } }, [tool])
   if (!tool) return tools.length ? <NotFound /> : <div className="tool-panel">加载工具中…</div>
+  if (tool.type === 'html' || tool.type === 'iframe') return <HtmlToolPage tool={tool} />
   if (!tool.component) return <NotFound />
   const ToolComponent = tool.component
   return <ErrorBoundary><Suspense fallback={<div className="tool-panel">加载工具中…</div>}><ToolComponent /></Suspense></ErrorBoundary>
