@@ -3,4 +3,4 @@ export type NavigationItem = {
   id: string; name: string; url: string; description: string; category: string
   icon: string; tags: string[]; enabled: boolean; order: number
 }
-export type SiteConfig = { name: string; title: string; description: string; github: string; footer: string; logo: string }
+export type SiteConfig = { name: string; tagline: string; title: string; description: string; github: string; footer: string; logo: string; adminUrl: string }

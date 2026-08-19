@@ -32,4 +32,12 @@
 .tool-fullscreen-bar .tool-mode-bar { flex: 1; margin: 0; border: none; background: transparent; padding: 0; }
 .tool-fullscreen .tool-frame { flex: 1; min-height: 0; width: 100%; border: none; border-radius: 0; }
 .tool-exit-fullscreen { padding: 7px 12px; border: 1px solid var(--border-hover); border-radius: 6px; background: transparent; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
-@media (max-width: 650px) { .inline-fields { align-items: start; flex-direction: column; gap: 12px; } .color-preview { padding: 0; } }
+.tool-native { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 28px; max-width: none; width: min(100% - 40px, var(--layout-page)); }
+.tool-meta-sidebar .back-link { margin-bottom: 18px; }
+.tool-meta-sidebar h1 { font-size: 28px; }
+.tool-meta-sidebar p { color: var(--text-secondary); }
+.tool-meta-sidebar dl { display: grid; gap: 12px; margin: 24px 0 0; }
+.tool-meta-sidebar dt { color: var(--text-faint); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.tool-meta-sidebar dd { margin: 4px 0 0; }
+.tool-native-workspace .tool-panel { margin-top: 0; }
+@media (max-width: 650px) { .inline-fields { align-items: start; flex-direction: column; gap: 12px; } .color-preview { padding: 0; } .tool-native { grid-template-columns: 1fr; } }

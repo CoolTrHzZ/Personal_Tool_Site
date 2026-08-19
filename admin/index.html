@@ -14,41 +14,43 @@
       <div class="admin-brand">
         <span class="admin-brand-mark">+</span>
         <div>
-          <strong data-i18n="brand">开发者控制台</strong>
-          <small>Personal Toolbox</small>
-          <small id="app-version">v3.1.0</small>
+          <strong data-i18n="brand">DevOS Admin</strong>
+          <small data-i18n="brandTagline">Personal Developer Workspace</small>
+          <small id="app-version">v4.0.0</small>
         </div>
       </div>
       <nav>
         <button class="nav-item active" data-view="dashboard" data-i18n="nav.dashboard">仪表盘</button>
-        <button class="nav-item" data-view="websites" data-i18n="nav.websites">网站导航</button>
+        <button class="nav-item" data-view="websites" data-i18n="nav.websites">网站管理</button>
         <button class="nav-item" data-view="tools" data-i18n="nav.tools">工具管理</button>
         <button class="nav-item" data-view="marketplace" data-i18n="nav.marketplace">工具市场</button>
         <button class="nav-item" data-view="categories" data-i18n="nav.categories">分类管理</button>
         <button class="nav-item" data-view="tags" data-i18n="nav.tags">标签管理</button>
-        <button class="nav-item" data-view="settings" data-i18n="nav.settings">系统设置</button>
         <button class="nav-item" data-view="validate" data-i18n="nav.validate">数据校验</button>
+        <button class="nav-item" data-view="import" data-i18n="nav.import">导入向导</button>
+        <button class="nav-item" data-view="settings" data-i18n="nav.settings">系统设置</button>
       </nav>
       <div class="sidebar-footer">
         <label class="locale-control"><span class="sr-only">Language</span><select id="locale-select" class="ui-input" aria-label="Language"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
         <a class="site-link" href="/" target="_blank" data-i18n="openSite">打开站点 ↗</a>
         <p class="sidebar-status"><span class="status-dot"></span><span data-i18n="statusReady">本地服务正常</span></p>
-        <p class="sidebar-version" id="sidebar-version">v3.1.0</p>
+        <p class="sidebar-version" id="sidebar-version">v4.0.0</p>
       </div>
     </aside>
     <main class="admin-content">
       <header class="content-header">
         <div>
-          <p class="eyebrow">DEVELOPER OS</p>
+          <p class="eyebrow">DEVOS ADMIN</p>
           <h1 id="page-title">仪表盘</h1>
+          <p class="page-telemetry" id="page-telemetry">System Online</p>
+          <p id="status" data-i18n="localCms">本地内容管理</p>
         </div>
-        <p id="status" data-i18n="localCms">本地内容管理</p>
       </header>
 
       <section class="view active content-wide" data-view-panel="dashboard">
         <div class="stats-grid">
-          <article class="ui-card stat-card"><small data-i18n="dash.websites">网站</small><strong id="stat-websites">—</strong></article>
           <article class="ui-card stat-card"><small data-i18n="dash.tools">工具</small><strong id="stat-tools">—</strong></article>
+          <article class="ui-card stat-card"><small data-i18n="dash.websites">网站</small><strong id="stat-websites">—</strong></article>
           <article class="ui-card stat-card"><small data-i18n="dash.categories">分类</small><strong id="stat-categories">—</strong></article>
           <article class="ui-card stat-card"><small data-i18n="dash.tags">标签</small><strong id="stat-tags">—</strong></article>
         </div>
@@ -84,11 +86,19 @@
       <section class="view content-medium" data-view-panel="websites">
         <section class="ui-card panel">
           <div class="panel-toolbar">
-            <h2 data-i18n="nav.websites">网站导航</h2>
-            <button type="button" class="ui-button ui-button-primary" data-add-website="1" data-i18n="form.addWebsite">+ 新增网址</button>
+            <h2 data-i18n="nav.websites">网站管理</h2>
+            <button type="button" class="ui-button ui-button-primary" data-add-website="1" data-i18n="form.addWebsite">添加网站</button>
           </div>
-          <input id="website-query" class="ui-input" placeholder="搜索网址…" aria-label="搜索网址">
-          <div id="navigation"></div>
+          <div class="table-toolbar">
+            <input id="website-query" class="ui-input" placeholder="搜索关联网站..." aria-label="搜索网址">
+            <select id="website-category" class="ui-input" aria-label="分类"></select>
+            <select id="website-status" class="ui-input" aria-label="状态">
+              <option value="all">全部状态</option>
+              <option value="enabled">启用</option>
+              <option value="disabled">停用</option>
+            </select>
+          </div>
+          <div class="ui-table-wrap"><table class="ui-table table-sites"><colgroup><col class="col-name"><col class="col-url"><col class="col-cat"><col class="col-tags"><col class="col-status"><col class="col-actions"></colgroup><thead><tr><th>网站名称</th><th>URL</th><th>分类</th><th>标签</th><th>状态</th><th>操作</th></tr></thead><tbody id="navigation"></tbody></table></div>
         </section>
       </section>
 
@@ -105,7 +115,7 @@
             <span class="muted" data-i18n="tools.indexHint">工具目录内 manifest.json 为 Source of Truth，索引自动重建。</span>
             <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="rebuild-index" data-i18n="tools.rebuild">重建索引</button>
           </div>
-          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>ID</th><th data-i18n="tools.colName">名称</th><th>Version</th><th>Runtime</th><th>Format</th><th data-i18n="tools.colStatus">状态</th><th data-i18n="tools.colActions">操作</th></tr></thead><tbody id="tools"></tbody></table></div>
+          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Tool</th><th>Runtime</th><th>Format</th><th>Version</th><th>Status</th><th>Updated</th><th>操作</th></tr></thead><tbody id="tools"></tbody></table></div>
         </section>
       </section>
 
@@ -124,9 +134,9 @@
         <section class="ui-card panel">
           <div class="panel-toolbar">
             <h2 data-i18n="nav.categories">分类管理</h2>
-            <button type="button" class="ui-button ui-button-primary" data-add-category="1" data-i18n="form.addCategory">+ 新增分类</button>
+            <button type="button" class="ui-button ui-button-primary" data-add-category="1" data-i18n="form.addCategory">新建分类</button>
           </div>
-          <div id="categories"></div>
+          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>分类名称</th><th>标识符</th><th>关联网站</th><th>关联工具</th><th>操作</th></tr></thead><tbody id="categories"></tbody></table></div>
         </section>
       </section>
 
@@ -160,7 +170,15 @@
       <section class="view content-form" data-view-panel="settings">
         <section class="ui-card panel">
           <h2 data-i18n="nav.settings">系统设置</h2>
+          <div class="settings-tabs" role="tablist">
+            <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab active" data-settings-tab="general">通用设置</button>
+            <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab" data-settings-tab="appearance">外观界面</button>
+            <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab" data-settings-tab="data">数据管理</button>
+            <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab" data-settings-tab="backup">备份与恢复</button>
+            <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab" data-settings-tab="about">关于</button>
+          </div>
           <form id="site"></form>
+          <div id="settings-extra"></div>
         </section>
       </section>
 
@@ -169,7 +187,7 @@
           <h2 data-i18n="nav.validate">数据校验</h2>
           <p class="muted" data-i18n="validate.hint">检查站点数据、工具包、必填字段、入口路径与版本号。</p>
           <button type="button" id="run-validate" class="ui-button ui-button-primary" data-i18n="validate.run">运行校验</button>
-          <div id="validate-result"></div>
+          <div id="validate-result" class="ui-table-wrap"></div>
         </section>
       </section>
     </main>
@@ -228,35 +246,37 @@
       <h2 id="editor-drawer-title">编辑</h2>
       <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="editor-drawer-close" data-i18n="wizard.close">关闭</button>
     </div>
+    <div class="ui-drawer-body">
     <form id="nav-form" class="drawer-form" hidden>
       <input type="hidden" name="originalId">
-      <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required></label>
-      <label class="ui-field"><span class="ui-field-label">网址</span><input class="ui-input" name="url" type="url" required></label>
-      <label class="ui-field"><span class="ui-field-label">描述</span><input class="ui-input" name="description"></label>
+      <label class="ui-field"><span class="ui-field-label">网站名称</span><input class="ui-input" name="name" required></label>
+      <label class="ui-field"><span class="ui-field-label">URL</span><input class="ui-input" name="url" type="url" required></label>
+      <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="4"></textarea></label>
       <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
       <label class="ui-field"><span class="ui-field-label">分类</span><input class="ui-input" name="category" required></label>
-      <label class="ui-field"><span class="ui-field-label">Tags</span><input class="ui-input" name="tags"></label>
+      <label class="ui-field"><span class="ui-field-label">标签</span><input class="ui-input" name="tags"></label>
       <label class="ui-field"><span class="ui-field-label">图标</span><input class="ui-input" name="icon" value="auto"></label>
       <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
-      <button class="ui-button ui-button-primary" data-i18n="form.saveWebsite">保存</button>
+      <div class="ui-drawer-foot"><button type="button" class="ui-button ui-button-ghost" id="nav-cancel">取消</button><button class="ui-button ui-button-primary" data-i18n="form.saveWebsite">保存更改</button></div>
     </form>
     <form id="category-form" class="drawer-form" hidden>
       <input type="hidden" name="originalId">
-      <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
-      <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required></label>
+      <label class="ui-field"><span class="ui-field-label">分类名称</span><input class="ui-input" name="name" required></label>
+      <label class="ui-field"><span class="ui-field-label">标识符</span><input class="ui-input" name="id" required></label>
       <label class="ui-field"><span class="ui-field-label">图标</span><input class="ui-input" name="icon" value="Code2"></label>
-      <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
-      <button class="ui-button ui-button-primary" data-i18n="form.saveCategory">保存</button>
+      <label class="ui-field"><span class="ui-field-label">排序权重</span><input class="ui-input" name="order" type="number" value="10"></label>
+      <div class="ui-drawer-foot"><button type="button" class="ui-button ui-button-ghost" id="category-cancel">取消</button><button class="ui-button ui-button-primary" data-i18n="form.saveCategory">保存分类</button></div>
     </form>
+    </div>
   </aside>
 
   <aside id="tag-drawer" class="ui-drawer" hidden>
-    <div class="tag-drawer-head">
+    <div class="ui-drawer-head">
       <h2 data-i18n="nav.tags">标签详情</h2>
       <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="tag-drawer-close" data-i18n="wizard.close">关闭</button>
     </div>
-    <div id="tag-drawer-body"></div>
+    <div class="ui-drawer-body" id="tag-drawer-body"></div>
   </aside>
 
   <div id="toasts" class="toasts" aria-live="polite"></div>

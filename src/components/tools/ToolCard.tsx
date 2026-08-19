@@ -24,6 +24,7 @@ export default function ToolCard({ tool }: { tool: ToolDefinition }) {
           <small>{tool.description}</small>
           <span className="tool-meta-line">{tool.category} · v{tool.version}</span>
           {showStatus && <span className="tool-badges"><Badge tone="accent">{status}</Badge></span>}
+          <span className="tool-open">打开</span>
         </span>
         <ArrowUpRight size={14} className="card-arrow" />
       </Link>

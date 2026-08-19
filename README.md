@@ -1,8 +1,8 @@
-# Personal Tool Site 3.1
+# Personal Tool Site 4.0 / DevOS
 
 Personal Tool Site 是一个本地优先的 **Developer Workspace**：网址导航、React / HTML / ZIP 静态工具、Universal Tool Runtime 和本地 Admin Console 集中在一个可部署到 GitHub Pages 的静态项目中。
 
-当前版本 **3.1.0**。版本号以 `package.json` 为准，前台构建注入 `__APP_VERSION__`，Admin 通过 `/api/system` 读取。
+当前版本 **4.0.0**。视觉产品名 **DevOS**，副标题 **Personal Developer Workspace**，配置在 `src/data/site.json`。仓库与 package 名称仍为 Personal_Tool_Site。
 
 ## 产品能力
 

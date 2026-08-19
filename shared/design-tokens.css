@@ -22,8 +22,12 @@
   --radius-lg: 16px;
   --radius-full: 999px;
 
-  --surface-page: #080b10;
-  --surface-sidebar: #0a0e14;
+  --surface-page: #070a0f;
+  --surface-sidebar: #090d13;
+  --surface-panel: #0d1118;
+  --surface-card: #11151c;
+  --surface-raised: #151b24;
+  --surface-overlay: #191f29;
   --surface-panel: #0d1118;
   --surface-card: #11151c;
   --surface-raised: #151b24;
@@ -54,7 +58,7 @@
   --duration-slow: 220ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  --layout-page: 1680px;
+  --layout-page: 1440px;
   --layout-form: 980px;
   --layout-medium: 1360px;
 

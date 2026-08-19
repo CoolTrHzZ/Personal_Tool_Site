@@ -1,8 +1,10 @@
 {
-  "name": "Toolbox",
-  "title": "Toolbox · 个人工具站",
-  "description": "网址导航与常用 Web 工具",
+  "name": "DevOS",
+  "tagline": "Personal Developer Workspace",
+  "title": "DevOS · Personal Developer Workspace",
+  "description": "本地日常开发、调试与效率管理中心，离线可用，开箱即用。",
   "github": "https://github.com",
-  "footer": "Built for quick work.",
-  "logo": "T"
+  "footer": "DevOS · Personal Developer Workspace",
+  "logo": "D",
+  "adminUrl": "http://127.0.0.1:4174/admin/"
 }

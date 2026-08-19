@@ -86,9 +86,12 @@ function toast(message, level = 'success') {
 const toastError = message => toast(message, 'error')
 
 function showView(view) {
-  document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view))
+  const mapped = view === 'import' ? 'tools' : view
+  document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === mapped))
   document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === view))
   $('#page-title').textContent = i18n.t(`title.${view}`)
+  if ($('#page-telemetry')) $('#page-telemetry').textContent = `index · tools ${state.tools.length} · websites ${state.navigation.length} · System Online`
+  if (view === 'import') $('#tool-dropzone')?.focus()
 }
 
 function openModal({ title, body, confirm = false, okText }) {
@@ -124,23 +127,45 @@ function openPromptModal({ title, label, value = '' }) {
 
 // ---------------- 各视图渲染 ----------------
 
+let settingsTab = 'general'
 function renderSite() {
   const labels = { name: i18n.t('form.siteName'), title: i18n.t('form.title'), description: i18n.t('form.description'), github: i18n.t('form.github'), footer: i18n.t('form.footer'), logo: i18n.t('form.logo') }
-  const sections = [
-    ['basic', ['name', 'title']],
-    ['seo', ['description']],
-    ['links', ['github']],
-    ['appearance', ['logo', 'footer']],
-  ]
   const form = $('#site')
+  const extra = $('#settings-extra')
+  document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.settingsTab === settingsTab))
   form.replaceChildren()
-  for (const [sectionKey, names] of sections) {
-    const section = el('fieldset', 'settings-section')
-    section.append(el('legend', '', i18n.t(`settings.${sectionKey}`)))
-    for (const name of names) section.append(input(name, state.site[name], labels[name]))
-    form.append(section)
+  extra.replaceChildren()
+  if (settingsTab === 'general') {
+    form.hidden = false
+    for (const name of ['name', 'title', 'description', 'github']) form.append(input(name, state.site[name], labels[name]))
+    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
+    return
   }
-  form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
+  if (settingsTab === 'appearance') {
+    form.hidden = false
+    for (const name of ['logo', 'footer']) form.append(input(name, state.site[name], labels[name]))
+    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
+    return
+  }
+  form.hidden = true
+  if (settingsTab === 'data') {
+    extra.append(el('p', 'muted', i18n.t('tools.indexHint')), button(i18n.t('tools.rebuild'), {}, 'ui-button ui-button-ghost'))
+    extra.querySelector('button').id = 'rebuild-index-settings'
+    extra.querySelector('button').addEventListener('click', () => $('#rebuild-index')?.click())
+  }
+  if (settingsTab === 'backup') {
+    extra.append(el('p', 'muted', '导出当前 JSON 配置（真实数据）。恢复请使用对应 PUT 接口或手动替换文件。'))
+    const exportBtn = button('导出导航 / 分类 / 站点 JSON', {}, 'ui-button ui-button-primary')
+    exportBtn.addEventListener('click', () => {
+      const payload = { navigation: state.navigation, categories: state.categories, site: state.site }
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }))
+      link.download = 'devos-backup.json'
+      link.click()
+    })
+    extra.append(exportBtn)
+  }
+  if (settingsTab === 'about') extra.append(el('p', '', `${state.site.name || 'DevOS'}`), el('p', 'muted', state.site.tagline || ''), el('p', 'muted', `v${$('#app-version')?.textContent || ''}`))
 }
 function renderStats() {
   $('#stat-websites').textContent = state.navigation.length
@@ -149,42 +174,88 @@ function renderStats() {
   $('#stat-tags').textContent = state.tags.length
   $('#activity-list').replaceChildren(...(readActivity().length ? readActivity().map(item => text('li', `${item.at.slice(0, 16).replace('T', ' ')} · ${item.message}`)) : [text('li', i18n.t('dash.emptyRecent'))]))
 }
+function chips(values) {
+  const wrap = el('div', 'tag-chips')
+  const items = values.filter(Boolean)
+  if (!items.length) wrap.append(el('span', 'tag-chip tag-chip-empty', '—'))
+  else for (const value of items) wrap.append(el('span', 'tag-chip', value))
+  return wrap
+}
+function kebab(actions) {
+  const wrap = el('div', 'kebab')
+  const toggle = button('⋯', {}, 'ui-button ui-button-ghost ui-button-sm kebab-toggle')
+  toggle.setAttribute('aria-label', '更多操作')
+  const menu = el('div', 'kebab-menu')
+  menu.hidden = true
+  for (const action of actions) menu.append(action)
+  toggle.addEventListener('click', event => {
+    event.stopPropagation()
+    document.querySelectorAll('.kebab-menu').forEach(node => { if (node !== menu) node.hidden = true })
+    menu.hidden = !menu.hidden
+  })
+  wrap.append(toggle, menu)
+  return wrap
+}
+
 function renderCategories() {
   $('#categories').replaceChildren(...state.categories.slice().sort((a, b) => a.order - b.order).map(category => {
     const sites = state.navigation.filter(item => item.category === category.id).length
     const tools = state.tools.filter(item => item.category === category.id).length
-    const row = document.createElement('div')
-    row.className = 'row'
-    row.append(text('strong', category.name), text('small', `${sites} 网站 · ${tools} 工具`))
-    const actions = document.createElement('span')
-    actions.append(button(i18n.t('table.edit'), { editCategory: category.id }), button(i18n.t('table.delete'), { deleteCategory: category.id }, 'ui-button ui-button-danger ui-button-sm'))
+    const row = document.createElement('tr')
+    row.append(text('td', category.name), text('td', category.id), text('td', String(sites)), text('td', String(tools)))
+    const actions = el('td', '', '')
+    actions.append(kebab([
+      button(i18n.t('table.edit'), { editCategory: category.id }),
+      button(i18n.t('table.delete'), { deleteCategory: category.id }, 'ui-button ui-button-danger ui-button-sm'),
+    ]))
     row.append(actions)
     return row
   }))
 }
+function matchedWebsites() {
+  const q = ($('#website-query')?.value || '').toLowerCase()
+  const category = $('#website-category')?.value || 'all'
+  const status = $('#website-status')?.value || 'all'
+  return state.navigation.filter(item => {
+    const blob = `${item.name} ${item.url} ${item.id} ${(item.tags || []).join(' ')}`.toLowerCase()
+    const statusOk = status === 'all' || (status === 'enabled' ? item.enabled : !item.enabled)
+    const categoryOk = category === 'all' || item.category === category
+    return (!q || blob.includes(q)) && statusOk && categoryOk
+  }).sort((a, b) => a.order - b.order)
+}
 function renderNavigation() {
-  $('#navigation').replaceChildren(...state.navigation.slice().sort((a, b) => a.order - b.order).map(item => {
-    const row = document.createElement('div')
-    row.className = 'row'
-    row.append(text('strong', `${item.name} ${item.enabled ? '' : i18n.t('table.disabled')}`), text('small', `${item.url} · ${item.category} · ${(item.tags || []).join(', ')}`))
-    const actions = document.createElement('span')
-    actions.append(button(i18n.t('table.edit'), { edit: item.id }), button(item.enabled ? i18n.t('table.disable') : i18n.t('table.enable'), { toggle: item.id }), button(i18n.t('table.delete'), { delete: item.id }, 'ui-button ui-button-danger ui-button-sm'))
+  if ($('#website-category')) {
+    const current = $('#website-category').value || 'all'
+    const options = [['all', '全部分类'], ...state.categories.map(item => [item.id, item.name])]
+    $('#website-category').replaceChildren(...options.map(([value, label]) => { const option = document.createElement('option'); option.value = value; option.textContent = label; return option }))
+    $('#website-category').value = options.some(([value]) => value === current) ? current : 'all'
+  }
+  $('#navigation').replaceChildren(...matchedWebsites().map(item => {
+    const row = document.createElement('tr')
+    const url = el('td', 'cell-url', item.url)
+    const tags = el('td', 'cell-tags', '')
+    tags.append(chips(item.tags || []))
+    row.append(text('td', item.name), url, text('td', item.category), tags, text('td', item.enabled ? i18n.t('table.enable') : i18n.t('table.disable')))
+    const actions = el('td', '', '')
+    actions.append(kebab([
+      button(i18n.t('table.edit'), { edit: item.id }),
+      button(item.enabled ? i18n.t('table.disable') : i18n.t('table.enable'), { toggle: item.id }),
+      button(i18n.t('table.delete'), { delete: item.id }, 'ui-button ui-button-danger ui-button-sm'),
+    ]))
     row.append(actions)
     return row
   }))
 }
 function renderTools() {
-  // 7 列：ID / 名称 / Version / Runtime / Format / 状态 / 操作（v3.0.1 三十一：列对齐修复）
   $('#tools').replaceChildren(...state.tools.map(tool => {
     const row = document.createElement('tr')
-    for (const value of [tool.id, `${tool.name}${tool.runtime === 'react' ? ' · core' : ''}`, `v${tool.version}`, tool.runtime, tool.format || '-']) row.append(text('td', value))
-    const statusCell = el('td', '', '')
-    statusCell.append(el('span', `badge badge-${toolStatus(tool)}`, toolStatus(tool)))
-    row.append(statusCell)
+    const nameCell = el('td', '', '')
+    nameCell.append(text('strong', tool.name), document.createTextNode(' '), text('small', tool.id))
+    row.append(nameCell, text('td', tool.runtime), text('td', tool.format || '-'), text('td', `v${tool.version}`), text('td', toolStatus(tool)), text('td', tool.updated || '—'))
     const actions = el('td', '', '')
-    actions.append(button(i18n.t('table.inspect'), { inspect: tool.id }))
+    const items = [button(i18n.t('table.inspect'), { inspect: tool.id })]
     if (tool.runtime !== 'react') {
-      actions.append(
+      items.push(
         button(i18n.t('lifecycle.edit'), { editTool: tool.id }),
         button(toolStatus(tool) === 'disabled' ? i18n.t('table.enable') : i18n.t('table.disable'), { toggleTool: tool.id }),
         button(i18n.t('lifecycle.overwrite'), { overwriteTool: tool.id }),
@@ -192,6 +263,7 @@ function renderTools() {
         button(i18n.t('table.delete'), { deleteTool: tool.id }, 'ui-button ui-button-danger ui-button-sm'),
       )
     }
+    actions.append(kebab(items))
     row.append(actions)
     return row
   }))
@@ -462,7 +534,7 @@ function collectWizardStep3() {
 function renderWizardStep4() {
   const { analysis } = wizard
   const body = $('#wizard-body')
-  body.replaceChildren(el('strong', 'compat-grade', analysis.compat.some(issue => issue.level === 'warn') ? 'B' : 'A'), el('p', 'muted', i18n.t('wizard.compatHint')))
+  body.replaceChildren(el('strong', 'compat-grade', analysis.compat.some(issue => issue.level === 'warn') ? 'B' : 'A'), el('p', 'muted', `${analysis.compat.length} 项诊断来自 HTML Runtime 分析器`))
   // sameOrigin 等危险提示必须保留到用户确认（v3.0.1 六）
   if (wizard.warning) body.append(el('p', 'wizard-warning-box', `⚠ ${wizard.warning}`))
   if (!analysis.compat.length && !analysis.notes.length) body.append(el('p', 'check-ok', i18n.t('wizard.compatClean')))
@@ -486,10 +558,16 @@ function renderWizardStep5() {
     heightSelect.append(option)
   }
   heightSelect.value = manifest.display?.mode || 'embedded'
+  const frameWrap = el('div', 'wizard-preview-frame mode-embedded')
+  const viewport = el('div', 'viewport-switch')
+  for (const [width, label] of [[1440, 'Desktop'], [768, 'Tablet'], [390, 'Mobile']]) {
+    const item = button(label, {}, 'ui-button ui-button-ghost ui-button-sm')
+    item.addEventListener('click', () => { frameWrap.style.maxWidth = `${width}px`; frameWrap.style.margin = '0 auto' })
+    viewport.append(item)
+  }
   const refresh = button(i18n.t('wizard.refresh'), {}, 'ui-button ui-button-ghost ui-button-sm')
   const openTab = button(i18n.t('wizard.openTab'), {}, 'ui-button ui-button-ghost ui-button-sm')
-  bar.append(heightSelect, refresh, openTab)
-  const frameWrap = el('div', 'wizard-preview-frame mode-embedded')
+  bar.append(heightSelect, viewport, refresh, openTab)
   const frame = document.createElement('iframe')
   const loadFrame = () => { frame.src = `${analysis.previewUrl}${analysis.previewUrl.includes('?') ? '&' : '?'}_=${Date.now()}` }
   frame.sandbox = buildSandbox(manifest.permissions)
@@ -738,9 +816,20 @@ bind('#admin-menu', 'click', () => {
   const open = shell.classList.toggle('nav-open')
   $('#admin-menu').setAttribute('aria-expanded', String(open))
 })
-bind('#website-query', 'input', () => {
-  const q = ($('#website-query').value || '').toLowerCase()
-  document.querySelectorAll('#navigation .row').forEach(row => { row.hidden = q && !row.textContent.toLowerCase().includes(q) })
+bind('#website-query', 'input', renderNavigation)
+bind('#website-category', 'change', renderNavigation)
+bind('#website-status', 'change', renderNavigation)
+bind('#nav-cancel', 'click', closeEditorDrawer)
+bind('#category-cancel', 'click', closeEditorDrawer)
+document.querySelectorAll('.settings-tab').forEach(tab => tab.addEventListener('click', () => { settingsTab = tab.dataset.settingsTab; renderSite() }))
+document.addEventListener('click', event => {
+  if (event.target.closest('.kebab')) return
+  document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
+})
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return
+  closeEditorDrawer()
+  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
 })
 bind('#tag-drawer-close', 'click', () => { $('#tag-drawer').hidden = true; tagsView.current = null })
 
@@ -752,9 +841,31 @@ bind('#market-category', 'change', renderMarketplace)
 bind('#run-validate', 'click', async () => {
   try {
     const result = await request('validate')
-    const summary = text('p', result.ok ? i18n.t('validate.ok') : i18n.t('validate.fail', { count: String(result.issues.length) }))
-    summary.className = result.ok ? 'check-ok' : 'check-fail'
-    $('#validate-result').replaceChildren(summary, ...result.issues.map(issue => text('p', issue)))
+    const table = document.createElement('table')
+    table.className = 'ui-table'
+    const head = document.createElement('thead')
+    const headRow = document.createElement('tr')
+    for (const label of ['规则', '状态', '描述', '操作']) headRow.append(text('th', label))
+    head.append(headRow)
+    const body = document.createElement('tbody')
+    if (result.ok) {
+      const row = document.createElement('tr')
+      row.append(text('td', 'data_integrity'), text('td', '通过'), text('td', i18n.t('validate.ok')), text('td', ''))
+      body.append(row)
+    } else {
+      for (const issue of result.issues) {
+        const row = document.createElement('tr')
+        const action = button(i18n.t('validate.run'), {}, 'ui-button ui-button-ghost ui-button-sm')
+        action.addEventListener('click', () => $('#run-validate')?.click())
+        row.append(text('td', 'validator'), text('td', '失败'), text('td', issue))
+        const cell = el('td', '', '')
+        cell.append(action)
+        row.append(cell)
+        body.append(row)
+      }
+    }
+    table.append(head, body)
+    $('#validate-result').replaceChildren(table)
   } catch (error) { toastError(error.message) }
 })
 const withBusy = async (form, fn) => {
@@ -766,7 +877,7 @@ const withBusy = async (form, fn) => {
 bind('#site', 'submit', async event => {
   event.preventDefault()
   const data = Object.fromEntries(new FormData(event.target))
-  try { await withBusy(event.target, async () => { await request('site', { method: 'PUT', body: JSON.stringify(data) }); await reload(i18n.t('msg.savedSite')) }) } catch (error) { toastError(error.message) }
+  try { await withBusy(event.target, async () => { await request('site', { method: 'PUT', body: JSON.stringify({ ...state.site, ...data }) }); await reload(i18n.t('msg.savedSite')) }) } catch (error) { toastError(error.message) }
 })
 bind('#category-form', 'submit', async event => {
   event.preventDefault()

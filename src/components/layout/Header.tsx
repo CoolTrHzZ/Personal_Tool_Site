@@ -1,10 +1,8 @@
-import { useContext } from 'react'
-import { Home, Search, Wrench } from 'lucide-react'
+import { useContext, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import site from '../../data/site.json'
 import type { SiteConfig } from '../../types'
 import { SearchContext } from './Layout'
-import { useEffect, useState } from 'react'
 
 const siteConfig = site as SiteConfig
 
@@ -25,15 +23,15 @@ export default function Header() {
   return (
     <header className="topbar">
       <Link className="brand" to="/"><span className="brand-mark">{siteConfig.logo}</span><span>{siteConfig.name}</span></Link>
-      <button type="button" className="top-search" onClick={openPalette} aria-label="打开命令面板">
-        <Search size={17} /><span>搜索网站、工具、标签…</span><kbd>⌘ K</kbd>
-      </button>
-      <nav>
-        <Link className={location.pathname === '/' ? 'active' : ''} to="/"><Home size={16} />首页</Link>
-        <Link className={location.pathname.startsWith('/tools') ? 'active' : ''} to="/tools"><Wrench size={16} />工具</Link>
-        <a className="github-link" href={siteConfig.github} target="_blank" rel="noopener noreferrer" aria-label="GitHub">GH</a>
-        <label className="theme-control"><span className="sr-only">主题</span><select className="theme-select" value={theme} onChange={e => setTheme(e.target.value)} aria-label="选择主题"><option value="system">系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
+      <nav className="top-nav">
+        <Link className={location.pathname === '/' ? 'active' : ''} to="/">首页</Link>
+        <Link className={location.pathname.startsWith('/tools') ? 'active' : ''} to="/tools">工具</Link>
+        <a href={siteConfig.adminUrl} target="_blank" rel="noopener noreferrer">管理</a>
       </nav>
+      <div className="topbar-end">
+        <button type="button" className="top-search-mini" onClick={openPalette} aria-label="打开命令面板">⌘K</button>
+        <label className="theme-control"><span className="sr-only">主题</span><select className="theme-select" value={theme} onChange={event => setTheme(event.target.value)} aria-label="选择主题"><option value="system">系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
+      </div>
     </header>
   )
 }
