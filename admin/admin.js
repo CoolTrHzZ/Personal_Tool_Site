@@ -84,13 +84,20 @@ function toast(message, level = 'success') {
   setTimeout(() => { item.classList.add('toast-out'); setTimeout(() => item.remove(), 200) }, 3000)
 }
 const toastError = message => toast(message, 'error')
+const adminScene = { dashboard: 'dash', websites: 'nav', tools: 'tools', marketplace: 'market', categories: 'nav', tags: 'cms', settings: 'form', validate: 'cms', import: 'form' }
 
 function showView(view) {
-  const mapped = view === 'import' ? 'tools' : view
-  document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === mapped))
+  document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view))
   document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === view))
   $('#page-title').textContent = i18n.t(`title.${view}`)
+  const title = $('#page-title')
+  title.classList.remove('title-swap')
+  void title.offsetWidth
+  title.classList.add('title-swap')
   if ($('#page-telemetry')) $('#page-telemetry').textContent = `index · tools ${state.tools.length} · websites ${state.navigation.length} · System Online`
+  $('.carbon-fx')?.setAttribute('data-scene', adminScene[view] || 'cms')
+  closeEditorDrawer()
+  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   if (view === 'import') $('#tool-dropzone')?.focus()
 }
 
@@ -172,7 +179,20 @@ function renderStats() {
   $('#stat-tools').textContent = state.tools.length || '—'
   $('#stat-categories').textContent = state.categories.length
   $('#stat-tags').textContent = state.tags.length
-  $('#activity-list').replaceChildren(...(readActivity().length ? readActivity().map(item => text('li', `${item.at.slice(0, 16).replace('T', ' ')} · ${item.message}`)) : [text('li', i18n.t('dash.emptyRecent'))]))
+  const enabledTools = state.tools.filter(tool => tool.enabled !== false).length
+  const fills = {
+    tools: state.tools.length ? enabledTools / state.tools.length : 0,
+    websites: state.navigation.length ? state.navigation.filter(item => item.enabled !== false).length / state.navigation.length : 0,
+    categories: state.categories.length ? 1 : 0,
+    tags: state.tags.length ? 1 : 0,
+  }
+  document.querySelectorAll('[data-fill]').forEach(node => node.style.setProperty('--fill', String(fills[node.dataset.fill] ?? 0)))
+  const items = readActivity()
+  $('#activity-list').replaceChildren(...(items.length ? items.map(item => {
+    const row = document.createElement('li')
+    row.append(el('small', '', String(item.at || '').slice(0, 16).replace('T', ' ')), el('span', '', item.message || ''))
+    return row
+  }) : [el('li', 'activity-empty', i18n.t('dash.emptyRecent'))]))
 }
 function chips(values) {
   const wrap = el('div', 'tag-chips')
@@ -190,10 +210,42 @@ function kebab(actions) {
   for (const action of actions) menu.append(action)
   toggle.addEventListener('click', event => {
     event.stopPropagation()
-    document.querySelectorAll('.kebab-menu').forEach(node => { if (node !== menu) node.hidden = true })
-    menu.hidden = !menu.hidden
+    const willOpen = menu.hidden
+    document.querySelectorAll('.kebab-menu').forEach(node => { node.hidden = true })
+    if (!willOpen) return
+    document.body.append(menu)
+    menu.hidden = false
+    const box = toggle.getBoundingClientRect()
+    const top = box.bottom + 8 + menu.offsetHeight > innerHeight - 8 ? box.top - menu.offsetHeight - 8 : box.bottom + 8
+    const left = Math.max(8, Math.min(innerWidth - menu.offsetWidth - 8, box.right - menu.offsetWidth))
+    menu.style.top = `${Math.max(8, top)}px`
+    menu.style.left = `${left}px`
   })
-  wrap.append(toggle, menu)
+  wrap.append(toggle)
+  return wrap
+}
+
+function inspectTool(tool) {
+  const sheet = el('dl', 'inspect-sheet')
+  const rows = [
+    ['ID', tool.id], ['Name', tool.name], ['Runtime', tool.runtime], ['Format', tool.format || '—'],
+    ['Version', tool.version], ['Status', toolStatus(tool)], ['Category', tool.category || '—'],
+    ['Updated', tool.updated || '—'], ['Tags', (tool.tags || []).join(', ') || '—'],
+  ]
+  for (const [label, value] of rows) {
+    sheet.append(el('dt', '', label), el('dd', '', String(value ?? '—')))
+  }
+  const raw = el('details', 'inspect-raw')
+  raw.append(el('summary', '', '原始 JSON'))
+  const pre = document.createElement('pre')
+  pre.textContent = JSON.stringify({
+    id: tool.id, name: tool.name, description: tool.description, category: tool.category, version: tool.version,
+    enabled: tool.enabled, runtime: tool.runtime, format: tool.format, status: tool.status, updated: tool.updated,
+    tags: tool.tags || [], display: tool.display, permissions: tool.permissions,
+  }, null, 2)
+  raw.append(pre)
+  const wrap = el('div', '', '')
+  wrap.append(sheet, raw)
   return wrap
 }
 
@@ -203,7 +255,7 @@ function renderCategories() {
     const tools = state.tools.filter(item => item.category === category.id).length
     const row = document.createElement('tr')
     row.append(text('td', category.name), text('td', category.id), text('td', String(sites)), text('td', String(tools)))
-    const actions = el('td', '', '')
+    const actions = el('td', 'cell-actions', '')
     actions.append(kebab([
       button(i18n.t('table.edit'), { editCategory: category.id }),
       button(i18n.t('table.delete'), { deleteCategory: category.id }, 'ui-button ui-button-danger ui-button-sm'),
@@ -233,10 +285,14 @@ function renderNavigation() {
   $('#navigation').replaceChildren(...matchedWebsites().map(item => {
     const row = document.createElement('tr')
     const url = el('td', 'cell-url', item.url)
+    url.title = item.url
     const tags = el('td', 'cell-tags', '')
     tags.append(chips(item.tags || []))
-    row.append(text('td', item.name), url, text('td', item.category), tags, text('td', item.enabled ? i18n.t('table.enable') : i18n.t('table.disable')))
-    const actions = el('td', '', '')
+    const name = text('td', item.name)
+    name.className = 'cell-tool'
+    name.title = item.name
+    row.append(name, url, text('td', item.category), tags, text('td', item.enabled ? i18n.t('table.enable') : i18n.t('table.disable')))
+    const actions = el('td', 'cell-actions', '')
     actions.append(kebab([
       button(i18n.t('table.edit'), { edit: item.id }),
       button(item.enabled ? i18n.t('table.disable') : i18n.t('table.enable'), { toggle: item.id }),
@@ -249,10 +305,11 @@ function renderNavigation() {
 function renderTools() {
   $('#tools').replaceChildren(...state.tools.map(tool => {
     const row = document.createElement('tr')
-    const nameCell = el('td', '', '')
-    nameCell.append(text('strong', tool.name), document.createTextNode(' '), text('small', tool.id))
+    const nameCell = el('td', 'cell-tool')
+    nameCell.title = `${tool.name} · ${tool.id}`
+    nameCell.append(el('strong', '', tool.name), el('small', '', tool.id))
     row.append(nameCell, text('td', tool.runtime), text('td', tool.format || '-'), text('td', `v${tool.version}`), text('td', toolStatus(tool)), text('td', tool.updated || '—'))
-    const actions = el('td', '', '')
+    const actions = el('td', 'cell-actions', '')
     const items = [button(i18n.t('table.inspect'), { inspect: tool.id })]
     if (tool.runtime !== 'react') {
       items.push(
@@ -327,6 +384,7 @@ function renderTags() {
 function openTagDrawer(name) {
   const item = state.tags.find(entry => entry.name === name)
   if (!item) return
+  closeEditorDrawer()
   tagsView.current = name
   const body = $('#tag-drawer-body')
   body.replaceChildren(el('h3', 'drawer-title', item.name), el('p', 'muted', i18n.t('tags.usageCount', { count: String(item.total) })))
@@ -351,6 +409,7 @@ function openTagDrawer(name) {
   )
   body.append(actions)
   $('#tag-drawer').hidden = false
+  armOutside($('#tag-drawer'), () => { $('#tag-drawer').hidden = true; tagsView.current = null })
 }
 
 function render() { renderSite(); renderStats(); renderCategories(); renderNavigation(); renderTools(); renderMarketplace(); renderTags(); i18n.apply() }
@@ -377,12 +436,27 @@ async function reload(message = i18n.t('msg.updated'), record = true) {
   if (record) logActivity(message)
 }
 
+let stopOutside = null
+function armOutside(node, close) {
+  stopOutside?.()
+  requestAnimationFrame(() => {
+    const onDoc = event => {
+      if (!node || node.hidden || node.contains(event.target) || event.target.closest('.kebab-menu, .ui-modal-backdrop, .wizard-backdrop')) return
+      close()
+      stopOutside?.()
+    }
+    stopOutside = () => { document.removeEventListener('click', onDoc); stopOutside = null }
+    document.addEventListener('click', onDoc)
+  })
+}
+
 function closeEditorDrawer() {
   $('#editor-drawer').hidden = true
   $('#nav-form').hidden = true
   $('#category-form').hidden = true
 }
 function openWebsiteDrawer(item) {
+  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   $('#category-form').hidden = true
   const form = $('#nav-form')
   form.hidden = false
@@ -390,8 +464,10 @@ function openWebsiteDrawer(item) {
   if (item) fill(form, item, true)
   else { form.reset(); form.elements.originalId.value = ''; form.querySelector('button').textContent = i18n.t('form.saveWebsite') }
   $('#editor-drawer').hidden = false
+  armOutside($('#editor-drawer'), closeEditorDrawer)
 }
 function openCategoryDrawer(item) {
+  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   $('#nav-form').hidden = true
   const form = $('#category-form')
   form.hidden = false
@@ -399,6 +475,7 @@ function openCategoryDrawer(item) {
   if (item) fill(form, item)
   else { form.reset(); form.elements.originalId.value = ''; form.querySelector('button').textContent = i18n.t('form.saveCategory') }
   $('#editor-drawer').hidden = false
+  armOutside($('#editor-drawer'), closeEditorDrawer)
 }
 
 function fill(form, item, tags = false) {
@@ -666,6 +743,7 @@ async function runWizardImport() {
     await request('tools/import', { method: 'POST', body: JSON.stringify({ token: wizard.analysis.token, manifest: wizard.manifest, overwrite }) })
     await closeWizard()
     await reload(i18n.t('msg.imported'))
+    showView('tools')
   } catch (error) {
     // 导入失败保留 analysis / manifest / staging token，允许直接重试（v3.0.1 三十八）
     wizard.error = error.message
@@ -750,9 +828,11 @@ function openToolEdit(tool) {
     checkField(document, 'favorite', tool.favorite, i18n.t('wizard.f.favorite')),
   )
   form.addEventListener('submit', event => event.preventDefault())
-  const heading = el('p', 'muted perm-heading', i18n.t('toolEdit.permissions'))
-  const permForm = renderPermissionsForm(document, { permissions: tool.permissions || {}, t: i18n.t })
-  $('#tool-edit-body').replaceChildren(form, heading, permForm)
+  const identity = el('section', 'edit-block')
+  identity.append(el('p', 'edit-kicker', 'IDENTITY'), form)
+  const access = el('section', 'edit-block')
+  access.append(el('p', 'edit-kicker', i18n.t('toolEdit.permissions')), renderPermissionsForm(document, { permissions: tool.permissions || {}, t: i18n.t }))
+  $('#tool-edit-body').replaceChildren(identity, access)
   $('#tool-edit').hidden = false
 }
 
@@ -823,15 +903,22 @@ bind('#nav-cancel', 'click', closeEditorDrawer)
 bind('#category-cancel', 'click', closeEditorDrawer)
 document.querySelectorAll('.settings-tab').forEach(tab => tab.addEventListener('click', () => { settingsTab = tab.dataset.settingsTab; renderSite() }))
 document.addEventListener('click', event => {
-  if (event.target.closest('.kebab')) return
+  if (event.target.closest('.kebab, .kebab-menu')) return
   document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
 })
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return
+  document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
+  if ($('#modal') && !$('#modal').hidden) { $('#modal-cancel')?.click(); return }
+  if ($('#tool-edit') && !$('#tool-edit').hidden) { $('#tool-edit-cancel')?.click(); return }
+  if ($('#wizard') && !$('#wizard').hidden) { closeWizard().catch(() => {}); return }
   closeEditorDrawer()
-  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
+  if ($('#tag-drawer')) { $('#tag-drawer').hidden = true; tagsView.current = null }
 })
+window.addEventListener('resize', () => document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true }))
 bind('#tag-drawer-close', 'click', () => { $('#tag-drawer').hidden = true; tagsView.current = null })
+bind('#modal', 'click', event => { if (event.target.id === 'modal') $('#modal-cancel')?.click() })
+bind('#tool-edit', 'click', event => { if (event.target.id === 'tool-edit') $('#tool-edit-cancel')?.click() })
 
 // ---------------- 全局事件 ----------------
 
@@ -944,10 +1031,9 @@ document.addEventListener('click', async event => {
     if (element.dataset.edit) { openWebsiteDrawer(state.navigation.find(item => item.id === element.dataset.edit)); return }
     if (element.dataset.editCategory) { openCategoryDrawer(state.categories.find(item => item.id === element.dataset.editCategory)); return }
     if (element.dataset.inspect) {
+      document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
       const tool = state.tools.find(item => item.id === element.dataset.inspect)
-      const body = document.createElement('pre')
-      body.textContent = JSON.stringify(tool, null, 2)
-      await openModal({ title: i18n.t('modal.inspectTitle'), body })
+      if (tool) await openModal({ title: i18n.t('modal.inspectTitle'), body: inspectTool(tool) })
     }
     if (element.dataset.editTool) openToolEdit(state.tools.find(item => item.id === element.dataset.editTool))
     if (element.dataset.toggleTool) {
@@ -987,3 +1073,11 @@ reload('', false).then(() => request('system').then(info => {
   if ($('#app-version')) $('#app-version').textContent = `v${info.version}`
   if ($('#sidebar-version')) $('#sidebar-version').textContent = `v${info.version}`
 }).catch(() => {})).catch(error => toastError(error.message))
+
+const carbon = $('.carbon-fx')
+carbon?.addEventListener('pointermove', event => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const box = carbon.getBoundingClientRect()
+  carbon.style.setProperty('--mx', `${((event.clientX - box.left) / box.width) * 100}%`)
+  carbon.style.setProperty('--my', `${((event.clientY - box.top) / box.height) * 100}%`)
+})

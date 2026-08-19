@@ -1,0 +1,65 @@
+/* Page + dashboard motion. Inlined fade-up / sheen (same idea as MIT animate.css fadeInUp + Animista sweep). */
+@keyframes motion-enter {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+.route-stage, .view.active { animation: motion-enter .42s var(--ease) both; }
+.title-swap { animation: motion-enter .32s var(--ease) both; }
+
+.view.active .dash-meter { animation: motion-enter .5s var(--ease) both; }
+.view.active .dash-meter:nth-child(1) { animation-delay: 40ms; }
+.view.active .dash-meter:nth-child(2) { animation-delay: 90ms; }
+.view.active .dash-meter:nth-child(3) { animation-delay: 140ms; }
+.view.active .dash-meter:nth-child(4) { animation-delay: 190ms; }
+.view.active .status-card, .view.active .dashboard-split > .dash-module { animation: motion-enter .55s var(--ease) both; animation-delay: 220ms; }
+.view.active .status-lines li { animation: motion-enter .4s var(--ease) both; }
+.view.active .status-lines li:nth-child(1) { animation-delay: 260ms; }
+.view.active .status-lines li:nth-child(2) { animation-delay: 310ms; }
+.view.active .status-lines li:nth-child(3) { animation-delay: 360ms; }
+.view.active .status-lines li:nth-child(4) { animation-delay: 410ms; }
+.view.active .activity-log li { animation: motion-enter .35s var(--ease) both; }
+.view.active .activity-log li:nth-child(1) { animation-delay: 280ms; }
+.view.active .activity-log li:nth-child(2) { animation-delay: 330ms; }
+.view.active .activity-log li:nth-child(3) { animation-delay: 380ms; }
+.view.active .activity-log li:nth-child(n+4) { animation-delay: 420ms; }
+.view.active .shortcut-grid .ui-button { animation: motion-enter .4s var(--ease) both; }
+.view.active .shortcut-grid .ui-button:nth-child(1) { animation-delay: 260ms; }
+.view.active .shortcut-grid .ui-button:nth-child(2) { animation-delay: 310ms; }
+.view.active .shortcut-grid .ui-button:nth-child(3) { animation-delay: 360ms; }
+.view.active .shortcut-grid .ui-button:nth-child(4) { animation-delay: 410ms; }
+
+.dash-meter, .dash-module, .home-page .dash-module {
+  transition: transform var(--duration) var(--ease), border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+.dash-meter:hover, .dash-module:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border-default));
+  box-shadow: var(--shadow-glow), var(--shadow-md);
+}
+
+.dash-meter { position: relative; overflow: hidden; }
+.dash-meter::after {
+  position: absolute; inset: 0; pointer-events: none; content: '';
+  background: linear-gradient(105deg, transparent 36%, color-mix(in srgb, var(--accent) 18%, transparent) 50%, transparent 64%);
+  background-size: 220% 100%; opacity: 0;
+}
+.dash-meter:hover::after { opacity: 1; animation: dash-flow 1.05s linear; }
+
+.shortcut-grid .ui-button { position: relative; overflow: hidden; min-height: 48px; }
+.shortcut-grid .ui-button::after {
+  position: absolute; inset: 0; pointer-events: none; content: '';
+  background: linear-gradient(105deg, transparent 38%, color-mix(in srgb, var(--accent) 22%, transparent) 50%, transparent 62%);
+  background-size: 220% 100%; opacity: 0;
+}
+.shortcut-grid .ui-button:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); box-shadow: var(--shadow-glow); }
+.shortcut-grid .ui-button:hover::after { opacity: 1; animation: dash-flow 1s linear; }
+
+.nav-item, .top-nav a { transition: background var(--duration) var(--ease), color var(--duration) var(--ease), border-color var(--duration) var(--ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .route-stage, .view.active, .title-swap, .view.active .dash-meter, .view.active .status-card, .view.active .dashboard-split > .dash-module, .view.active .status-lines li, .view.active .activity-log li, .view.active .shortcut-grid .ui-button, .dash-meter::after, .shortcut-grid .ui-button::after {
+    animation: none !important;
+  }
+  .dash-meter:hover, .dash-module:hover { transform: none; }
+}

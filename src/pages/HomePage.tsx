@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import categories from '../data/categories.json'
@@ -16,31 +16,76 @@ import EmptyState from '../components/ui/EmptyState'
 const navItems = navigation as NavigationItem[]
 const categoryItems = categories as Category[]
 const siteConfig = site as SiteConfig
+const quota = 5 * 1024 * 1024
+
+type Telemetry = { bootMs: number; storage: number; heap: number; heapLimit: number; online: boolean }
+
+function readTelemetry(): Telemetry {
+  const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+  let storage = 0
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i) || ''
+    storage += key.length + (localStorage.getItem(key)?.length || 0)
+  }
+  storage *= 2
+  const mem = 'memory' in performance ? (performance as Performance & { memory: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory : null
+  return {
+    bootMs: Math.round(nav?.duration || performance.now()),
+    storage,
+    heap: mem?.usedJSHeapSize || 0,
+    heapLimit: mem?.jsHeapSizeLimit || 0,
+    online: navigator.onLine,
+  }
+}
+
+function kb(bytes: number) { return bytes < 1024 ? `${bytes} B` : `${Math.round(bytes / 1024)} KB` }
 
 export default function HomePage() {
   const { openPalette } = useContext(SearchContext)
   const tools = useTools()
   const [recentIds] = useState(recentTools)
   const [favoriteIds] = useState(favoriteTools)
+  const [telemetry, setTelemetry] = useState(readTelemetry)
   const enabledNav = navItems.filter(item => item.enabled)
   const enabledTools = tools.filter(tool => tool.enabled)
   const groups = categoryItems.map(category => ({ category, items: enabledNav.filter(item => item.category === category.id).sort((a, b) => a.order - b.order) })).filter(group => group.items.length)
   const starred = enabledTools.filter(tool => favoriteIds.includes(tool.id)).sort((a, b) => a.order - b.order)
   const recent = useMemo(() => recentIds.map(id => tools.find(tool => tool.id === id)).filter((tool): tool is ToolDefinition => Boolean(tool)), [recentIds, tools])
+  const quick = starred.length ? starred : enabledTools.slice().sort((a, b) => a.order - b.order).slice(0, 4)
+  useEffect(() => { document.title = siteConfig.title; setTelemetry(readTelemetry()) }, [])
+  const meters = [
+    { label: 'TOOLS', value: `${enabledTools.length}/${tools.length || enabledTools.length}`, fill: tools.length ? enabledTools.length / tools.length : 1 },
+    { label: 'SITES', value: String(enabledNav.length), fill: navItems.length ? enabledNav.length / navItems.length : 0 },
+    { label: 'STORAGE', value: kb(telemetry.storage), fill: Math.min(1, telemetry.storage / quota) },
+    telemetry.heap ? { label: 'HEAP', value: kb(telemetry.heap), fill: telemetry.heap / telemetry.heapLimit } : { label: 'BOOT', value: `${telemetry.bootMs} ms`, fill: Math.min(1, telemetry.bootMs / 800) },
+  ]
   return (
     <main className="page home-page">
-      <section className="hero">
+      <section className="hero dash-hero">
+        <p className="dash-kicker"><span className={`status-dot${telemetry.online ? '' : ' is-offline'}`} /> {telemetry.online ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE'} · LOCAL · {telemetry.bootMs} ms</p>
         <h1>你的个人<br /><span>开发者工作台</span></h1>
-        <p>{siteConfig.description}</p>
+        <p>{siteConfig.tagline}</p>
         <button type="button" className="hero-search" onClick={openPalette} aria-label="打开命令面板">
           <Search size={20} /><span>搜索工具、网站、命令...</span><span className="hero-search-hint"><kbd>⌘ K</kbd></span>
         </button>
-        <p className="workspace-strip">已收录 {enabledTools.length} 个工具 · {enabledNav.length} 个网站 · 最近使用 {recent.length} 个</p>
       </section>
-      {starred.length > 0 && <section className="quick-tools"><div className="section-heading"><h2>常用工具</h2><Link to="/tools">全部工具</Link></div><div className="tool-grid">{starred.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div></section>}
-      {recent.length > 0 && <section className="recent-tools"><div className="section-heading"><h2>最近使用</h2></div><div className="tool-grid">{recent.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div></section>}
-      {groups.length > 0 && <section><div className="section-heading"><h2>网站导航</h2><span>{enabledNav.length} 个网站</span></div><NavigationGrid groups={groups} /></section>}
-      {enabledTools.length > 0 && <section className="tools-section"><div className="section-heading"><h2>全部工具</h2><Link to="/tools">{enabledTools.length} 个工具</Link></div><div className="tool-grid">{enabledTools.sort((a, b) => a.order - b.order).map(tool => <ToolCard key={tool.id} tool={tool} />)}</div></section>}
+      <section className="dash-telemetry" aria-label="工作区遥测">
+        {meters.map(item => (
+          <article className="dash-meter" key={item.label}>
+            <small>{item.label}</small>
+            <strong>{item.value}</strong>
+            <span className="dash-flow" style={{ ['--fill' as string]: String(item.fill) }} />
+          </article>
+        ))}
+      </section>
+      {quick.length > 0 && (
+        <section className="dash-module quick-tools">
+          <div className="section-heading"><h2>快捷工具</h2><Link to="/tools">全部工具</Link></div>
+          <div className="tool-grid">{quick.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>
+        </section>
+      )}
+      {recent.length > 0 && <section className="dash-module recent-tools"><div className="section-heading"><h2>最近使用</h2></div><div className="tool-grid">{recent.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div></section>}
+      {groups.length > 0 && <section className="dash-module"><div className="section-heading"><h2>网站导航</h2><Link to="/nav">{enabledNav.length} 个网站</Link></div><NavigationGrid groups={groups} /></section>}
       {!groups.length && !enabledTools.length && <EmptyState title="没有找到匹配内容"><p>试试命令面板搜索。</p></EmptyState>}
     </main>
   )

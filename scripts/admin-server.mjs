@@ -516,7 +516,11 @@ const server = createServer(async (req, res) => {
       if (key !== 'site' && id && (req.method === 'PUT' || req.method === 'DELETE')) { const index = value.findIndex(item => item.id === id); if (index < 0) return send(res, 404, { error: 'Not found' }); if (req.method === 'DELETE') { if (key === 'categories' && navigationCache.some(item => item.category === id)) return send(res, 409, { error: '分类仍被网址使用' }); value.splice(index, 1) } else value[index] = { ...value[index], ...(await body(req)), id }; await save(key, value); return send(res, 200, value) }
       return send(res, 405, { error: 'Method not allowed' })
     }
-    if (url.pathname === '/shared/design-tokens.css') return send(res, 200, await readFile(join(root, 'shared/design-tokens.css')), MIME_TYPES['.css'])
+    if (url.pathname.startsWith('/shared/')) {
+      const file = resolve(join(root, 'shared'), `.${url.pathname.slice('/shared'.length)}`)
+      if (!file.startsWith(join(root, 'shared'))) return send(res, 403, { error: 'Forbidden' })
+      try { return send(res, 200, await readFile(file), MIME_TYPES[extname(file)] || 'application/octet-stream') } catch { return send(res, 404, { error: 'Not found' }) }
+    }
     if (url.pathname.startsWith('/__tool_preview/')) return servePreviewAsset(req.url || '/', res)
     if (url.pathname === '/toolbox-bridge.js') return send(res, 200, await readFile(join(toolsDir, 'toolbox-bridge.js')), MIME_TYPES['.js'])
     if (url.pathname.startsWith('/tools/')) return serveToolAsset(req.url || '/', res)

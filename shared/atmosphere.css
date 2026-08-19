@@ -1,0 +1,129 @@
+.carbon-fx { position: relative; isolation: isolate; --mx: 52%; --my: 18%; }
+.carbon-fx::before, .carbon-fx::after { position: absolute; inset: 0; pointer-events: none; content: ''; z-index: 0; }
+.carbon-fx > * { position: relative; z-index: 1; }
+
+/* home / dash：技术网格 + 扫描线 + 鼠标光斑 */
+.carbon-fx::before, .carbon-fx[data-scene="home"]::before, .carbon-fx[data-scene="dash"]::before {
+  background-image: linear-gradient(color-mix(in srgb, var(--accent) 7%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent) 1px, transparent 1px), repeating-linear-gradient(180deg, transparent 0 3px, color-mix(in srgb, var(--accent) 8%, transparent) 3px 4px);
+  background-size: 32px 32px, 32px 32px, 100% 4px;
+  mask-image: linear-gradient(to bottom, var(--text-primary) 12%, transparent 78%);
+  opacity: .22;
+}
+.carbon-fx::after, .carbon-fx[data-scene="home"]::after, .carbon-fx[data-scene="dash"]::after {
+  background: radial-gradient(520px circle at var(--mx) var(--my), color-mix(in srgb, var(--accent) 16%, transparent), transparent 58%);
+  opacity: .55;
+}
+
+/* tools：竖向工位线 + 扁长光斑（目录浏览） */
+.carbon-fx[data-scene="tools"]::before {
+  background-image: repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent) 0 1px, transparent 1px 72px), repeating-linear-gradient(180deg, transparent 0 3px, color-mix(in srgb, var(--accent) 6%, transparent) 3px 4px);
+  background-size: auto, 100% 4px;
+  mask-image: linear-gradient(to bottom, var(--text-primary), transparent 88%);
+  opacity: .2;
+}
+.carbon-fx[data-scene="tools"]::after {
+  background:
+    radial-gradient(560px 220px ellipse at var(--mx) var(--my), color-mix(in srgb, var(--accent) 18%, transparent), transparent 62%),
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 10%, transparent), transparent);
+  background-size: auto, 180% 100%;
+  background-position: 0 0, var(--mx) 0;
+  opacity: .5;
+  animation: dash-flow 7s linear infinite;
+}
+
+/* market：斜向舱格 */
+.carbon-fx[data-scene="market"]::before {
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, transparent) 0 1px, transparent 1px 22px);
+  mask-image: radial-gradient(circle at var(--mx) var(--my), var(--text-primary), transparent 72%);
+  opacity: .24;
+}
+.carbon-fx[data-scene="market"]::after {
+  background: conic-gradient(from 210deg at var(--mx) var(--my), transparent, color-mix(in srgb, var(--accent) 14%, transparent), transparent 42%);
+  opacity: .4;
+}
+
+/* nav：站点星图 */
+.carbon-fx[data-scene="nav"]::before {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--accent) 55%, transparent) 1px, transparent 1.6px);
+  background-size: 26px 26px;
+  background-position: calc(var(--mx) * .04) calc(var(--my) * .04);
+  mask-image: radial-gradient(circle at var(--mx) var(--my), var(--text-primary), transparent 70%);
+  opacity: .35;
+}
+.carbon-fx[data-scene="nav"]::after {
+  background:
+    radial-gradient(680px circle at var(--mx) var(--my), color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+    radial-gradient(240px circle at calc(var(--mx) + 12%) calc(var(--my) - 8%), color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
+  opacity: .5;
+}
+
+/* runtime：压暗，不抢工具 */
+.carbon-fx[data-scene="runtime"]::before {
+  background-image: linear-gradient(color-mix(in srgb, var(--accent) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: .08;
+  mask-image: none;
+}
+.carbon-fx[data-scene="runtime"]::after {
+  background: radial-gradient(280px circle at var(--mx) var(--my), color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%);
+  opacity: .35;
+  animation: none;
+}
+
+/* cms：表行扫描 */
+.carbon-fx[data-scene="cms"]::before {
+  background-image: repeating-linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent) 0 1px, transparent 1px 28px);
+  mask-image: linear-gradient(to right, transparent, var(--text-primary) 12%, var(--text-primary) 88%, transparent);
+  opacity: .18;
+}
+.carbon-fx[data-scene="cms"]::after {
+  background: linear-gradient(180deg, transparent calc(var(--my) - 6%), color-mix(in srgb, var(--accent) 14%, transparent) var(--my), transparent calc(var(--my) + 6%));
+  opacity: .55;
+  animation: none;
+}
+
+/* form：侧翼光 */
+.carbon-fx[data-scene="form"]::before {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 36%);
+  mask-image: none;
+  opacity: .35;
+}
+.carbon-fx[data-scene="form"]::after {
+  background: radial-gradient(360px circle at var(--mx) var(--my), color-mix(in srgb, var(--accent) 12%, transparent), transparent 64%);
+  opacity: .4;
+}
+
+.dash-meter, .dash-module, .ui-glass { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-card) 82%, transparent); backdrop-filter: blur(14px); }
+.dash-meter { display: grid; gap: 8px; padding: 14px 16px; animation: dash-boot .5s var(--ease) both; }
+.dash-meter:nth-child(2) { animation-delay: 60ms; }
+.dash-meter:nth-child(3) { animation-delay: 120ms; }
+.dash-meter:nth-child(4) { animation-delay: 180ms; }
+.dash-meter small { color: var(--text-faint); font: 10px var(--font-mono); letter-spacing: .14em; }
+.dash-meter strong { font: 600 22px/1.1 var(--font-mono); letter-spacing: -.04em; }
+.dash-flow { display: block; height: 2px; border-radius: 99px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 20%, transparent), var(--accent), transparent); background-size: 220% 100%; transform-origin: left; transform: scaleX(var(--fill, .4)); animation: dash-flow 3.2s linear infinite; }
+.dash-module { padding: 16px 18px 18px; animation: dash-boot .55s var(--ease) both; }
+.activity-log { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.activity-log li { display: grid; gap: 2px; padding: 10px 10px 10px 14px; border-left: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); color: var(--text-primary); font-size: 13px; }
+.activity-log small { color: var(--accent); font: 10px var(--font-mono); letter-spacing: .08em; }
+.activity-log li.activity-empty { border-left: 0; color: var(--text-faint); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: dash-breathe 2.4s ease-in-out infinite; }
+.status-dot.is-offline { background: var(--danger); box-shadow: 0 0 10px var(--danger); animation: none; }
+
+.tool-card, .nav-card, .market-card { position: relative; overflow: hidden; }
+.tool-card::before, .nav-card::before, .market-card::before {
+  position: absolute; inset: 0; pointer-events: none; content: ''; border-radius: inherit; z-index: 0;
+  background: linear-gradient(105deg, transparent 38%, color-mix(in srgb, var(--accent) 16%, transparent) 50%, transparent 62%);
+  background-size: 220% 100%; opacity: 0; transition: opacity var(--duration) var(--ease);
+}
+.tool-card:hover::before, .nav-card:hover::before, .market-card:hover::before { opacity: 1; animation: dash-flow 1.1s linear; }
+.tool-card > *, .nav-card > *, .market-card > * { position: relative; z-index: 1; }
+.carbon-fx[data-scene="nav"] .nav-card:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); box-shadow: var(--shadow-glow); }
+.carbon-fx[data-scene="tools"] .tool-card:hover, .carbon-fx[data-scene="home"] .tool-card:hover, .carbon-fx[data-scene="market"] .market-card:hover { box-shadow: var(--shadow-glow); }
+
+@keyframes dash-breathe { 50% { opacity: .35; } }
+@keyframes dash-boot { from { opacity: 0; transform: translateY(10px); } }
+@keyframes dash-flow { to { background-position: 220% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot, .dash-flow, .dash-meter, .dash-module, .carbon-fx::after, .tool-card::before, .nav-card::before, .market-card::before { animation: none; }
+}

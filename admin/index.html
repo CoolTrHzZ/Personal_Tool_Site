@@ -3,12 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Developer Console</title>
+  <title>DevOS Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/shared/design-tokens.css">
+  <link rel="stylesheet" href="/shared/atmosphere.css">
+  <link rel="stylesheet" href="/shared/motion.css">
   <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
-  <div class="admin-shell">
+  <div class="admin-shell carbon-fx" data-scene="dash">
     <button type="button" class="admin-menu-btn ui-button ui-button-ghost ui-button-sm" id="admin-menu" aria-expanded="false">菜单</button>
     <aside class="sidebar">
       <div class="admin-brand">
@@ -48,14 +53,14 @@
       </header>
 
       <section class="view active content-wide" data-view-panel="dashboard">
-        <div class="stats-grid">
-          <article class="ui-card stat-card"><small data-i18n="dash.tools">工具</small><strong id="stat-tools">—</strong></article>
-          <article class="ui-card stat-card"><small data-i18n="dash.websites">网站</small><strong id="stat-websites">—</strong></article>
-          <article class="ui-card stat-card"><small data-i18n="dash.categories">分类</small><strong id="stat-categories">—</strong></article>
-          <article class="ui-card stat-card"><small data-i18n="dash.tags">标签</small><strong id="stat-tags">—</strong></article>
+        <div class="dash-telemetry stats-grid">
+          <article class="dash-meter"><small data-i18n="dash.tools">工具</small><strong id="stat-tools">—</strong><span class="dash-flow" data-fill="tools"></span></article>
+          <article class="dash-meter"><small data-i18n="dash.websites">网站</small><strong id="stat-websites">—</strong><span class="dash-flow" data-fill="websites"></span></article>
+          <article class="dash-meter"><small data-i18n="dash.categories">分类</small><strong id="stat-categories">—</strong><span class="dash-flow" data-fill="categories"></span></article>
+          <article class="dash-meter"><small data-i18n="dash.tags">标签</small><strong id="stat-tags">—</strong><span class="dash-flow" data-fill="tags"></span></article>
         </div>
         <div class="status-grid">
-          <article class="ui-card status-card">
+          <article class="ui-card status-card dash-module">
             <small data-i18n="dash.system">系统状态</small>
             <ul class="status-lines">
               <li><span data-i18n="dash.data">数据状态</span> <strong id="status-data">● 正常</strong></li>
@@ -66,11 +71,11 @@
           </article>
         </div>
         <div class="dashboard-split">
-          <section class="ui-card panel">
-            <h2 data-i18n="dash.recent">最近操作</h2>
-            <ul id="activity-list" class="activity-list"></ul>
+          <section class="ui-card panel dash-module">
+            <h2 data-i18n="dash.recent">活动日志</h2>
+            <ol id="activity-list" class="activity-log"></ol>
           </section>
-          <section class="ui-card panel">
+          <section class="ui-card panel dash-module">
             <h2 data-i18n="dash.shortcuts">快捷入口</h2>
             <div class="shortcut-grid">
               <button type="button" class="ui-button ui-button-ghost" data-view="websites" data-i18n="nav.websites">网站导航</button>
@@ -104,18 +109,36 @@
 
       <section class="view" data-view-panel="tools">
         <section class="ui-card panel">
-          <h2 data-i18n="nav.tools">工具管理</h2>
-          <p class="muted" data-i18n="tools.hint">拖入 .html / .zip 即可导入；向导自动识别格式、生成 manifest 并支持实际预览。</p>
+          <div class="panel-toolbar">
+            <h2 data-i18n="nav.tools">工具管理</h2>
+            <div class="toolbar-actions">
+              <button type="button" class="ui-button ui-button-primary ui-button-sm" data-view="import" data-i18n="tools.importCta">导入工具</button>
+              <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="rebuild-index" data-i18n="tools.rebuild">重建索引</button>
+            </div>
+          </div>
+          <p class="muted" data-i18n="tools.indexHint">工具目录内 manifest.json 为 Source of Truth，索引自动重建。</p>
+          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Tool</th><th>Runtime</th><th>Format</th><th>Version</th><th>Status</th><th>Updated</th><th>操作</th></tr></thead><tbody id="tools"></tbody></table></div>
+        </section>
+      </section>
+
+      <section class="view" data-view-panel="import">
+        <section class="ui-card panel import-panel">
+          <p class="edit-kicker">IMPORT WIZARD</p>
+          <h2 data-i18n="nav.import">导入向导</h2>
+          <p class="muted" data-i18n="tools.hint">拖入 .html / .zip 启动向导；识别格式、生成 manifest，并在沙箱中预览。</p>
+          <ol class="import-rail" aria-hidden="true">
+            <li>01 识别</li>
+            <li>02 元数据</li>
+            <li>03 权限</li>
+            <li>04 兼容</li>
+            <li>05 预览</li>
+            <li>06 导入</li>
+          </ol>
           <div id="tool-dropzone" class="dropzone" tabindex="0" role="button" aria-label="import tool">
             <strong data-i18n="tools.dropTitle">拖拽工具到此处，或点击选择文件</strong>
             <small data-i18n="tools.dropHint">单个 .html / .htm / .zip · 最大 20MB · ZIP 可不含 manifest.json</small>
-            <input type="file" id="tool-file-input" accept=".html,.htm,.zip" hidden>
           </div>
-          <div class="tools-toolbar">
-            <span class="muted" data-i18n="tools.indexHint">工具目录内 manifest.json 为 Source of Truth，索引自动重建。</span>
-            <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="rebuild-index" data-i18n="tools.rebuild">重建索引</button>
-          </div>
-          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Tool</th><th>Runtime</th><th>Format</th><th>Version</th><th>Status</th><th>Updated</th><th>操作</th></tr></thead><tbody id="tools"></tbody></table></div>
+          <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-view="tools" data-i18n="tools.backToList">查看已安装工具</button>
         </section>
       </section>
 
@@ -232,7 +255,10 @@
 
   <div id="tool-edit" class="ui-modal-backdrop" hidden>
     <div class="ui-modal ui-card tool-edit-modal" role="dialog" aria-modal="true">
-      <h2 id="tool-edit-title">编辑 Manifest</h2>
+      <header class="tool-edit-head">
+        <p class="edit-kicker">MANIFEST</p>
+        <h2 id="tool-edit-title">编辑 Manifest</h2>
+      </header>
       <div id="tool-edit-body"></div>
       <div class="ui-modal-actions">
         <button type="button" class="ui-button ui-button-ghost" id="tool-edit-cancel" data-i18n="modal.cancel">取消</button>
@@ -280,6 +306,7 @@
   </aside>
 
   <div id="toasts" class="toasts" aria-live="polite"></div>
+  <input type="file" id="tool-file-input" accept=".html,.htm,.zip" hidden>
   <script type="module" src="/admin/admin.js"></script>
 </body>
 </html>

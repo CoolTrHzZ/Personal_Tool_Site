@@ -2,15 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import navigation from '../../data/navigation.json'
-import site from '../../data/site.json'
-import type { NavigationItem, SiteConfig } from '../../types'
+import type { NavigationItem } from '../../types'
 import { useTools } from '../../tools/runtime/ToolCatalog'
 import { addRecentTool, saveSearch } from '../../utils/user-state'
 import Modal from '../ui/Modal'
 import Input from '../ui/Input'
 
 const sites = navigation as NavigationItem[]
-const siteConfig = site as SiteConfig
 
 export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const tools = useTools()
@@ -23,7 +21,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const siteHits = useMemo(() => sites.filter(item => item.enabled && (!q || [item.name, item.url, item.description, ...item.tags].some(value => value.toLowerCase().includes(q)))).slice(0, 6), [q])
   const commands = useMemo(() => [
     { id: 'tools', name: '管理当前可用工具', hint: '工具', run: () => navigate('/tools') },
-    { id: 'admin', name: '打开系统设置中心', hint: '管理', run: () => { window.open(siteConfig.adminUrl, '_blank', 'noopener,noreferrer') } },
+    { id: 'nav', name: '打开网站导航', hint: '导航', run: () => navigate('/nav') },
   ].filter(item => !q || item.name.toLowerCase().includes(q) || item.hint.toLowerCase().includes(q)), [navigate, q])
   const items = [
     ...toolHits.map(tool => ({ run: () => { addRecentTool(tool.id); navigate(tool.path) } })),

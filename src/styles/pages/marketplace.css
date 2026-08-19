@@ -10,7 +10,7 @@
 .tool-open { color: var(--accent); font-size: 12px; font-weight: 700; }
 .tool-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--text-secondary); }
 .tool-badges { display: flex; flex-wrap: wrap; gap: 5px; }
-.favorite-button { position: absolute; top: 10px; right: 10px; min-width: 28px; color: var(--accent); }
+.favorite-button { position: absolute; top: 10px; right: 10px; z-index: 2; min-width: 28px; color: var(--accent); }
 .tool-filters { display: grid; gap: 14px; margin-top: 28px; }
 .market-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .market-toolbar .ui-field { min-width: 160px; }
