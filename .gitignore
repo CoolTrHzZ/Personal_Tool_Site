@@ -20,6 +20,6 @@ src/data/*.tmp
 .tool-staging/
 
 test-results/
-
+Personal_Tool_Site产品原型图.pdf/
 playwright-report/
 e2e/screenshots/
