@@ -1,3 +1,1 @@
-html { background: var(--bg-primary); }
-body { color: var(--text-primary); background: var(--bg-primary); }
-button, input, textarea, select { color: inherit; }
+/* theme aliases live in shared/design-tokens.css */

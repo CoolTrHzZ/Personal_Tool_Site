@@ -1,0 +1,23 @@
+.tool-grid, .marketplace-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.tool-grid-large { margin-top: 28px; }
+.tool-card { position: relative; display: flex; min-height: 148px; padding: 16px; padding-right: 40px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-card); transition: transform var(--duration) var(--ease), border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease); }
+.tool-card:hover { transform: translateY(-2px); border-color: var(--border-hover); box-shadow: var(--shadow-md); }
+.tool-card:hover .tool-icon { background: var(--accent-soft); color: var(--accent); }
+.tool-card-link { display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0; }
+.tool-card-copy { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tool-card-copy small { display: -webkit-box; overflow: hidden; color: var(--text-secondary); font-size: 12px; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tool-meta-line { color: var(--text-faint); font-size: 11px; }
+.tool-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--text-secondary); }
+.tool-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.favorite-button { position: absolute; top: 10px; right: 10px; min-width: 28px; color: var(--accent); }
+.tool-filters { display: grid; gap: 14px; margin-top: 28px; }
+.market-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.market-toolbar .ui-field { min-width: 160px; }
+.tool-filters > .ui-input { width: min(480px, 100%); min-height: 42px; }
+.tool-filters > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.empty, .not-found { padding: 90px 0; color: var(--text-secondary); text-align: center; }
+.empty h2, .not-found h1 { margin-top: 16px; color: var(--text-primary); font-size: 24px; }
+
+@media (max-width: 767px) { .tool-grid, .marketplace-grid { grid-template-columns: 1fr; } }
+@media (min-width: 1200px) { .tool-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); } }
+@media (min-width: 1920px) { .tool-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }

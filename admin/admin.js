@@ -39,13 +39,16 @@ const button = (label, data = {}, className = 'ui-button ui-button-ghost ui-butt
 }
 const input = (name, value, label) => {
   const wrapper = document.createElement('label')
-  wrapper.append(label || name)
+  wrapper.className = 'ui-field'
+  const caption = document.createElement('span')
+  caption.className = 'ui-field-label'
+  caption.textContent = label || name
   const element = document.createElement('input')
   element.name = name
   element.value = value ?? ''
   element.required = true
   element.className = 'ui-input'
-  wrapper.append(element)
+  wrapper.append(caption, element)
   return wrapper
 }
 const readActivity = () => { try { const value = JSON.parse(localStorage.getItem(ACTIVITY_KEY) || '[]'); return Array.isArray(value) ? value : [] } catch { return [] } }
@@ -148,9 +151,11 @@ function renderStats() {
 }
 function renderCategories() {
   $('#categories').replaceChildren(...state.categories.slice().sort((a, b) => a.order - b.order).map(category => {
+    const sites = state.navigation.filter(item => item.category === category.id).length
+    const tools = state.tools.filter(item => item.category === category.id).length
     const row = document.createElement('div')
     row.className = 'row'
-    row.append(text('strong', category.name), text('small', `${category.id} · ${category.icon} · order ${category.order}`))
+    row.append(text('strong', category.name), text('small', `${sites} 网站 · ${tools} 工具`))
     const actions = document.createElement('span')
     actions.append(button(i18n.t('table.edit'), { editCategory: category.id }), button(i18n.t('table.delete'), { deleteCategory: category.id }, 'ui-button ui-button-danger ui-button-sm'))
     row.append(actions)
@@ -300,6 +305,30 @@ async function reload(message = i18n.t('msg.updated'), record = true) {
   if (record) logActivity(message)
 }
 
+function closeEditorDrawer() {
+  $('#editor-drawer').hidden = true
+  $('#nav-form').hidden = true
+  $('#category-form').hidden = true
+}
+function openWebsiteDrawer(item) {
+  $('#category-form').hidden = true
+  const form = $('#nav-form')
+  form.hidden = false
+  $('#editor-drawer-title').textContent = item ? i18n.t('form.saveWebsite') : i18n.t('form.addWebsite')
+  if (item) fill(form, item, true)
+  else { form.reset(); form.elements.originalId.value = ''; form.querySelector('button').textContent = i18n.t('form.saveWebsite') }
+  $('#editor-drawer').hidden = false
+}
+function openCategoryDrawer(item) {
+  $('#nav-form').hidden = true
+  const form = $('#category-form')
+  form.hidden = false
+  $('#editor-drawer-title').textContent = item ? i18n.t('form.saveCategory') : i18n.t('form.addCategory')
+  if (item) fill(form, item)
+  else { form.reset(); form.elements.originalId.value = ''; form.querySelector('button').textContent = i18n.t('form.saveCategory') }
+  $('#editor-drawer').hidden = false
+}
+
 function fill(form, item, tags = false) {
   for (const [key, value] of Object.entries(item)) {
     const fieldElement = form.elements[key]
@@ -308,8 +337,6 @@ function fill(form, item, tags = false) {
     else fieldElement.value = tags && Array.isArray(value) ? value.join(', ') : value
   }
   form.elements.originalId.value = item.id
-  form.querySelector('button').textContent = form.id === 'category-form' ? i18n.t('form.saveCategory') : i18n.t('form.saveWebsite')
-  form.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
 // ---------------- Import Wizard：StepRegistry + WizardState + 错误边界（v3.0.1 P0）----------------
@@ -435,7 +462,7 @@ function collectWizardStep3() {
 function renderWizardStep4() {
   const { analysis } = wizard
   const body = $('#wizard-body')
-  body.replaceChildren(el('p', 'muted', i18n.t('wizard.compatHint')))
+  body.replaceChildren(el('strong', 'compat-grade', analysis.compat.some(issue => issue.level === 'warn') ? 'B' : 'A'), el('p', 'muted', i18n.t('wizard.compatHint')))
   // sameOrigin 等危险提示必须保留到用户确认（v3.0.1 六）
   if (wizard.warning) body.append(el('p', 'wizard-warning-box', `⚠ ${wizard.warning}`))
   if (!analysis.compat.length && !analysis.notes.length) body.append(el('p', 'check-ok', i18n.t('wizard.compatClean')))
@@ -541,6 +568,9 @@ function renderWizard() {
     item.classList.toggle('active', step === wizard.step)
     item.classList.toggle('done', step < wizard.step)
   })
+  const dialog = $('.wizard')
+  dialog.classList.remove('wizard-md', 'wizard-lg', 'wizard-preview')
+  dialog.classList.add(wizard.step === 5 ? 'wizard-preview' : wizard.step === 3 ? 'wizard-lg' : 'wizard-md')
   WIZARD_STEPS[wizard.step]?.render()
   $('#wizard-prev').disabled = wizard.step === 1
   $('#wizard-next').textContent = wizard.step === 6 ? i18n.t('wizard.import') : i18n.t('wizard.next')
@@ -702,6 +732,16 @@ bind('#tag-query', 'input', event => { tagsView.query = event.target.value; tags
 bind('#tag-source', 'change', event => { tagsView.source = event.target.value; tagsView.page = 1; renderTags() })
 bind('#tag-sort', 'change', event => { tagsView.sort = event.target.value; tagsView.page = 1; renderTags() })
 bind('#tag-size', 'change', event => { tagsView.pageSize = Number(event.target.value) || 20; tagsView.page = 1; renderTags() })
+bind('#editor-drawer-close', 'click', closeEditorDrawer)
+bind('#admin-menu', 'click', () => {
+  const shell = $('.admin-shell')
+  const open = shell.classList.toggle('nav-open')
+  $('#admin-menu').setAttribute('aria-expanded', String(open))
+})
+bind('#website-query', 'input', () => {
+  const q = ($('#website-query').value || '').toLowerCase()
+  document.querySelectorAll('#navigation .row').forEach(row => { row.hidden = q && !row.textContent.toLowerCase().includes(q) })
+})
 bind('#tag-drawer-close', 'click', () => { $('#tag-drawer').hidden = true; tagsView.current = null })
 
 // ---------------- 全局事件 ----------------
@@ -717,10 +757,16 @@ bind('#run-validate', 'click', async () => {
     $('#validate-result').replaceChildren(summary, ...result.issues.map(issue => text('p', issue)))
   } catch (error) { toastError(error.message) }
 })
+const withBusy = async (form, fn) => {
+  const submit = form.querySelector('button[type="submit"], button.ui-button-primary')
+  const previous = submit?.textContent
+  if (submit) { submit.disabled = true; submit.textContent = i18n.t('form.saving') }
+  try { return await fn() } finally { if (submit) { submit.disabled = false; submit.textContent = previous } }
+}
 bind('#site', 'submit', async event => {
   event.preventDefault()
   const data = Object.fromEntries(new FormData(event.target))
-  try { await request('site', { method: 'PUT', body: JSON.stringify(data) }); await reload(i18n.t('msg.savedSite')) } catch (error) { toastError(error.message) }
+  try { await withBusy(event.target, async () => { await request('site', { method: 'PUT', body: JSON.stringify(data) }); await reload(i18n.t('msg.savedSite')) }) } catch (error) { toastError(error.message) }
 })
 bind('#category-form', 'submit', async event => {
   event.preventDefault()
@@ -729,10 +775,12 @@ bind('#category-form', 'submit', async event => {
   delete data.originalId
   data.order = Number(data.order)
   try {
-    await request(originalId ? `categories/${originalId}` : 'categories', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
-    event.target.reset()
-    event.target.querySelector('button').textContent = i18n.t('form.addCategory')
-    await reload(originalId ? i18n.t('msg.savedCategory') : i18n.t('msg.addedCategory'))
+    await withBusy(event.target, async () => {
+      await request(originalId ? `categories/${originalId}` : 'categories', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
+      event.target.reset()
+      closeEditorDrawer()
+      await reload(originalId ? i18n.t('msg.savedCategory') : i18n.t('msg.addedCategory'))
+    })
   } catch (error) { toastError(error.message) }
 })
 bind('#nav-form', 'submit', async event => {
@@ -745,10 +793,12 @@ bind('#nav-form', 'submit', async event => {
   data.order = Number(data.order)
   data.enabled = form.has('enabled')
   try {
-    await request(originalId ? `navigation/${originalId}` : 'navigation', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
-    event.target.reset()
-    event.target.querySelector('button').textContent = i18n.t('form.addWebsite')
-    await reload(originalId ? i18n.t('msg.savedWebsite') : i18n.t('msg.addedWebsite'))
+    await withBusy(event.target, async () => {
+      await request(originalId ? `navigation/${originalId}` : 'navigation', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
+      event.target.reset()
+      closeEditorDrawer()
+      await reload(originalId ? i18n.t('msg.savedWebsite') : i18n.t('msg.addedWebsite'))
+    })
   } catch (error) { toastError(error.message) }
 })
 
@@ -778,8 +828,10 @@ document.addEventListener('click', async event => {
       await reload(i18n.t('msg.tagDeleted', { count: String(result.affected) }))
       return
     }
-    if (element.dataset.edit) fill($('#nav-form'), state.navigation.find(item => item.id === element.dataset.edit), true)
-    if (element.dataset.editCategory) fill($('#category-form'), state.categories.find(item => item.id === element.dataset.editCategory))
+    if (element.dataset.addWebsite) { openWebsiteDrawer(); return }
+    if (element.dataset.addCategory) { openCategoryDrawer(); return }
+    if (element.dataset.edit) { openWebsiteDrawer(state.navigation.find(item => item.id === element.dataset.edit)); return }
+    if (element.dataset.editCategory) { openCategoryDrawer(state.categories.find(item => item.id === element.dataset.editCategory)); return }
     if (element.dataset.inspect) {
       const tool = state.tools.find(item => item.id === element.dataset.inspect)
       const body = document.createElement('pre')
@@ -820,4 +872,7 @@ document.addEventListener('click', async event => {
   } catch (error) { toastError(error.message) }
 })
 
-reload('', false).catch(error => toastError(error.message))
+reload('', false).then(() => request('system').then(info => {
+  if ($('#app-version')) $('#app-version').textContent = `v${info.version}`
+  if ($('#sidebar-version')) $('#sidebar-version').textContent = `v${info.version}`
+}).catch(() => {})).catch(error => toastError(error.message))

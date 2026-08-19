@@ -1,7 +1,7 @@
 {
-  "id": "cs2-rainbow-e2e",
-  "name": "CS2 Rainbow Chat",
-  "description": "CS2 彩虹聊天文字生成器（E2E fixture）",
+  "id": "community-rainbow-chat-generator-v4-unicode-fix",
+  "name": "社区服彩虹聊天控制字符生成器 V4 - Unicode 修复版",
+  "description": "社区服彩虹聊天控制字符生成器 V4 - Unicode 修复版（导入工具）",
   "runtime": "static",
   "format": "single-html",
   "entry": "index.html",
@@ -13,7 +13,7 @@
   "author": "import",
   "tags": [],
   "status": "active",
-  "readme": "CS2 彩虹聊天文字生成器（E2E fixture）",
+  "readme": "社区服彩虹聊天控制字符生成器 V4 - Unicode 修复版",
   "license": "MIT",
   "display": {
     "mode": "embedded",
@@ -33,5 +33,5 @@
   "type": "html",
   "updated": "2026-08-18",
   "favorite": false,
-  "order": 60
+  "order": 70
 }

@@ -1,6 +1,15 @@
-# Personal Tool Site 2.0
+# Personal Tool Site 3.1
 
-Personal Tool Site 是一个面向开发者的静态工作台：导航、React 工具、HTML 工具包和本地内容管理集中在一个 GitHub Pages 项目中。
+Personal Tool Site 是一个本地优先的 **Developer Workspace**：网址导航、React / HTML / ZIP 静态工具、Universal Tool Runtime 和本地 Admin Console 集中在一个可部署到 GitHub Pages 的静态项目中。
+
+当前版本 **3.1.0**。版本号以 `package.json` 为准，前台构建注入 `__APP_VERSION__`，Admin 通过 `/api/system` 读取。
+
+## 产品能力
+
+- **Developer Workspace**：首页以搜索和命令面板为第一交互，收藏 / 最近 / 导航 / 工具分层展示。
+- **Universal Tool Import**：Admin 六步向导识别 HTML / ZIP，生成 Manifest、权限、兼容性检查与预览后导入。
+- **Admin Console**：本地开发者控制台（无账号、无数据库），网站与分类使用 Drawer 编辑。
+- **HTML Tool Runtime**：导入工具在隔离 iframe 中运行；主题通过 Design Token（CSS 变量）桥接到 Toolbox Bridge。
 
 ## 技术栈
 
@@ -9,6 +18,12 @@ Personal Tool Site 是一个面向开发者的静态工作台：导航、React �
 - JSON / Manifest 数据源
 - Local Admin，监听本机，不需要数据库、登录或后端服务
 - GitHub Actions 自动构建与 Pages 发布
+
+## 设计系统
+
+视觉变量唯一来源：`shared/design-tokens.css`。
+
+前台通过 `src/styles/index.css` 引入；Admin 通过 `/shared/design-tokens.css` 引入。Runtime Theme Bridge 读取同一套 CSS 变量。
 
 ## 本地运行
 
@@ -23,7 +38,14 @@ npm run dev
 npm run lint
 npm run typecheck
 npm run validate
+npm test
 npm run build
+```
+
+涉及 Admin / 导入时：
+
+```bash
+npm run test:e2e
 ```
 
 ## Admin Dashboard
@@ -32,14 +54,16 @@ npm run build
 npm run admin
 ```
 
-打开 `http://127.0.0.1:4174/admin`。Dashboard 提供：
+打开 `http://127.0.0.1:4174/admin`。控制台提供：
 
-- Websites：网址 CRUD、启用/禁用
-- Categories：分类 CRUD
-- Tools：上传并校验 `.zip` 工具包
-- Settings：站点配置
+- Dashboard：真实计数与系统状态
+- Websites / Categories：列表 + Drawer 新增 / 编辑
+- Tools：拖入 `.html` / `.zip`，六步 Import Wizard
+- Marketplace / Tags / Settings / Validate
 
 工具包必须包含根目录 `manifest.json` 与 `entry` 指定的入口文件。上传会拒绝路径穿越、隐藏系统文件、重复 id 和无效 manifest；压缩包最大 20MB，请求体最大 25MB。通过校验后写入 `public/tools/<id>/` 和 `public/tools-manifests.json`。
+
+E2E 夹具位于 `tests/fixtures/tools/`，不会长期留在 `public/tools/`。
 
 ## Manifest
 
@@ -60,13 +84,13 @@ npm run admin
 }
 ```
 
-支持三种类型：
+支持：
 
 - `react`：内置 React 工具，组件位于 `src/tools/packages/`。
-- `html`：静态 HTML 工具，由 Runtime Loader 自动生成路由并在 sandbox iframe 中运行。
+- `html` / `static`：静态 HTML 或 ZIP 包，由 Runtime Loader 生成路由并在 sandbox iframe 中运行。
 - `iframe`：与 HTML 工具使用同一安全隔离渲染模式。
 
-运行时从 `public/tools-manifests.json` 读取 manifest，React 工具通过 id 绑定本地组件；HTML 工具不需要修改首页、工具中心或路由文件。
+运行时从 `public/tools-manifests.json` 读取 manifest。HTML 工具不需要修改首页、工具中心或路由文件。
 
 ## 新增工具规范
 
@@ -80,7 +104,7 @@ tool-name/
 └── README.md
 ```
 
-HTML 工具直接在 Admin 上传 zip。内置 React 工具使用：
+HTML 工具直接在 Admin 上传 zip 或单文件 HTML。内置 React 工具使用：
 
 ```text
 src/tools/packages/tool-name/
@@ -88,7 +112,7 @@ src/tools/packages/tool-name/
 └── index.tsx
 ```
 
-React 工具组件统一使用 `ToolShell`，页面会显示名称、描述、版本、分类和 Documentation 区域。
+React 工具组件统一使用 `ToolShell`，页面会显示名称、描述、版本、分类和「使用说明」。
 
 ## 用户状态
 
@@ -111,23 +135,26 @@ Vite 使用相对资源路径，路由使用 HashRouter，因此支持仓库路�
 ## 目录
 
 ```text
+shared/                  共享 Design Token
 src/app/                 应用与动态路由
-src/components/          布局、导航、工具公共组件
-src/pages/               首页、工具中心、404
-src/styles/              设计系统变量、主题、组件样式
+src/components/          布局、导航、工具与 UI 原语
+src/pages/               首页、工具市场、404
+src/styles/              前台样式分层（reset / layout / pages）
 src/tools/manifests/     内置 manifest
 src/tools/packages/      React 工具包
 src/tools/runtime/       Manifest Loader、Catalog、HTML 渲染器
 src/data/                导航、分类、站点 JSON
 src/utils/               favicon 与用户状态
-public/tools/            Admin 上传的静态工具包
-admin/                   本地 Admin Dashboard
+public/tools/            正式静态工具包（不含 *-e2e / fixture）
+admin/                   本地 Developer Console
 scripts/                 Admin API 与数据校验
+tests/fixtures/          测试夹具
 ```
 
 ## 开发约束
 
 - 不提交 `node_modules`、`dist`、日志和本地环境文件。
 - 不引入数据库、登录、复杂权限、Docker 或常驻后端。
+- 不引入大型 UI Framework。
 - 工具包入口必须在包目录内，禁止 `../`、绝对路径和隐藏系统文件。
-- 修改数据或 manifest 后运行四项检查，再提交。
+- 修改数据或 manifest 后运行检查，再提交。

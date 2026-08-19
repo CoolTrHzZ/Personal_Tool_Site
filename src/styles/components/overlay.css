@@ -1,0 +1,12 @@
+.ui-tooltip { position: relative; }
+.ui-tooltip[data-tip]:hover::after, .ui-tooltip[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  padding: 5px 8px; border-radius: 6px; background: var(--surface-overlay); border: 1px solid var(--border-default);
+  color: var(--text-primary); font-size: 11px; white-space: nowrap; z-index: 8; pointer-events: none;
+}
+.ui-toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 95; display: grid; gap: 8px; }
+.ui-toast, .tool-toast { max-width: 320px; padding: 11px 14px; border: 1px solid var(--border-hover); border-radius: var(--radius-sm); background: var(--surface-overlay); color: var(--text-primary); font-size: 13px; box-shadow: var(--shadow-md); }
+.tool-toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 95; display: grid; gap: 8px; }
+.tool-toast-success, .ui-toast-success { border-color: var(--success); color: var(--success); }
+.tool-toast-error, .ui-toast-error { border-color: var(--danger); color: var(--danger); }

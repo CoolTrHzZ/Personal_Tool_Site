@@ -8,12 +8,26 @@ import Card from '../ui/Card'
 import Badge from '../ui/Badge'
 
 const iconMap = { Code2, Globe2, Palette, Wrench }
-const statusTone = { active: 'success', beta: 'accent', disabled: 'neutral' } as const
 
 export default function ToolCard({ tool }: { tool: ToolDefinition }) {
   const Icon = tool.iconComponent || iconMap[tool.icon as keyof typeof iconMap] || Code2
   const [favorite, setFavorite] = useState(() => favoriteTools().includes(tool.id))
   const toggleFavorite = () => { const next = favorite ? favoriteTools().filter(id => id !== tool.id) : [...favoriteTools(), tool.id]; localStorage.setItem('favoriteTools', JSON.stringify(next)); setFavorite(!favorite) }
   const status = tool.status || (tool.enabled ? 'active' : 'disabled')
-  return <Card className="tool-card"><Link className="tool-card-link" to={tool.path} onClick={() => addRecentTool(tool.id)}><span className="tool-icon"><Icon size={20} /></span><span className="tool-card-copy"><strong>{tool.name}</strong><small>{tool.description}</small><span className="tool-badges"><Badge tone="accent">v{tool.version}</Badge><Badge>{tool.type}</Badge><Badge>{tool.category}</Badge><Badge tone={statusTone[status]}>{status}</Badge></span></span><ArrowUpRight size={16} /></Link><Button variant="ghost" size="sm" className="favorite-button" onClick={toggleFavorite} aria-pressed={favorite} aria-label={favorite ? '取消收藏' : '收藏工具'}>{favorite ? '★' : '☆'}</Button></Card>
+  const showStatus = status !== 'active'
+  return (
+    <Card className="tool-card">
+      <Link className="tool-card-link" to={tool.path} onClick={() => addRecentTool(tool.id)}>
+        <span className="tool-icon"><Icon size={18} /></span>
+        <span className="tool-card-copy">
+          <strong>{tool.name}</strong>
+          <small>{tool.description}</small>
+          <span className="tool-meta-line">{tool.category} · v{tool.version}</span>
+          {showStatus && <span className="tool-badges"><Badge tone="accent">{status}</Badge></span>}
+        </span>
+        <ArrowUpRight size={14} className="card-arrow" />
+      </Link>
+      <Button variant="ghost" size="sm" className="favorite-button" onClick={toggleFavorite} aria-pressed={favorite} aria-label={favorite ? '取消收藏' : '收藏工具'}>{favorite ? '★' : '☆'}</Button>
+    </Card>
+  )
 }

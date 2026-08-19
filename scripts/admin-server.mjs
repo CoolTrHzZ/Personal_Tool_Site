@@ -483,6 +483,10 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', 'http://127.0.0.1')
     if (url.pathname.startsWith('/api/')) {
+      if (url.pathname === '/api/system' && req.method === 'GET') {
+        const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
+        return send(res, 200, { version: pkg.version, admin: 'running', runtime: 'ready', index: 'synced' })
+      }
       if (url.pathname === '/api/tags' && req.method === 'GET') return send(res, 200, await collectTagUsage())
       if (url.pathname === '/api/tags/rename' && req.method === 'POST') return send(res, 200, await renameTag(await body(req)))
       const tagDeleteMatch = url.pathname.match(/^\/api\/tags\/(.+)$/)
@@ -512,6 +516,7 @@ const server = createServer(async (req, res) => {
       if (key !== 'site' && id && (req.method === 'PUT' || req.method === 'DELETE')) { const index = value.findIndex(item => item.id === id); if (index < 0) return send(res, 404, { error: 'Not found' }); if (req.method === 'DELETE') { if (key === 'categories' && navigationCache.some(item => item.category === id)) return send(res, 409, { error: '分类仍被网址使用' }); value.splice(index, 1) } else value[index] = { ...value[index], ...(await body(req)), id }; await save(key, value); return send(res, 200, value) }
       return send(res, 405, { error: 'Method not allowed' })
     }
+    if (url.pathname === '/shared/design-tokens.css') return send(res, 200, await readFile(join(root, 'shared/design-tokens.css')), MIME_TYPES['.css'])
     if (url.pathname.startsWith('/__tool_preview/')) return servePreviewAsset(req.url || '/', res)
     if (url.pathname === '/toolbox-bridge.js') return send(res, 200, await readFile(join(toolsDir, 'toolbox-bridge.js')), MIME_TYPES['.js'])
     if (url.pathname.startsWith('/tools/')) return serveToolAsset(req.url || '/', res)

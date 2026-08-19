@@ -1,0 +1,15 @@
+.nav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.nav-card { position: relative; display: flex; align-items: center; gap: 10px; min-height: 76px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-panel); transition: transform var(--duration) var(--ease), border-color var(--duration) var(--ease); }
+.nav-card:hover { transform: translateY(-1px); border-color: var(--border-hover); }
+.favicon, .letter-icon { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 6px; }
+.letter-icon { display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 800; }
+.nav-card-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nav-card strong { font-size: 13px; }
+.nav-card small { overflow: hidden; color: var(--text-secondary); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.nav-card em { display: none; }
+.card-arrow { margin-left: auto; color: var(--text-faint); }
+.category { margin-bottom: 32px; }
+.category h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--text-secondary); font-size: 14px; }
+
+@media (max-width: 479px) { .nav-grid { grid-template-columns: 1fr; } }
+@media (min-width: 1200px) { .nav-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); } }

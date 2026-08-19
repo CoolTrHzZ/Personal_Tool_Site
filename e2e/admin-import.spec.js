@@ -11,7 +11,7 @@ test('HTML 工具：拖入 → 识别 → 元数据 → 权限 → 兼容性 →
   await page.click('.nav-item[data-view="tools"]')
 
   // Step 1 识别：上传 fixture HTML
-  await page.setInputFiles('#tool-file-input', 'fixtures/tools/cs2-rainbow.html')
+  await page.setInputFiles('#tool-file-input', 'tests/fixtures/tools/cs2-rainbow.html')
   await expect(page.locator('#wizard')).toBeVisible()
   await expect(page.locator('#wizard-body')).toContainText('CS2 Rainbow Chat')
   await page.click('#wizard-next')
@@ -54,12 +54,10 @@ test('HTML 工具：拖入 → 识别 → 元数据 → 权限 → 兼容性 →
   const tools = await listResponse.json()
   expect(Array.isArray(tools)).toBe(true)
   expect(tools.some(item => item.id === TOOL_ID)).toBe(true)
+  await request.delete(`/api/tools/${TOOL_ID}`)
 })
 
-test('导入完成后 staging 已清理、预览地址失效', async ({ request }) => {
-  const manifestResponse = await request.get(`/tools/${TOOL_ID}/manifest.json`)
-  test.skip(!manifestResponse.ok(), '依赖上一条用例完成导入')
-  // staging 在 public 之外，正式资源不应出现在 .staging 路径下
+test('staging 目录不会出现在正式静态路径', async ({ request }) => {
   const staging = await request.get('/tools/.staging')
   expect(staging.status()).toBe(404)
 })

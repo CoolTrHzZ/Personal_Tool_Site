@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Maximize2, Minimize2, PanelTop, RefreshCw } from 'lucide-react'
 import type { DisplayMode, ToolDefinition } from '../types'
 import { buildSandbox } from './manifest'
+import IconButton from '../../components/ui/IconButton'
 
 type ToastItem = { id: number; message: string; level: 'info' | 'success' | 'error' }
 
@@ -10,7 +11,15 @@ const FALLBACK_HEIGHT = 480
 const MAX_HEIGHT = 5000
 const MIN_HEIGHT = 160
 
-const readThemeMode = () => (document.documentElement.dataset.theme === 'light' ? 'light' : 'dark')
+const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+const themeColors = () => ({
+  bgPrimary: token('--surface-page'),
+  bgSecondary: token('--surface-panel'),
+  textPrimary: token('--text-primary'),
+  textSecondary: token('--text-secondary'),
+  accent: token('--accent'),
+  borderColor: token('--border-default'),
+})
 
 /** Static Web App Runtime：HTML / HTML Bundle / React/Vue/Svelte build / WASM 统一走这里 */
 export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
@@ -77,19 +86,7 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
             break
           }
           case 'theme.get': {
-            const dark = readThemeMode() === 'dark'
-            respond(true, {
-              mode: readThemeMode(),
-              dark,
-              colors: {
-                bgPrimary: dark ? '#080b10' : '#f7f7f4',
-                bgSecondary: dark ? '#0d1118' : '#eef0eb',
-                textPrimary: dark ? '#f1f4f2' : '#222222',
-                textSecondary: dark ? '#8d98a4' : '#687169',
-                accent: dark ? '#b7ff00' : '#789100',
-                borderColor: dark ? 'rgba(255,255,255,0.08)' : '#e0e2d9',
-              },
-            })
+            respond(true, { mode: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark', dark: document.documentElement.dataset.theme !== 'light', colors: themeColors() })
             break
           }
           case 'storage.get': {
@@ -137,7 +134,7 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
   // 主题变化时推送给工具（theme-changed）
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      iframeRef.current?.contentWindow?.postMessage({ source: 'toolbox-bridge', type: 'theme-changed', payload: { mode: readThemeMode() } }, '*')
+      iframeRef.current?.contentWindow?.postMessage({ source: 'toolbox-bridge', type: 'theme-changed', payload: { mode: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark' } }, '*')
     })
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
     return () => observer.disconnect()
@@ -169,10 +166,10 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
     <div className="tool-mode-bar">
       <span className="tool-mode-label">{tool.format}</span>
       <div className="tool-mode-actions">
-        <button type="button" aria-label="重新加载" onClick={() => setFrameKey(key => key + 1)}><RefreshCw size={14} /></button>
-        <button type="button" aria-label="嵌入模式" className={mode === 'embedded' ? 'active' : ''} onClick={() => setMode('embedded')}><PanelTop size={14} /></button>
-        <button type="button" aria-label="工作区模式" className={mode === 'workspace' ? 'active' : ''} onClick={() => setMode('workspace')}><Maximize2 size={14} /></button>
-        <button type="button" aria-label="全屏模式" className={mode === 'fullscreen' ? 'active' : ''} onClick={() => setMode('fullscreen')}><Minimize2 size={14} /></button>
+        <IconButton tip="重新加载" onClick={() => setFrameKey(key => key + 1)}><RefreshCw size={14} /></IconButton>
+        <IconButton tip="嵌入模式" className={mode === 'embedded' ? 'active' : ''} onClick={() => setMode('embedded')}><PanelTop size={14} /></IconButton>
+        <IconButton tip="工作区模式" className={mode === 'workspace' ? 'active' : ''} onClick={() => setMode('workspace')}><Maximize2 size={14} /></IconButton>
+        <IconButton tip="全屏模式" className={mode === 'fullscreen' ? 'active' : ''} onClick={() => setMode('fullscreen')}><Minimize2 size={14} /></IconButton>
       </div>
     </div>
   )
@@ -224,7 +221,7 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
       </section>
       {modeBar}
       <div className="tool-panel">{frame}</div>
-      <section className="tool-docs"><h2>Documentation</h2><p>{tool.readme || '在浏览器中完成操作；数据只保存在当前浏览器。'}</p></section>
+      <section className="tool-docs"><h2>使用说明</h2><p>{tool.readme || '在浏览器中完成操作；数据只保存在当前浏览器。'}</p></section>
       {toastsView}
     </main>
   )

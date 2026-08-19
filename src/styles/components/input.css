@@ -1,0 +1,9 @@
+.ui-input, .ui-textarea, .ui-select { width: 100%; min-height: 38px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-panel); color: var(--text-primary); padding: 0 11px; outline: none; }
+.ui-textarea { min-height: 92px; padding: 10px 11px; resize: vertical; }
+.ui-input::placeholder, .ui-textarea::placeholder { color: var(--text-faint); }
+.ui-input:focus, .ui-textarea:focus, .ui-select:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ui-input-glass { background: var(--glass-bg); }
+.ui-field { display: grid; gap: 6px; }
+.ui-field-label { color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.ui-field-hint { color: var(--text-faint); font-size: 11px; }
+.ui-field-error { color: var(--danger); font-size: 12px; }
