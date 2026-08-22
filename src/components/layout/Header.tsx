@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import site from '../../data/site.json'
 import type { SiteConfig } from '../../types'
@@ -20,10 +20,28 @@ export default function Header() {
   const { openPalette } = useContext(SearchContext)
   const [theme, setTheme] = useTheme()
   const location = useLocation()
+  const navRef = useRef<HTMLElement>(null)
+  const pillRef = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const place = () => {
+      const nav = navRef.current
+      const pill = pillRef.current
+      const active = nav?.querySelector('a.active') as HTMLElement | null
+      if (!nav || !pill || !active) return
+      const navBox = nav.getBoundingClientRect()
+      const box = active.getBoundingClientRect()
+      pill.style.width = `${box.width}px`
+      pill.style.transform = `translateX(${box.left - navBox.left}px)`
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [location.pathname])
   return (
     <header className="topbar">
       <Link className="brand" to="/"><span className="brand-mark">{siteConfig.logo}</span><span>{siteConfig.name}</span></Link>
-      <nav className="top-nav">
+      <nav className="top-nav" ref={navRef} aria-label="主导航">
+        <span className="nav-indicator" ref={pillRef} aria-hidden="true" />
         <Link className={location.pathname === '/' ? 'active' : ''} to="/">首页</Link>
         <Link className={location.pathname.startsWith('/tools') ? 'active' : ''} to="/tools">工具</Link>
         <Link className={location.pathname === '/nav' ? 'active' : ''} to="/nav">导航</Link>

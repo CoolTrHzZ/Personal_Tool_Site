@@ -2,6 +2,7 @@ import { createContext, useEffect, useMemo, useState, type ReactNode } from 'rea
 import { useLocation } from 'react-router-dom'
 import Header from './Header'
 import Footer from './Footer'
+import BootLayer from './BootLayer'
 import CommandPalette from '../search/CommandPalette'
 import { onCarbonPointer, sceneFromPath } from '../../utils/carbon-fx'
 
@@ -23,6 +24,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <SearchContext.Provider value={value}>
       <div className="app-shell carbon-fx" data-scene={sceneFromPath(pathname)} onPointerMove={onCarbonPointer}>
+        <BootLayer />
         <Header />
         <div className="route-stage" key={pathname}>{children}</div>
         <Footer />

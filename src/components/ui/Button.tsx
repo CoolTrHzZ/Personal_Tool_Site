@@ -5,7 +5,8 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primar
 export default function Button({ variant = 'ghost', size = 'md', className = '', icon, iconOnly = false, loading = false, children, disabled, ...props }: ButtonProps) {
   return (
     <button className={`ui-button ui-button-${variant} ui-button-${size} ${iconOnly ? 'ui-button-icon' : ''} ${className}`.trim()} disabled={disabled || loading} aria-busy={loading || undefined} {...props}>
-      {icon}{iconOnly ? <span className="sr-only">{children}</span> : <>{loading ? '… ' : ''}{children}</>}
+      {loading ? <span className="ui-spinner" aria-hidden="true" /> : icon}
+      {iconOnly ? <span className="sr-only">{children}</span> : children}
     </button>
   )
 }

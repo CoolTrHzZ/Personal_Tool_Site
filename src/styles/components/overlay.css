@@ -1,12 +1,17 @@
 .ui-tooltip { position: relative; }
 .ui-tooltip[data-tip]:hover::after, .ui-tooltip[data-tip]:focus-visible::after {
   content: attr(data-tip);
-  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  position: absolute; bottom: calc(100% + 8px); left: 50%;
   padding: 5px 8px; border-radius: 6px; background: var(--surface-overlay); border: 1px solid var(--border-default);
   color: var(--text-primary); font-size: 11px; white-space: nowrap; z-index: 8; pointer-events: none;
+  animation: bubble-in .18s var(--ease);
+  transform: translateX(-50%);
 }
 .ui-toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 95; display: grid; gap: 8px; }
-.ui-toast, .tool-toast { max-width: 320px; padding: 11px 14px; border: 1px solid var(--border-hover); border-radius: var(--radius-sm); background: var(--surface-overlay); color: var(--text-primary); font-size: 13px; box-shadow: var(--shadow-md); }
+.ui-toast, .tool-toast { max-width: 320px; padding: 11px 14px; border: 1px solid var(--border-hover); border-radius: var(--radius-sm); background: var(--surface-overlay); color: var(--text-primary); font-size: 13px; box-shadow: var(--shadow-md); animation: toast-in .28s var(--ease); }
 .tool-toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 95; display: grid; gap: 8px; }
 .tool-toast-success, .ui-toast-success { border-color: var(--success); color: var(--success); }
 .tool-toast-error, .ui-toast-error { border-color: var(--danger); color: var(--danger); }
+.ui-skeleton-card { min-height: 148px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: linear-gradient(90deg, var(--surface-card) 25%, var(--surface-raised) 50%, var(--surface-card) 75%); background-size: 220% 100%; animation: dash-flow 1.2s linear infinite; }
+@keyframes bubble-in { from { opacity: 0; transform: translateX(-50%) translateY(6px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

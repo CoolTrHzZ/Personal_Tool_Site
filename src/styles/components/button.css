@@ -1,14 +1,26 @@
-.ui-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid transparent; border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease), color var(--duration) var(--ease); }
+.ui-button { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid transparent; border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease), color var(--duration) var(--ease), transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease); }
 .ui-button-sm { min-height: 30px; padding: 0 10px; font-size: 12px; }
 .ui-button-md { min-height: 36px; padding: 0 13px; font-size: 13px; }
 .ui-button-primary { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 32%, transparent); }
-.ui-button-primary:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); }
+.ui-button-primary:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); box-shadow: var(--shadow-glow); }
 .ui-button-ghost { border-color: var(--border-default); background: var(--surface-panel); color: var(--text-secondary); }
 .ui-button-ghost:hover { border-color: var(--border-hover); background: var(--surface-raised); color: var(--text-primary); }
 .ui-button-danger { border-color: color-mix(in srgb, var(--danger) 35%, transparent); background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 .ui-button-icon { min-width: 30px; padding: 0 8px; }
-.ui-button[aria-busy="true"] { opacity: .7; }
-.primary { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 36px; padding: 0 16px; border: 0; border-radius: var(--radius-sm); background: var(--accent); color: var(--surface-page); font-weight: 700; cursor: pointer; }
+.ui-button:hover { transform: translateY(-1px); }
+.ui-button:active { transform: scale(.97); }
+.ui-button-primary::after {
+  position: absolute; inset: 0; pointer-events: none; content: '';
+  background: linear-gradient(105deg, transparent 36%, color-mix(in srgb, var(--accent) 28%, transparent) 50%, transparent 64%);
+  background-size: 220% 100%; opacity: 0;
+}
+.ui-button-primary:hover::after { opacity: 1; animation: dash-flow .9s linear; }
+.ui-button[aria-busy="true"] { opacity: .78; pointer-events: none; }
+.ui-spinner { width: 12px; height: 12px; border: 2px solid color-mix(in srgb, currentColor 28%, transparent); border-top-color: currentColor; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.primary { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 36px; padding: 0 16px; border: 0; border-radius: var(--radius-sm); background: var(--accent); color: var(--surface-page); font-weight: 700; cursor: pointer; transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease); }
+.primary:hover { box-shadow: var(--shadow-glow); }
+.primary:active { transform: scale(.97); }
 .button-row { display: flex; flex-wrap: wrap; gap: 9px; }
 .button-row button { width: fit-content; padding: 11px 16px; border-radius: var(--radius-sm); font-weight: 700; }
 .button-row button:not(.primary) { border: 1px solid var(--border-default); background: var(--surface-panel); color: var(--text-secondary); }

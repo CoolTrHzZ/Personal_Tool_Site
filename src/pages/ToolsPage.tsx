@@ -51,8 +51,13 @@ export default function ToolsPage() {
           </FormField>
         </div>
       </div>
-      <div className="tool-grid tool-grid-large marketplace-grid">{filtered.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>
-      {!filtered.length && <EmptyState title="没有匹配工具" />}
+      {!tools.length && (
+        <div className="tool-grid tool-grid-large marketplace-grid" aria-busy="true" data-testid="tools-skeleton">
+          {Array.from({ length: 8 }, (_, index) => <div className="ui-skeleton-card" key={index} />)}
+        </div>
+      )}
+      {tools.length > 0 && <div className="tool-grid tool-grid-large marketplace-grid">{filtered.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>}
+      {tools.length > 0 && !filtered.length && <EmptyState title="没有匹配工具" />}
     </main>
   )
 }
