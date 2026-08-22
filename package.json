@@ -2,6 +2,8 @@
   "name": "personal-tool-site",
   "private": true,
   "version": "4.0.0",
+  "license": "MIT",
+  "author": "CoolTrHzZ",
   "type": "module",
   "scripts": {
     "dev": "vite",

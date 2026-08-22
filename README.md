@@ -1,81 +1,84 @@
-# Personal Tool Site 4.0 / DevOS
+# DevOS · Personal Tool Site
 
-Personal Tool Site 是一个本地优先的 **Developer Workspace**：网址导航、React / HTML / ZIP 静态工具、Universal Tool Runtime 和本地 Admin Console 集中在一个可部署到 GitHub Pages 的静态项目中。
+本地优先的个人开发者工作台：网址导航、内置小工具、可导入的 HTML / ZIP 工具，以及只在本机运行的 Admin。前台是静态站点，可发布到 GitHub Pages（本仓库线上地址：[github.supercool.top](https://github.supercool.top)）。
 
-当前版本 **4.0.0**。视觉产品名 **DevOS**，副标题 **Personal Developer Workspace**，配置在 `src/data/site.json`。仓库与 package 名称仍为 Personal_Tool_Site。
+版本 **4.0.0**。视觉名 **DevOS**，仓库名 Personal_Tool_Site。站点文案与域名在 `src/data/site.json`。
 
-## 产品能力
+许可证为 **MIT**，见 [LICENSE](LICENSE)。版权所有 © 2026 CoolTrHzZ。
 
-- **Developer Workspace**：首页以搜索和命令面板为第一交互，收藏 / 最近 / 导航 / 工具分层展示。
-- **Universal Tool Import**：Admin 六步向导识别 HTML / ZIP，生成 Manifest、权限、兼容性检查与预览后导入。
-- **Admin Console**：本地开发者控制台（无账号、无数据库），网站与分类使用 Drawer 编辑。
-- **HTML Tool Runtime**：导入工具在隔离 iframe 中运行；主题通过 Design Token（CSS 变量）桥接到 Toolbox Bridge。
+## 访客怎么用线上站点
 
-## 技术栈
+打开 https://github.supercool.top （Hash 路由，链接形如 `/#/tools`）。
 
-- React + TypeScript + Vite
-- HashRouter，兼容 GitHub Repository Pages
-- JSON / Manifest 数据源
-- Local Admin，监听本机，不需要数据库、登录或后端服务
-## GitHub Pages / Cloudflare
+| 页面 | 作用 |
+|---|---|
+| 首页 | 搜索、命令面板（⌘K）、收藏 / 最近 / 导航 / 工具 |
+| 工具 | 全部工具；点卡片进入内置 React 工具或 iframe 沙箱工具 |
+| 导航 | 网址导航 |
+| 收藏 | GitHub 仓库 / Skill 链接 |
+| 笔记 | 本地 JSON 笔记 |
 
-站点发布配置在 `src/data/site.json`（Admin → 系统设置 → 发布与域名）：
+收藏、最近使用、搜索历史、主题只存在你浏览器的 `localStorage`，不会写回仓库。
 
-- `publicUrl`：对外访问地址。有值时构建会写入 `dist/CNAME`，给 GitHub Pages 自定义域名 / Cloudflare 代理用。
-- `basePath`：静态资源前缀。自定义域名用 `./` 或 `/`；`https://user.github.io/repo/` 用 `/repo/`。可用仓库变量 `PAGES_BASE` 覆盖。
-- `adminUrl`：仅本机 Admin，不会随静态站发布。
+## 维护者怎么改内容并上线
 
-Cloudflare：CNAME 指向 `*.github.io`，SSL 建议 Full。
-
-首次发布前必须在仓库 **Settings → Pages → Build and deployment** 把 Source 设为 **GitHub Actions**（`GITHUB_TOKEN` 无法替你创建 Pages 站点）。之后推送 `main` 会先跑 CI（lint / 类型检查 / 单测 / 构建），再在 Pages 已启用时发布 `dist`。Pages 未启用时 CI 仍会通过，发布步骤会跳过并留下说明。
-
-## 设计系统
-
-视觉变量唯一来源：`shared/design-tokens.css`。
-
-前台通过 `src/styles/index.css` 引入；Admin 通过 `/shared/design-tokens.css` 引入。Runtime Theme Bridge 读取同一套 CSS 变量。
-
-## 本地运行
+Admin **不会**部署到网上。改导航、分类、笔记、导入 HTML 工具，都在你自己电脑上完成，再把文件提交到 `main`。GitHub Actions 会构建并更新静态站。
 
 ```bash
 npm install
+npm run admin
+```
+
+浏览器打开 http://127.0.0.1:4174/admin
+
+- Dashboard：计数与状态
+- Websites / Categories：列表 + 右侧 Drawer 编辑
+- Tools：拖入 `.html` 或 `.zip`，按六步向导导入
+- Marketplace / Tags / Settings / Validate
+
+导入成功后文件落在 `public/tools/<id>/` 和 `public/tools-manifests.json`。网站、分类、笔记、站点名等在 `src/data/*.json`。
+
+然后提交并推送（不要提交 `dist/`、`node_modules/`、`.tool-staging/`）：
+
+```bash
+git add src/data public/tools public/tools-manifests.json
+git status
+git commit -m "更新站点数据"
+git push origin main
+```
+
+推到 `main` 后，`.github/workflows/deploy.yml` 会跑校验、lint、类型检查、单测和构建；Pages 已启用时发布 `dist`。
+
+## 本地预览前台
+
+```bash
 npm run dev
 ```
 
-完整检查：
+打开终端里提示的地址（一般是 `http://127.0.0.1:5173/#/`）。
+
+发布前建议：
 
 ```bash
 npm run lint
-npm run typecheck
 npm run validate
 npm test
 npm run build
 ```
 
-涉及 Admin / 导入时：
+改过 Admin 导入流程时再跑 `npm run test:e2e`。
 
-```bash
-npm run test:e2e
-```
+## 第一次把仓库接到 GitHub Pages
 
-## Admin Dashboard
+1. 仓库 **Settings → Pages → Build and deployment → Source** 选 **GitHub Actions**（只需一次）。
+2. 自定义域名（如 `github.supercool.top`）写在 `src/data/site.json` 的 `publicUrl`。`basePath` 用 `./`。构建会生成 `dist/CNAME`。
+3. 同一页 Pages 设置里填写 Custom domain，等 DNS 通过后打开 HTTPS。
+4. Cloudflare：代理到 GitHub Pages；SSL 用 **Full**。若 GitHub 证书一直出不来，先把记录改成仅 DNS，签发后再开代理。
+5. 使用自定义域名时不要设置仓库变量 `PAGES_BASE`（那是给 `https://user.github.io/repo/` 这种仓库路径用的）。
 
-```bash
-npm run admin
-```
+## 自己加一个工具
 
-打开 `http://127.0.0.1:4174/admin`。控制台提供：
-
-- Dashboard：真实计数与系统状态
-- Websites / Categories：列表 + Drawer 新增 / 编辑
-- Tools：拖入 `.html` / `.zip`，六步 Import Wizard
-- Marketplace / Tags / Settings / Validate
-
-工具包必须包含根目录 `manifest.json` 与 `entry` 指定的入口文件。上传会拒绝路径穿越、隐藏系统文件、重复 id 和无效 manifest；压缩包最大 20MB，请求体最大 25MB。通过校验后写入 `public/tools/<id>/` 和 `public/tools-manifests.json`。
-
-E2E 夹具位于 `tests/fixtures/tools/`，不会长期留在 `public/tools/`。
-
-## Manifest
+HTML / ZIP：用 Admin 上传。包根目录必须有 `manifest.json`，`entry` 指向包内文件。禁止路径穿越、隐藏系统文件、重复 id。压缩包最大 20MB。
 
 ```json
 {
@@ -88,83 +91,33 @@ E2E 夹具位于 `tests/fixtures/tools/`，不会长期留在 `public/tools/`。
   "version": "1.0.0",
   "enabled": true,
   "icon": "Code2",
-  "keywords": ["demo"],
-  "favorite": false,
-  "order": 100
+  "keywords": ["demo"]
 }
 ```
 
-支持：
-
-- `react`：内置 React 工具，组件位于 `src/tools/packages/`。
-- `html` / `static`：静态 HTML 或 ZIP 包，由 Runtime Loader 生成路由并在 sandbox iframe 中运行。
-- `iframe`：与 HTML 工具使用同一安全隔离渲染模式。
-
-运行时从 `public/tools-manifests.json` 读取 manifest。HTML 工具不需要修改首页、工具中心或路由文件。
-
-## 新增工具规范
-
-标准工具包结构：
-
-```text
-tool-name/
-├── manifest.json
-├── index.html
-├── assets/
-└── README.md
-```
-
-HTML 工具直接在 Admin 上传 zip 或单文件 HTML。内置 React 工具使用：
-
-```text
-src/tools/packages/tool-name/
-├── manifest.json
-└── index.tsx
-```
-
-React 工具组件统一使用 `ToolShell`，页面会显示名称、描述、版本、分类和「使用说明」。
-
-## 用户状态
-
-仅写入浏览器 `localStorage`，不会回写公共 JSON：
-
-- `favoriteTools`：收藏工具
-- `recentTools`：最近使用工具
-- `searchHistory`：搜索历史
-
-## GitHub Pages
-
-将仓库 **Settings → Pages → Build and deployment → Source** 设为 **GitHub Actions**（只需一次）。之后推送 `main`，`.github/workflows/deploy.yml` 会校验、lint、类型检查、单测、构建；若 Pages 已启用则发布 `dist`，否则跳过发布且不把 CI 标红。
-
-```text
-https://username.github.io/Personal_Tool_Site/
-```
-
-自定义域名 / 仓库路径仍用 `src/data/site.json` 的 `publicUrl` 与 `basePath`，或仓库变量 `PAGES_BASE`。Vite 使用相对资源路径，路由使用 HashRouter，因此支持仓库路径部署。
+- `react`：代码在 `src/tools/packages/<id>/`，用 `ToolShell`。
+- `html` / `static` / `iframe`：在隔离 iframe 里运行。
 
 ## 目录
 
 ```text
-shared/                  共享 Design Token
-src/app/                 应用与动态路由
-src/components/          布局、导航、工具与 UI 原语
-src/pages/               首页、工具市场、404
-src/styles/              前台样式分层（reset / layout / pages）
-src/tools/manifests/     内置 manifest
-src/tools/packages/      React 工具包
-src/tools/runtime/       Manifest Loader、Catalog、HTML 渲染器
-src/data/                导航、分类、站点 JSON
-src/utils/               favicon 与用户状态
-public/tools/            正式静态工具包（不含 *-e2e / fixture）
-admin/                   本地 Developer Console
-scripts/                 Admin API 与数据校验
-tests/fixtures/          测试夹具
+admin/              本机 Admin 控制台
+src/app/            路由
+src/pages/          前台页面
+src/tools/          内置工具与运行时
+src/data/           站点 / 导航 / 分类 / 笔记 JSON
+public/tools/       已导入的静态工具包
+scripts/            Admin 服务与数据校验
+.github/workflows/  GitHub Actions
+LICENSE             MIT
 ```
 
-## 开发约束
+## 约束
 
-- 不提交 `node_modules`、`dist`、日志和本地环境文件。
-- 不引入数据库、登录、复杂权限、Docker 或常驻后端。
-- 不引入大型 UI Framework。
-- 工具包入口必须在包目录内，禁止 `../`、绝对路径和隐藏系统文件。
-- 修改数据或 manifest 后运行检查，再提交。
+- 不引入数据库、登录、Docker 或常驻云端后端。
+- 不引入大型 UI 框架。
+- 不提交密钥、`node_modules`、`dist`、日志。
+
+## License
+
+[MIT](LICENSE) © 2026 CoolTrHzZ
