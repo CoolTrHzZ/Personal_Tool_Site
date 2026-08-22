@@ -25,7 +25,9 @@ Personal Tool Site 是一个本地优先的 **Developer Workspace**：网址导�
 - `basePath`：静态资源前缀。自定义域名用 `./` 或 `/`；`https://user.github.io/repo/` 用 `/repo/`。可用仓库变量 `PAGES_BASE` 覆盖。
 - `adminUrl`：仅本机 Admin，不会随静态站发布。
 
-Cloudflare：CNAME 指向 `*.github.io`，SSL 建议 Full。推送 `main` 后 Actions 会跑 lint / 构建 / Pages。
+Cloudflare：CNAME 指向 `*.github.io`，SSL 建议 Full。
+
+首次发布前必须在仓库 **Settings → Pages → Build and deployment** 把 Source 设为 **GitHub Actions**（`GITHUB_TOKEN` 无法替你创建 Pages 站点）。之后推送 `main` 会先跑 CI（lint / 类型检查 / 单测 / 构建），再在 Pages 已启用时发布 `dist`。Pages 未启用时 CI 仍会通过，发布步骤会跳过并留下说明。
 
 ## 设计系统
 
@@ -132,13 +134,13 @@ React 工具组件统一使用 `ToolShell`，页面会显示名称、描述、�
 
 ## GitHub Pages
 
-将仓库 Pages 来源设置为 **GitHub Actions**。推送 `main` 后，`.github/workflows/deploy.yml` 会执行校验、lint、类型检查、构建并发布 `dist`。
+将仓库 **Settings → Pages → Build and deployment → Source** 设为 **GitHub Actions**（只需一次）。之后推送 `main`，`.github/workflows/deploy.yml` 会校验、lint、类型检查、单测、构建；若 Pages 已启用则发布 `dist`，否则跳过发布且不把 CI 标红。
 
 ```text
 https://username.github.io/Personal_Tool_Site/
 ```
 
-Vite 使用相对资源路径，路由使用 HashRouter，因此支持仓库路径部署。
+自定义域名 / 仓库路径仍用 `src/data/site.json` 的 `publicUrl` 与 `basePath`，或仓库变量 `PAGES_BASE`。Vite 使用相对资源路径，路由使用 HashRouter，因此支持仓库路径部署。
 
 ## 目录
 

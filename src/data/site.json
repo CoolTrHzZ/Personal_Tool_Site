@@ -3,10 +3,10 @@
   "tagline": "Personal Developer Workspace",
   "title": "DevOS · Personal Developer Workspace",
   "description": "本地日常开发、调试与效率管理中心，离线可用，开箱即用。",
-  "github": "https://github.com",
+  "github": "https://github.com/CoolTrHzZ/Personal_Tool_Site",
   "footer": "DevOS · Personal Developer Workspace",
   "logo": "D",
   "adminUrl": "http://127.0.0.1:4174/admin/",
-  "publicUrl": "",
+  "publicUrl": "https://github.supercool.top",
   "basePath": "./"
 }
