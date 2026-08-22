@@ -23,3 +23,21 @@ test-results/
 Personal_Tool_Site产品原型图.pdf/
 playwright-report/
 e2e/screenshots/
+.codex/models-v1.json
+scripts/*.bak
+
+# ADCP-CAPSULE:BEGIN
+.agent-capsule/
+.agent/
+.codex/
+.cursor/
+.claude/
+.framework/
+/AGENTS.md
+/CLAUDE.md
+/scripts/acceptance-gate.sh
+/scripts/acceptance_gate.py
+/scripts/knowledge-sync.py
+/scripts/prepare-luna-catalog.sh
+/scripts/*.bak
+# ADCP-CAPSULE:END
