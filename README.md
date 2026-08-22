@@ -17,7 +17,15 @@ Personal Tool Site 是一个本地优先的 **Developer Workspace**：网址导�
 - HashRouter，兼容 GitHub Repository Pages
 - JSON / Manifest 数据源
 - Local Admin，监听本机，不需要数据库、登录或后端服务
-- GitHub Actions 自动构建与 Pages 发布
+## GitHub Pages / Cloudflare
+
+站点发布配置在 `src/data/site.json`（Admin → 系统设置 → 发布与域名）：
+
+- `publicUrl`：对外访问地址。有值时构建会写入 `dist/CNAME`，给 GitHub Pages 自定义域名 / Cloudflare 代理用。
+- `basePath`：静态资源前缀。自定义域名用 `./` 或 `/`；`https://user.github.io/repo/` 用 `/repo/`。可用仓库变量 `PAGES_BASE` 覆盖。
+- `adminUrl`：仅本机 Admin，不会随静态站发布。
+
+Cloudflare：CNAME 指向 `*.github.io`，SSL 建议 Full。推送 `main` 后 Actions 会跑 lint / 构建 / Pages。
 
 ## 设计系统
 

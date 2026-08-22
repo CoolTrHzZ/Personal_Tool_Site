@@ -2,11 +2,14 @@ import { useContext, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import categories from '../data/categories.json'
+import library from '../data/library.json'
 import navigation from '../data/navigation.json'
+import notes from '../data/notes.json'
 import site from '../data/site.json'
-import type { Category, NavigationItem, SiteConfig } from '../types'
+import type { Category, LibraryItem, NavigationItem, NoteItem, SiteConfig } from '../types'
 import { useTools } from '../tools/runtime/ToolCatalog'
 import { SearchContext } from '../components/layout/Layout'
+import LibraryCard from '../components/library/LibraryCard'
 import NavigationGrid from '../components/navigation/NavigationGrid'
 import ToolCard from '../components/tools/ToolCard'
 import { favoriteTools, recentTools } from '../utils/user-state'
@@ -14,6 +17,8 @@ import type { ToolDefinition } from '../tools/types'
 import EmptyState from '../components/ui/EmptyState'
 
 const navItems = navigation as NavigationItem[]
+const enabledLibrary = (library as LibraryItem[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
+const enabledNotes = (notes as NoteItem[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
 const categoryItems = categories as Category[]
 const siteConfig = site as SiteConfig
 const quota = 5 * 1024 * 1024
@@ -86,7 +91,9 @@ export default function HomePage() {
       )}
       {recent.length > 0 && <section className="dash-module recent-tools"><div className="section-heading"><h2>最近使用</h2></div><div className="tool-grid">{recent.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div></section>}
       {groups.length > 0 && <section className="dash-module"><div className="section-heading"><h2>网站导航</h2><Link to="/nav">{enabledNav.length} 个网站</Link></div><NavigationGrid groups={groups} /></section>}
-      {!groups.length && !enabledTools.length && <EmptyState title="没有找到匹配内容"><p>试试命令面板搜索。</p></EmptyState>}
+      {enabledLibrary.length > 0 && <section className="dash-module"><div className="section-heading"><h2>收藏</h2><Link to="/library">{enabledLibrary.length} 项</Link></div><div className="nav-grid">{enabledLibrary.slice(0, 6).map(item => <LibraryCard key={item.id} item={item} />)}</div></section>}
+      {enabledNotes.length > 0 && <section className="dash-module"><div className="section-heading"><h2>笔记</h2><Link to="/notes">全部笔记</Link></div><div className="note-list">{enabledNotes.slice(0, 4).map(item => <Link className="note-card" key={item.id} to={`/notes/${item.id}`}><strong>{item.title}</strong><small>{item.summary}</small></Link>)}</div></section>}
+      {!groups.length && !enabledTools.length && !enabledLibrary.length && !enabledNotes.length && <EmptyState title="没有找到匹配内容"><p>试试命令面板搜索。</p></EmptyState>}
     </main>
   )
 }

@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
+import library from '../../data/library.json'
 import navigation from '../../data/navigation.json'
-import type { NavigationItem } from '../../types'
+import notes from '../../data/notes.json'
+import type { LibraryItem, NavigationItem, NoteItem } from '../../types'
 import { useTools } from '../../tools/runtime/ToolCatalog'
 import { addRecentTool, saveSearch } from '../../utils/user-state'
 import Modal from '../ui/Modal'
 import Input from '../ui/Input'
 
 const sites = navigation as NavigationItem[]
+const repos = library as LibraryItem[]
+const articles = notes as NoteItem[]
 
 export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const tools = useTools()
@@ -19,13 +23,19 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const q = query.trim().toLowerCase()
   const toolHits = useMemo(() => tools.filter(tool => tool.enabled && (!q || [tool.name, tool.description, ...tool.keywords, ...(tool.tags || [])].some(value => value.toLowerCase().includes(q)))).slice(0, 8), [tools, q])
   const siteHits = useMemo(() => sites.filter(item => item.enabled && (!q || [item.name, item.url, item.description, ...item.tags].some(value => value.toLowerCase().includes(q)))).slice(0, 6), [q])
+  const repoHits = useMemo(() => repos.filter(item => item.enabled && (!q || [item.name, item.url, item.description, item.kind, ...item.tags].some(value => value.toLowerCase().includes(q)))).slice(0, 6), [q])
+  const noteHits = useMemo(() => articles.filter(item => item.enabled && (!q || [item.title, item.summary, item.body, ...item.tags].some(value => value.toLowerCase().includes(q)))).slice(0, 6), [q])
   const commands = useMemo(() => [
     { id: 'tools', name: '管理当前可用工具', hint: '工具', run: () => navigate('/tools') },
     { id: 'nav', name: '打开网站导航', hint: '导航', run: () => navigate('/nav') },
+    { id: 'library', name: '打开收藏仓库', hint: '收藏', run: () => navigate('/library') },
+    { id: 'notes', name: '打开笔记', hint: '笔记', run: () => navigate('/notes') },
   ].filter(item => !q || item.name.toLowerCase().includes(q) || item.hint.toLowerCase().includes(q)), [navigate, q])
   const items = [
     ...toolHits.map(tool => ({ run: () => { addRecentTool(tool.id); navigate(tool.path) } })),
     ...siteHits.map(item => ({ run: () => { window.open(item.url, '_blank', 'noopener,noreferrer') } })),
+    ...repoHits.map(item => ({ run: () => { window.open(item.url, '_blank', 'noopener,noreferrer') } })),
+    ...noteHits.map(item => ({ run: () => navigate(`/notes/${item.id}`) })),
     ...commands.map(item => ({ run: item.run })),
   ]
   useEffect(() => { if (open) { setQuery(''); setIndex(0); requestAnimationFrame(() => inputRef.current?.focus()) } }, [open])
@@ -46,8 +56,12 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         {toolHits.map((tool, offset) => <button type="button" key={tool.id} className="command-item" role="option" aria-selected={index === offset} onClick={() => run(offset)}><span>打开 {tool.name}</span><small>↵</small></button>)}
         {siteHits.length > 0 && <div className="command-group">网站</div>}
         {siteHits.map((item, offset) => { const pos = toolHits.length + offset; return <button type="button" key={item.id} className="command-item" role="option" aria-selected={index === pos} onClick={() => run(pos)}><span>{item.name}</span><small>{new URL(item.url).hostname}</small></button> })}
+        {repoHits.length > 0 && <div className="command-group">收藏</div>}
+        {repoHits.map((item, offset) => { const pos = toolHits.length + siteHits.length + offset; return <button type="button" key={item.id} className="command-item" role="option" aria-selected={index === pos} onClick={() => run(pos)}><span>{item.name}</span><small>{item.kind}</small></button> })}
+        {noteHits.length > 0 && <div className="command-group">笔记</div>}
+        {noteHits.map((item, offset) => { const pos = toolHits.length + siteHits.length + repoHits.length + offset; return <button type="button" key={item.id} className="command-item" role="option" aria-selected={index === pos} onClick={() => run(pos)}><span>{item.title}</span><small>笔记</small></button> })}
         {commands.length > 0 && <div className="command-group">命令</div>}
-        {commands.map((item, offset) => { const pos = toolHits.length + siteHits.length + offset; return <button type="button" key={item.id} className="command-item" role="option" aria-selected={index === pos} onClick={() => run(pos)}><span>{item.name}</span><small>{item.hint}</small></button> })}
+        {commands.map((item, offset) => { const pos = toolHits.length + siteHits.length + repoHits.length + noteHits.length + offset; return <button type="button" key={item.id} className="command-item" role="option" aria-selected={index === pos} onClick={() => run(pos)}><span>{item.name}</span><small>{item.hint}</small></button> })}
         {!items.length && <p className="empty">没有匹配内容</p>}
       </div>
       <p className="command-hint">使用 ↑↓ 移动，↵ 确认，Esc 退出</p>

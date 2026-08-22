@@ -11,5 +11,6 @@
 @import './components/overlay.css';
 @import './pages/home.css';
 @import './pages/navigation.css';
+@import './pages/library.css';
 @import './pages/marketplace.css';
 @import './pages/tool-runtime.css';

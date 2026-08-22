@@ -271,6 +271,31 @@ body { margin: 0; min-width: 320px; background: var(--surface-page); color: var(
   .tool-edit-modal { width: calc(100% - 16px); max-height: calc(100dvh - 16px); }
 }
 @media (min-width: 2200px) { .admin-content { padding: 40px 64px; } }
+
+.note-studio-form { display: grid; gap: 16px; }
+.note-meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.note-enabled { align-self: end; min-height: 38px; }
+.note-studio-tabs { display: flex; gap: 8px; }
+.note-studio-tabs button { padding: 6px 12px; border: 1px solid var(--border-subtle); border-radius: 999px; background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer; }
+.note-studio-tabs button.active, .note-studio-tabs button:hover { border-color: var(--border-hover); color: var(--text-primary); background: var(--accent-soft); }
+.md-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.note-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: min(62vh, 640px); }
+.note-pane { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
+.note-source, .note-json { min-height: 480px; height: 100%; padding: 12px; resize: vertical; font: 13px/1.6 var(--font-mono); }
+.note-json { min-height: 420px; }
+.note-preview { flex: 1; min-height: 480px; overflow: auto; padding: 16px 18px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-panel); }
+.note-preview h1 { margin: 0 0 12px; font-size: 28px; }
+.note-preview h2, .note-preview h3 { margin: 18px 0 8px; }
+.note-preview p, .note-preview li { color: var(--text-secondary); line-height: 1.7; }
+.note-preview ul { padding-left: 1.2em; }
+.note-preview a { color: var(--accent); }
+.note-preview code { padding: 1px 5px; border-radius: 4px; background: var(--accent-soft); font: 12px var(--font-mono); }
+.note-preview pre { padding: 12px; overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-card) 70%, transparent); }
+.note-preview pre code { padding: 0; background: transparent; }
+@media (max-width: 959px) {
+  .note-meta-grid, .note-split { grid-template-columns: 1fr; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

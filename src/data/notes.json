@@ -1,0 +1,12 @@
+[
+  {
+    "id": "about-library",
+    "title": "仓库、Skill 与笔记怎么用",
+    "summary": "收藏 GitHub 仓库 / Skill，以及用 Markdown 写说明页。",
+    "tags": ["guide"],
+    "enabled": true,
+    "order": 10,
+    "updated": "2026-08-19",
+    "body": "# 收藏与笔记\n\n前台有两个新入口：\n\n- **收藏**：GitHub 仓库或 Skill 链接卡片，点开跳到仓库。\n- **笔记**：本站 Markdown 说明，适合写用法、备忘、个人文档。\n\n## 怎么改内容\n\n本机运行 `npm run admin`，侧栏打开「收藏仓库」或「笔记文章」，保存后写入 `src/data/library.json` 和 `src/data/notes.json`。\n\n## Markdown 支持\n\n标题、列表、`行内代码`、链接和代码块：\n\n```\nhello\n```\n\n不拉取 GitHub star，链接自己填即可。\n"
+  }
+]

@@ -1,4 +1,5 @@
 import { loadI18n } from './i18n/index.js'
+import { renderMarkdown } from './markdown.js'
 import {
   buildSandbox, buildAllow, checkField, collectMetadataForm, collectPermissionsForm,
   field, renderMetadataForm, renderPermissionsForm,
@@ -16,7 +17,7 @@ const bind = (selector, event, handler) => {
   return node
 }
 const ACTIVITY_KEY = 'adminActivity'
-let state = { navigation: [], categories: [], site: {}, tools: [], tags: [], tagStats: { navigationTagCount: 0, toolTagCount: 0 } }
+let state = { navigation: [], categories: [], site: {}, tools: [], library: [], notes: [], tags: [], tagStats: { navigationTagCount: 0, toolTagCount: 0 } }
 document.documentElement.lang = i18n.locale
 if ($('#locale-select')) $('#locale-select').value = i18n.locale
 i18n.apply()
@@ -37,7 +38,7 @@ const button = (label, data = {}, className = 'ui-button ui-button-ghost ui-butt
   Object.assign(element.dataset, data)
   return element
 }
-const input = (name, value, label) => {
+const input = (name, value, label, required = true) => {
   const wrapper = document.createElement('label')
   wrapper.className = 'ui-field'
   const caption = document.createElement('span')
@@ -46,7 +47,7 @@ const input = (name, value, label) => {
   const element = document.createElement('input')
   element.name = name
   element.value = value ?? ''
-  element.required = true
+  element.required = required
   element.className = 'ui-input'
   wrapper.append(caption, element)
   return wrapper
@@ -84,11 +85,14 @@ function toast(message, level = 'success') {
   setTimeout(() => { item.classList.add('toast-out'); setTimeout(() => item.remove(), 200) }, 3000)
 }
 const toastError = message => toast(message, 'error')
-const adminScene = { dashboard: 'dash', websites: 'nav', tools: 'tools', marketplace: 'market', categories: 'nav', tags: 'cms', settings: 'form', validate: 'cms', import: 'form' }
+const adminScene = { dashboard: 'dash', websites: 'nav', library: 'nav', notes: 'cms', 'note-editor': 'cms', tools: 'tools', marketplace: 'market', categories: 'nav', tags: 'cms', settings: 'form', validate: 'cms', import: 'form' }
+let currentView = 'dashboard'
 
 function showView(view) {
+  currentView = view
   document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view))
-  document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === view))
+  const navView = view === 'note-editor' ? 'notes' : view
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === navView))
   $('#page-title').textContent = i18n.t(`title.${view}`)
   const title = $('#page-title')
   title.classList.remove('title-swap')
@@ -136,7 +140,11 @@ function openPromptModal({ title, label, value = '' }) {
 
 let settingsTab = 'general'
 function renderSite() {
-  const labels = { name: i18n.t('form.siteName'), title: i18n.t('form.title'), description: i18n.t('form.description'), github: i18n.t('form.github'), footer: i18n.t('form.footer'), logo: i18n.t('form.logo') }
+  const labels = {
+    name: i18n.t('form.siteName'), title: i18n.t('form.title'), description: i18n.t('form.description'), github: i18n.t('form.github'),
+    footer: i18n.t('form.footer'), logo: i18n.t('form.logo'), tagline: i18n.t('form.tagline'),
+    publicUrl: i18n.t('form.publicUrl'), basePath: i18n.t('form.basePath'), adminUrl: i18n.t('form.adminUrl'),
+  }
   const form = $('#site')
   const extra = $('#settings-extra')
   document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.settingsTab === settingsTab))
@@ -144,13 +152,20 @@ function renderSite() {
   extra.replaceChildren()
   if (settingsTab === 'general') {
     form.hidden = false
-    for (const name of ['name', 'title', 'description', 'github']) form.append(input(name, state.site[name], labels[name]))
+    for (const name of ['name', 'tagline', 'title', 'description', 'github']) form.append(input(name, state.site[name], labels[name]))
     form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
     return
   }
   if (settingsTab === 'appearance') {
     form.hidden = false
     for (const name of ['logo', 'footer']) form.append(input(name, state.site[name], labels[name]))
+    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
+    return
+  }
+  if (settingsTab === 'deploy') {
+    form.hidden = false
+    form.append(el('p', 'muted', i18n.t('form.deployHint')))
+    for (const name of ['publicUrl', 'basePath', 'adminUrl']) form.append(input(name, state.site[name], labels[name], name !== 'publicUrl'))
     form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
     return
   }
@@ -172,7 +187,7 @@ function renderSite() {
     })
     extra.append(exportBtn)
   }
-  if (settingsTab === 'about') extra.append(el('p', '', `${state.site.name || 'DevOS'}`), el('p', 'muted', state.site.tagline || ''), el('p', 'muted', `v${$('#app-version')?.textContent || ''}`))
+  if (settingsTab === 'about') extra.append(el('p', '', `${state.site.name || 'DevOS'}`), el('p', 'muted', state.site.tagline || ''), el('p', 'muted', state.site.publicUrl || i18n.t('form.publicUrlEmpty')), el('p', 'muted', `v${$('#app-version')?.textContent || ''}`))
 }
 function renderStats() {
   $('#stat-websites').textContent = state.navigation.length
@@ -302,6 +317,50 @@ function renderNavigation() {
     return row
   }))
 }
+function renderLibrary() {
+  const table = $('#library')
+  if (!table) return
+  table.replaceChildren(...(state.library || []).slice().sort((a, b) => a.order - b.order).map(item => {
+    const row = document.createElement('tr')
+    const url = el('td', 'cell-url', item.url)
+    url.title = item.url
+    const tags = el('td', 'cell-tags', '')
+    tags.append(chips(item.tags || []))
+    const name = text('td', item.name)
+    name.className = 'cell-tool'
+    name.title = item.name
+    row.append(name, url, text('td', item.kind === 'skill' ? 'Skill' : '仓库'), tags, text('td', item.enabled ? i18n.t('table.enable') : i18n.t('table.disable')))
+    const actions = el('td', 'cell-actions', '')
+    actions.append(kebab([
+      button(i18n.t('table.edit'), { editLibrary: item.id }),
+      button(item.enabled ? i18n.t('table.disable') : i18n.t('table.enable'), { toggleLibrary: item.id }),
+      button(i18n.t('table.delete'), { deleteLibrary: item.id }, 'ui-button ui-button-danger ui-button-sm'),
+    ]))
+    row.append(actions)
+    return row
+  }))
+}
+function renderNotes() {
+  const table = $('#notes')
+  if (!table) return
+  table.replaceChildren(...(state.notes || []).slice().sort((a, b) => a.order - b.order).map(item => {
+    const row = document.createElement('tr')
+    const title = text('td', item.title)
+    title.className = 'cell-tool'
+    title.title = item.title
+    const summary = text('td', item.summary || '')
+    summary.title = item.summary || ''
+    row.append(title, summary, text('td', item.updated || '—'), text('td', item.enabled ? i18n.t('table.enable') : i18n.t('table.disable')))
+    const actions = el('td', 'cell-actions', '')
+    actions.append(kebab([
+      button(i18n.t('table.edit'), { editNote: item.id }),
+      button(item.enabled ? i18n.t('table.disable') : i18n.t('table.enable'), { toggleNote: item.id }),
+      button(i18n.t('table.delete'), { deleteNote: item.id }, 'ui-button ui-button-danger ui-button-sm'),
+    ]))
+    row.append(actions)
+    return row
+  }))
+}
 function renderTools() {
   $('#tools').replaceChildren(...state.tools.map(tool => {
     const row = document.createElement('tr')
@@ -412,13 +471,15 @@ function openTagDrawer(name) {
   armOutside($('#tag-drawer'), () => { $('#tag-drawer').hidden = true; tagsView.current = null })
 }
 
-function render() { renderSite(); renderStats(); renderCategories(); renderNavigation(); renderTools(); renderMarketplace(); renderTags(); i18n.apply() }
+function render() { renderSite(); renderStats(); renderCategories(); renderNavigation(); renderLibrary(); renderNotes(); renderTools(); renderMarketplace(); renderTags(); i18n.apply() }
 
 async function reload(message = i18n.t('msg.updated'), record = true) {
   const [navigation, categories, site] = await Promise.all([request('navigation'), request('categories'), request('site')])
   state.navigation = navigation
   state.categories = categories
   state.site = site
+  try { state.library = await request('library') } catch { state.library = [] }
+  try { state.notes = await request('notes') } catch { state.notes = [] }
   try { state.tools = await request('tools') } catch { state.tools = [] }
   try {
     const tagData = await request('tags')
@@ -454,10 +515,16 @@ function closeEditorDrawer() {
   $('#editor-drawer').hidden = true
   $('#nav-form').hidden = true
   $('#category-form').hidden = true
+  if ($('#library-form')) $('#library-form').hidden = true
+}
+function hideEditorForms() {
+  $('#nav-form').hidden = true
+  $('#category-form').hidden = true
+  if ($('#library-form')) $('#library-form').hidden = true
 }
 function openWebsiteDrawer(item) {
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
-  $('#category-form').hidden = true
+  hideEditorForms()
   const form = $('#nav-form')
   form.hidden = false
   $('#editor-drawer-title').textContent = item ? i18n.t('form.saveWebsite') : i18n.t('form.addWebsite')
@@ -468,12 +535,115 @@ function openWebsiteDrawer(item) {
 }
 function openCategoryDrawer(item) {
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
-  $('#nav-form').hidden = true
+  hideEditorForms()
   const form = $('#category-form')
   form.hidden = false
   $('#editor-drawer-title').textContent = item ? i18n.t('form.saveCategory') : i18n.t('form.addCategory')
   if (item) fill(form, item)
   else { form.reset(); form.elements.originalId.value = ''; form.querySelector('button').textContent = i18n.t('form.saveCategory') }
+  $('#editor-drawer').hidden = false
+  armOutside($('#editor-drawer'), closeEditorDrawer)
+}
+function readNoteForm() {
+  const form = $('#note-studio-form')
+  if (!form) return null
+  const data = Object.fromEntries(new FormData(form))
+  const originalId = data.originalId
+  delete data.originalId
+  data.tags = String(data.tags || '').split(',').map(value => value.trim()).filter(Boolean)
+  data.order = Number(data.order)
+  data.enabled = new FormData(form).has('enabled')
+  data.summary = data.summary || ''
+  data.body = data.body || ''
+  data.updated = data.updated || new Date().toISOString().slice(0, 10)
+  return { originalId, data }
+}
+function fillNoteStudio(item) {
+  const form = $('#note-studio-form')
+  if (!form) return
+  form.reset()
+  if (item) fill(form, item, true)
+  else {
+    form.elements.originalId.value = ''
+    form.elements.updated.value = new Date().toISOString().slice(0, 10)
+    form.elements.order.value = '10'
+    form.elements.enabled.checked = true
+    form.elements.body.value = '# 标题\n\n在左侧写 Markdown，右侧即时预览。\n'
+  }
+  refreshNotePreview()
+  syncNoteJson()
+  setNoteTab('write')
+}
+function refreshNotePreview() {
+  const preview = $('#note-preview')
+  if (!preview) return
+  const html = renderMarkdown($('#note-body')?.value || '')
+  preview.innerHTML = html || `<p class="muted">${i18n.t('notes.emptyPreview')}</p>`
+}
+function syncNoteJson() {
+  const pack = readNoteForm()
+  if (!pack || !$('#note-json')) return
+  $('#note-json').value = JSON.stringify(pack.data, null, 2)
+}
+function applyNoteJson() {
+  let parsed
+  try { parsed = JSON.parse($('#note-json').value) } catch { throw new Error(i18n.t('notes.jsonInvalid')) }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(i18n.t('notes.jsonInvalid'))
+  const form = $('#note-studio-form')
+  const current = form.elements.originalId.value
+  fill(form, {
+    id: parsed.id || '',
+    title: parsed.title || '',
+    summary: parsed.summary || '',
+    tags: parsed.tags || [],
+    order: Number.isFinite(parsed.order) ? parsed.order : 10,
+    updated: parsed.updated || '',
+    body: parsed.body || '',
+    enabled: parsed.enabled !== false,
+  }, true)
+  form.elements.originalId.value = current
+  refreshNotePreview()
+}
+function setNoteTab(tab) {
+  document.querySelectorAll('[data-note-tab]').forEach(button => button.classList.toggle('active', button.dataset.noteTab === tab))
+  if ($('#note-tab-write')) $('#note-tab-write').hidden = tab !== 'write'
+  if ($('#note-tab-json')) $('#note-tab-json').hidden = tab !== 'json'
+  if (tab === 'json') syncNoteJson()
+  if (tab === 'write') refreshNotePreview()
+}
+function insertMarkdown(kind) {
+  const ta = $('#note-body')
+  if (!ta) return
+  const snippets = {
+    h2: '## 标题\n',
+    list: '- 列表项\n',
+    link: '[文字](https://example.com)\n',
+    code: '```\ncode\n```\n',
+  }
+  const insert = snippets[kind]
+  if (!insert) return
+  const start = ta.selectionStart
+  const end = ta.selectionEnd
+  ta.setRangeText(insert, start, end, 'end')
+  ta.focus()
+  refreshNotePreview()
+}
+function openNoteStudio(item) {
+  closeEditorDrawer()
+  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
+  fillNoteStudio(item)
+  $('#note-studio-title').textContent = item ? i18n.t('form.saveNote') : i18n.t('form.addNote')
+  showView('note-editor')
+  $('#note-body')?.focus()
+}
+function openLibraryDrawer(item) {
+  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
+  hideEditorForms()
+  const form = $('#library-form')
+  form.hidden = false
+  $('#editor-drawer-title').textContent = item ? i18n.t('form.saveLibrary') : i18n.t('form.addLibrary')
+  if (item) fill(form, item, true)
+  else { form.reset(); form.elements.originalId.value = ''; form.elements.kind.value = 'repo' }
   $('#editor-drawer').hidden = false
   armOutside($('#editor-drawer'), closeEditorDrawer)
 }
@@ -900,7 +1070,29 @@ bind('#website-query', 'input', renderNavigation)
 bind('#website-category', 'change', renderNavigation)
 bind('#website-status', 'change', renderNavigation)
 bind('#nav-cancel', 'click', closeEditorDrawer)
+bind('#library-cancel', 'click', closeEditorDrawer)
 bind('#category-cancel', 'click', closeEditorDrawer)
+bind('#note-body', 'input', () => { refreshNotePreview() })
+bind('#note-studio-form', 'input', event => {
+  if (event.target.id === 'note-json') return
+  if (currentView === 'note-editor' && event.target.id !== 'note-body') syncNoteJson()
+})
+bind('#note-studio-form', 'submit', event => { event.preventDefault(); $('#note-save')?.click() })
+bind('#note-save', 'click', async () => {
+  const pack = readNoteForm()
+  if (!pack) return
+  if (!pack.data.id || !pack.data.title) { toastError(i18n.t('notes.needFields')); return }
+  try {
+    await withBusy($('#note-save'), async () => {
+      await request(pack.originalId ? `notes/${pack.originalId}` : 'notes', { method: pack.originalId ? 'PUT' : 'POST', body: JSON.stringify(pack.data) })
+      await reload(pack.originalId ? i18n.t('msg.savedNote') : i18n.t('msg.addedNote'))
+      showView('notes')
+    })
+  } catch (error) { toastError(error.message) }
+})
+bind('#note-json-apply', 'click', () => {
+  try { applyNoteJson(); setNoteTab('write'); toast(i18n.t('notes.jsonApplied')) } catch (error) { toastError(error.message) }
+})
 document.querySelectorAll('.settings-tab').forEach(tab => tab.addEventListener('click', () => { settingsTab = tab.dataset.settingsTab; renderSite() }))
 document.addEventListener('click', event => {
   if (event.target.closest('.kebab, .kebab-menu')) return
@@ -912,6 +1104,7 @@ document.addEventListener('keydown', event => {
   if ($('#modal') && !$('#modal').hidden) { $('#modal-cancel')?.click(); return }
   if ($('#tool-edit') && !$('#tool-edit').hidden) { $('#tool-edit-cancel')?.click(); return }
   if ($('#wizard') && !$('#wizard').hidden) { closeWizard().catch(() => {}); return }
+  if (currentView === 'note-editor') return
   closeEditorDrawer()
   if ($('#tag-drawer')) { $('#tag-drawer').hidden = true; tagsView.current = null }
 })
@@ -956,7 +1149,7 @@ bind('#run-validate', 'click', async () => {
   } catch (error) { toastError(error.message) }
 })
 const withBusy = async (form, fn) => {
-  const submit = form.querySelector('button[type="submit"], button.ui-button-primary')
+  const submit = form.matches?.('button') ? form : form.querySelector('button[type="submit"], button.ui-button-primary')
   const previous = submit?.textContent
   if (submit) { submit.disabled = true; submit.textContent = i18n.t('form.saving') }
   try { return await fn() } finally { if (submit) { submit.disabled = false; submit.textContent = previous } }
@@ -999,11 +1192,32 @@ bind('#nav-form', 'submit', async event => {
     })
   } catch (error) { toastError(error.message) }
 })
-
+bind('#library-form', 'submit', async event => {
+  event.preventDefault()
+  const form = new FormData(event.target)
+  const data = Object.fromEntries(form)
+  const originalId = data.originalId
+  delete data.originalId
+  data.tags = String(data.tags || '').split(',').map(value => value.trim()).filter(Boolean)
+  data.order = Number(data.order)
+  data.enabled = form.has('enabled')
+  data.language = data.language || ''
+  data.description = data.description || ''
+  try {
+    await withBusy(event.target, async () => {
+      await request(originalId ? `library/${originalId}` : 'library', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
+      event.target.reset()
+      closeEditorDrawer()
+      await reload(originalId ? i18n.t('msg.savedLibrary') : i18n.t('msg.addedLibrary'))
+    })
+  } catch (error) { toastError(error.message) }
+})
 document.addEventListener('click', async event => {
   const element = event.target.closest('button')
   if (!element) return
   if (element.dataset.view) return showView(element.dataset.view)
+  if (element.dataset.noteTab) { setNoteTab(element.dataset.noteTab); return }
+  if (element.dataset.md) { insertMarkdown(element.dataset.md); return }
   try {
     if (element.dataset.tagPage) { tagsView.page = Number(element.dataset.tagPage) || 1; renderTags(); return }
     if (element.dataset.viewTag) { openTagDrawer(element.dataset.viewTag); return }
@@ -1027,8 +1241,12 @@ document.addEventListener('click', async event => {
       return
     }
     if (element.dataset.addWebsite) { openWebsiteDrawer(); return }
+    if (element.dataset.addLibrary) { openLibraryDrawer(); return }
+    if (element.dataset.addNote) { openNoteStudio(); return }
     if (element.dataset.addCategory) { openCategoryDrawer(); return }
     if (element.dataset.edit) { openWebsiteDrawer(state.navigation.find(item => item.id === element.dataset.edit)); return }
+    if (element.dataset.editLibrary) { openLibraryDrawer(state.library.find(item => item.id === element.dataset.editLibrary)); return }
+    if (element.dataset.editNote) { openNoteStudio(state.notes.find(item => item.id === element.dataset.editNote)); return }
     if (element.dataset.editCategory) { openCategoryDrawer(state.categories.find(item => item.id === element.dataset.editCategory)); return }
     if (element.dataset.inspect) {
       document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
@@ -1060,6 +1278,26 @@ document.addEventListener('click', async event => {
       const item = state.navigation.find(entry => entry.id === element.dataset.toggle)
       await request(`navigation/${item.id}`, { method: 'PUT', body: JSON.stringify({ enabled: !item.enabled }) })
       await reload(i18n.t('msg.toggled'))
+    }
+    if (element.dataset.toggleLibrary) {
+      const item = state.library.find(entry => entry.id === element.dataset.toggleLibrary)
+      await request(`library/${item.id}`, { method: 'PUT', body: JSON.stringify({ enabled: !item.enabled }) })
+      await reload(i18n.t('msg.toggled'))
+    }
+    if (element.dataset.toggleNote) {
+      const item = state.notes.find(entry => entry.id === element.dataset.toggleNote)
+      await request(`notes/${item.id}`, { method: 'PUT', body: JSON.stringify({ enabled: !item.enabled }) })
+      await reload(i18n.t('msg.toggled'))
+    }
+    if (element.dataset.deleteLibrary) {
+      if (!await openModal({ title: i18n.t('modal.deleteTitle'), body: element.dataset.deleteLibrary, confirm: true })) return
+      await request(`library/${element.dataset.deleteLibrary}`, { method: 'DELETE' })
+      await reload(i18n.t('msg.deletedLibrary'))
+    }
+    if (element.dataset.deleteNote) {
+      if (!await openModal({ title: i18n.t('modal.deleteTitle'), body: element.dataset.deleteNote, confirm: true })) return
+      await request(`notes/${element.dataset.deleteNote}`, { method: 'DELETE' })
+      await reload(i18n.t('msg.deletedNote'))
     }
     if (element.dataset.deleteCategory) {
       if (!await openModal({ title: i18n.t('modal.deleteTitle'), body: element.dataset.deleteCategory, confirm: true })) return

@@ -24,7 +24,7 @@ const stagingDir = resolve(root, '.tool-staging')
 const legacyStagingDir = join(toolsDir, '.staging')
 const coreManifestPath = resolve(root, 'src/tools/manifests/core.json')
 const indexManifestPath = join(publicDir, 'tools-manifests.json')
-const files = { navigation: 'navigation.json', categories: 'categories.json', site: 'site.json' }
+const files = { navigation: 'navigation.json', categories: 'categories.json', site: 'site.json', library: 'library.json', notes: 'notes.json' }
 const MAX_BODY_SIZE = 1024 * 1024
 const MAX_TOOL_BODY_SIZE = 25 * 1024 * 1024
 const execFileAsync = promisify(execFile)
@@ -38,6 +38,20 @@ function validate(key, value) {
   if (!Array.isArray(value)) throw new Error('数据必须是数组')
   const ids = new Set(value.map(item => item.id)); if (ids.size !== value.length || value.some(item => !item.id)) throw new Error('id 不能为空且不能重复')
   if (key === 'categories') { if (value.some(item => typeof item.name !== 'string' || typeof item.order !== 'number')) throw new Error('分类字段无效'); return }
+  if (key === 'notes') {
+    for (const item of value) {
+      if (typeof item.title !== 'string' || typeof item.body !== 'string' || typeof item.order !== 'number' || typeof item.enabled !== 'boolean' || !Array.isArray(item.tags)) throw new Error(`字段无效: ${item.id}`)
+    }
+    return
+  }
+  if (key === 'library') {
+    for (const item of value) {
+      if (item.kind !== 'repo' && item.kind !== 'skill') throw new Error(`kind 无效: ${item.id}`)
+      if (!/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`URL 无效: ${item.url}`)
+      if (typeof item.name !== 'string' || typeof item.order !== 'number' || typeof item.enabled !== 'boolean' || !Array.isArray(item.tags)) throw new Error(`字段无效: ${item.id}`)
+    }
+    return
+  }
   const categoryIds = new Set(categoryCache.map(item => item.id))
   for (const item of value) { if (!/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`URL 无效: ${item.url}`); if (!categoryIds.has(item.category)) throw new Error(`分类不存在: ${item.category}`); if (typeof item.order !== 'number' || typeof item.enabled !== 'boolean' || !Array.isArray(item.tags)) throw new Error(`字段无效: ${item.id}`) }
 }
@@ -82,6 +96,8 @@ async function runValidation() {
   try { validate('site', await json('site')) } catch (error) { issues.push(error.message) }
   try { validate('categories', categoryCache) } catch (error) { issues.push(error.message) }
   try { validate('navigation', navigationCache) } catch (error) { issues.push(error.message) }
+  try { validate('library', await json('library')) } catch (error) { issues.push(error.message) }
+  try { validate('notes', await json('notes')) } catch (error) { issues.push(error.message) }
   for (const manifest of await tools()) {
     const hasEntry = manifest.runtime === 'static' ? existsSync(join(toolsDir, manifest.id, manifest.entry)) : undefined
     const report = inspectTool(manifest, { hasEntry })
@@ -508,7 +524,7 @@ const server = createServer(async (req, res) => {
         return send(res, 405, { error: 'Method not allowed' })
       }
       if (url.pathname === '/api/validate' && req.method === 'GET') return send(res, 200, await runValidation())
-      const match = url.pathname.match(/^\/api\/(navigation|categories|site)(?:\/([^/]+))?$/); if (!match) return send(res, 404, { error: 'Not found' })
+      const match = url.pathname.match(/^\/api\/(navigation|categories|site|library|notes)(?:\/([^/]+))?$/); if (!match) return send(res, 404, { error: 'Not found' })
       const key = match[1], id = match[2]; let value = await json(key)
       if (req.method === 'GET') return send(res, 200, value)
       if (key === 'site' && req.method === 'PUT') { await save(key, await body(req)); return send(res, 200, await json(key)) }

@@ -5,13 +5,20 @@ import { validateManifest } from './tool-manifest.mjs'
 
 const load = name => readFile(new URL(`../src/data/${name}.json`, import.meta.url), 'utf8').then(JSON.parse)
 const [navigation, categories] = await Promise.all([load('navigation'), load('categories')])
+const library = await load('library')
+const notes = await load('notes')
 const site = await load('site')
 const registry = await readFile(new URL('../src/tools/registry.ts', import.meta.url), 'utf8')
 const registryTools = [...registry.matchAll(/\{\s*id:\s*'([^']+)'[\s\S]*?path:\s*'([^']+)'/g)].map(([, id, path]) => ({ id, path }))
 const coreManifests = JSON.parse(await readFile(new URL('../src/tools/manifests/core.json', import.meta.url), 'utf8'))
 const publicManifests = JSON.parse(await readFile(new URL('../public/tools-manifests.json', import.meta.url), 'utf8'))
-for (const field of ['title', 'description', 'github']) if (typeof site[field] !== 'string' || !site[field].trim()) throw new Error(`invalid site.${field}`)
+for (const field of ['title', 'description', 'github', 'name']) if (typeof site[field] !== 'string' || !site[field].trim()) throw new Error(`invalid site.${field}`)
 if (!/^https?:$/.test(new URL(site.github).protocol)) throw new Error(`invalid site.github: ${site.github}`)
+if (site.publicUrl) {
+  if (!/^https?:$/.test(new URL(site.publicUrl).protocol)) throw new Error(`invalid site.publicUrl: ${site.publicUrl}`)
+}
+if (site.basePath != null && !/^(\.\/|\/)/.test(String(site.basePath))) throw new Error(`invalid site.basePath: ${site.basePath}`)
+if (site.adminUrl && !/^https?:$/.test(new URL(site.adminUrl).protocol)) throw new Error(`invalid site.adminUrl: ${site.adminUrl}`)
 const categoryIds = new Set(categories.map(item => item.id))
 if (categoryIds.size !== categories.length || categories.some(item => !item.id || !item.name || !Number.isFinite(item.order))) throw new Error('invalid categories')
 const ids = new Set()
@@ -21,6 +28,20 @@ for (const item of navigation) {
   if (!/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`invalid URL: ${item.url}`)
   if (!categoryIds.has(item.category)) throw new Error(`unknown category: ${item.category}`)
   if (!Number.isFinite(item.order) || typeof item.enabled !== 'boolean' || !Array.isArray(item.tags)) throw new Error(`invalid fields: ${item.id}`)
+}
+const libraryIds = new Set()
+for (const item of library) {
+  if (!item.id || libraryIds.has(item.id)) throw new Error(`duplicate or empty library id: ${item.id}`)
+  libraryIds.add(item.id)
+  if (item.kind !== 'repo' && item.kind !== 'skill') throw new Error(`invalid library kind: ${item.id}`)
+  if (!/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`invalid library URL: ${item.url}`)
+  if (!Number.isFinite(item.order) || typeof item.enabled !== 'boolean' || !Array.isArray(item.tags) || typeof item.name !== 'string') throw new Error(`invalid library fields: ${item.id}`)
+}
+const noteIds = new Set()
+for (const item of notes) {
+  if (!item.id || noteIds.has(item.id)) throw new Error(`duplicate or empty note id: ${item.id}`)
+  noteIds.add(item.id)
+  if (typeof item.title !== 'string' || typeof item.body !== 'string' || !Number.isFinite(item.order) || typeof item.enabled !== 'boolean' || !Array.isArray(item.tags)) throw new Error(`invalid note fields: ${item.id}`)
 }
 const toolIds = new Set(registryTools.map(item => item.id))
 const toolPaths = new Set(registryTools.map(item => item.path))
@@ -39,4 +60,4 @@ const checkManifests = (manifests, label) => {
 checkManifests(coreManifests, 'core')
 checkManifests(publicManifests, 'public')
 if (String.fromCharCode(7) !== '\x07') throw new Error('control character self-check failed')
-console.log(`valid: ${navigation.length} navigation items, ${categories.length} categories, ${coreManifests.length} tools`)
+console.log(`valid: ${navigation.length} navigation items, ${library.length} library items, ${notes.length} notes, ${categories.length} categories, ${coreManifests.length} tools`)

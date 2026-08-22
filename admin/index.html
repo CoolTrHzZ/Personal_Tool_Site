@@ -27,6 +27,8 @@
       <nav>
         <button class="nav-item active" data-view="dashboard" data-i18n="nav.dashboard">仪表盘</button>
         <button class="nav-item" data-view="websites" data-i18n="nav.websites">网站管理</button>
+        <button class="nav-item" data-view="library" data-i18n="nav.library">收藏仓库</button>
+        <button class="nav-item" data-view="notes" data-i18n="nav.notes">笔记文章</button>
         <button class="nav-item" data-view="tools" data-i18n="nav.tools">工具管理</button>
         <button class="nav-item" data-view="marketplace" data-i18n="nav.marketplace">工具市场</button>
         <button class="nav-item" data-view="categories" data-i18n="nav.categories">分类管理</button>
@@ -104,6 +106,87 @@
             </select>
           </div>
           <div class="ui-table-wrap"><table class="ui-table table-sites"><colgroup><col class="col-name"><col class="col-url"><col class="col-cat"><col class="col-tags"><col class="col-status"><col class="col-actions"></colgroup><thead><tr><th>网站名称</th><th>URL</th><th>分类</th><th>标签</th><th>状态</th><th>操作</th></tr></thead><tbody id="navigation"></tbody></table></div>
+        </section>
+      </section>
+
+      <section class="view content-medium" data-view-panel="library">
+        <section class="ui-card panel">
+          <div class="panel-toolbar">
+            <h2 data-i18n="nav.library">收藏仓库</h2>
+            <button type="button" class="ui-button ui-button-primary" data-add-library="1" data-i18n="form.addLibrary">添加收藏</button>
+          </div>
+          <p class="muted" data-i18n="library.listHint">GitHub 仓库或 Skill 外链。编辑走侧栏表单，与笔记工作室分开。</p>
+          <div class="ui-table-wrap"><table class="ui-table table-sites"><colgroup><col class="col-name"><col class="col-url"><col class="col-cat"><col class="col-tags"><col class="col-status"><col class="col-actions"></colgroup><thead><tr><th>名称</th><th>URL</th><th>类型</th><th>标签</th><th>状态</th><th>操作</th></tr></thead><tbody id="library"></tbody></table></div>
+        </section>
+      </section>
+
+      <section class="view content-medium" data-view-panel="notes">
+        <section class="ui-card panel">
+          <div class="panel-toolbar">
+            <h2 data-i18n="nav.notes">笔记文章</h2>
+            <button type="button" class="ui-button ui-button-primary" data-add-note="1" data-i18n="form.addNote">添加笔记</button>
+          </div>
+          <p class="muted" data-i18n="notes.listHint">添加或编辑会打开独立的 Markdown 工作室（撰写、预览、原始 JSON），与收藏仓库抽屉分开。</p>
+          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>标题</th><th>摘要</th><th>更新</th><th>状态</th><th>操作</th></tr></thead><tbody id="notes"></tbody></table></div>
+        </section>
+      </section>
+
+      <section class="view content-wide" data-view-panel="note-editor">
+        <section class="ui-card panel note-studio">
+          <div class="panel-toolbar">
+            <div>
+              <p class="edit-kicker">MARKDOWN STUDIO</p>
+              <h2 id="note-studio-title">编辑笔记</h2>
+            </div>
+            <div class="toolbar-actions">
+              <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-view="notes" data-i18n="notes.back">返回列表</button>
+              <button type="button" class="ui-button ui-button-primary ui-button-sm" id="note-save" data-i18n="form.saveNote">保存笔记</button>
+            </div>
+          </div>
+          <form id="note-studio-form" class="note-studio-form">
+            <input type="hidden" name="originalId">
+            <section class="note-meta">
+              <p class="field-label" data-i18n="notes.meta">文章配置</p>
+              <div class="note-meta-grid">
+                <label class="ui-field"><span class="ui-field-label">标题</span><input class="ui-input" name="title" required></label>
+                <label class="ui-field"><span class="ui-field-label">ID / slug</span><input class="ui-input" name="id" required placeholder="about-library"></label>
+                <label class="ui-field"><span class="ui-field-label">摘要</span><input class="ui-input" name="summary"></label>
+                <label class="ui-field"><span class="ui-field-label">标签</span><input class="ui-input" name="tags" placeholder="guide, ai"></label>
+                <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
+                <label class="ui-field"><span class="ui-field-label">更新日期</span><input class="ui-input" name="updated" type="date"></label>
+                <label class="check-inline note-enabled"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
+              </div>
+            </section>
+            <div class="note-studio-tabs" role="tablist">
+              <button type="button" class="active" data-note-tab="write" data-i18n="notes.tabWrite">撰写与预览</button>
+              <button type="button" data-note-tab="json" data-i18n="notes.tabJson">原始 JSON</button>
+            </div>
+            <div id="note-tab-write">
+              <div class="md-toolbar">
+                <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-md="h2">H2</button>
+                <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-md="list">列表</button>
+                <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-md="link">链接</button>
+                <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-md="code">代码块</button>
+              </div>
+              <div class="note-split">
+                <label class="note-pane">
+                  <span class="ui-field-label" data-i18n="notes.source">Markdown</span>
+                  <textarea class="ui-input note-source" name="body" id="note-body" spellcheck="false"></textarea>
+                </label>
+                <div class="note-pane">
+                  <span class="ui-field-label" data-i18n="notes.preview">预览</span>
+                  <article id="note-preview" class="note-preview md-article"></article>
+                </div>
+              </div>
+            </div>
+            <div id="note-tab-json" hidden>
+              <p class="muted" data-i18n="notes.jsonHint">直接改 notes.json 结构，应用到表单后左侧配置与预览会同步。</p>
+              <textarea id="note-json" class="ui-input note-json" spellcheck="false"></textarea>
+              <div class="toolbar-actions" style="margin-top:12px">
+                <button type="button" class="ui-button ui-button-primary ui-button-sm" id="note-json-apply" data-i18n="notes.applyJson">应用到表单</button>
+              </div>
+            </div>
+          </form>
         </section>
       </section>
 
@@ -196,6 +279,7 @@
           <div class="settings-tabs" role="tablist">
             <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab active" data-settings-tab="general">通用设置</button>
             <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab" data-settings-tab="appearance">外观界面</button>
+            <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab" data-settings-tab="deploy">发布与域名</button>
             <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab" data-settings-tab="data">数据管理</button>
             <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab" data-settings-tab="backup">备份与恢复</button>
             <button type="button" class="ui-button ui-button-ghost ui-button-sm settings-tab" data-settings-tab="about">关于</button>
@@ -285,6 +369,20 @@
       <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
       <div class="ui-drawer-foot"><button type="button" class="ui-button ui-button-ghost" id="nav-cancel">取消</button><button class="ui-button ui-button-primary" data-i18n="form.saveWebsite">保存更改</button></div>
+    </form>
+    <form id="library-form" class="drawer-form" hidden>
+      <p class="muted">收藏 GitHub 仓库或 Skill 链接，保存到 library.json。</p>
+      <input type="hidden" name="originalId">
+      <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required></label>
+      <label class="ui-field"><span class="ui-field-label">类型</span><select class="ui-input" name="kind"><option value="repo">仓库</option><option value="skill">Skill</option></select></label>
+      <label class="ui-field"><span class="ui-field-label">GitHub URL</span><input class="ui-input" name="url" type="url" required placeholder="https://github.com/owner/repo"></label>
+      <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="3"></textarea></label>
+      <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
+      <label class="ui-field"><span class="ui-field-label">语言</span><input class="ui-input" name="language" placeholder="TypeScript"></label>
+      <label class="ui-field"><span class="ui-field-label">标签</span><input class="ui-input" name="tags"></label>
+      <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
+      <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
+      <div class="ui-drawer-foot"><button type="button" class="ui-button ui-button-ghost" id="library-cancel">取消</button><button class="ui-button ui-button-primary" data-i18n="form.saveLibrary">保存收藏</button></div>
     </form>
     <form id="category-form" class="drawer-form" hidden>
       <input type="hidden" name="originalId">

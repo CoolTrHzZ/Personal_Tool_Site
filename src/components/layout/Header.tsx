@@ -27,6 +27,8 @@ export default function Header() {
         <Link className={location.pathname === '/' ? 'active' : ''} to="/">首页</Link>
         <Link className={location.pathname.startsWith('/tools') ? 'active' : ''} to="/tools">工具</Link>
         <Link className={location.pathname === '/nav' ? 'active' : ''} to="/nav">导航</Link>
+        <Link className={location.pathname.startsWith('/library') ? 'active' : ''} to="/library">收藏</Link>
+        <Link className={location.pathname.startsWith('/notes') ? 'active' : ''} to="/notes">笔记</Link>
       </nav>
       <div className="topbar-end">
         <button type="button" className="top-search-mini" onClick={openPalette} aria-label="打开命令面板">⌘K</button>

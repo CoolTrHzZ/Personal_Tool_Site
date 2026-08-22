@@ -1,0 +1,24 @@
+[
+  {
+    "id": "anthropic-skills",
+    "name": "anthropics/skills",
+    "kind": "skill",
+    "url": "https://github.com/anthropics/skills",
+    "description": "Agent Skills 官方示例与规范",
+    "language": "",
+    "tags": ["skill", "claude", "agent"],
+    "enabled": true,
+    "order": 10
+  },
+  {
+    "id": "vite",
+    "name": "vitejs/vite",
+    "kind": "repo",
+    "url": "https://github.com/vitejs/vite",
+    "description": "前端构建工具",
+    "language": "TypeScript",
+    "tags": ["frontend", "build"],
+    "enabled": true,
+    "order": 20
+  }
+]

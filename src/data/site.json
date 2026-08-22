@@ -6,5 +6,7 @@
   "github": "https://github.com",
   "footer": "DevOS · Personal Developer Workspace",
   "logo": "D",
-  "adminUrl": "http://127.0.0.1:4174/admin/"
+  "adminUrl": "http://127.0.0.1:4174/admin/",
+  "publicUrl": "",
+  "basePath": "./"
 }
