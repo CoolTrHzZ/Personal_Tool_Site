@@ -1,51 +1,5 @@
 [
   {
-    "id": "cs2-color-text",
-    "name": "CS2 彩色字体",
-    "description": "生成社区服务器彩色文本",
-    "type": "react",
-    "entry": "react",
-    "category": "game",
-    "version": "1.0.0",
-    "enabled": true,
-    "icon": "Palette",
-    "keywords": [
-      "cs2",
-      "颜色",
-      "字体",
-      "聊天"
-    ],
-    "favorite": true,
-    "order": 10,
-    "author": "local",
-    "updated": "2026-08-18",
-    "tags": [
-      "cs2",
-      "颜色",
-      "字体"
-    ],
-    "status": "active",
-    "readme": "生成 CS2 社区服务器彩色文本。",
-    "license": "MIT",
-    "runtime": "react",
-    "format": "react-package",
-    "display": {
-      "mode": "embedded",
-      "height": "auto"
-    },
-    "permissions": {
-      "clipboard": true,
-      "storage": true,
-      "network": false,
-      "notifications": false,
-      "modals": false,
-      "download": false,
-      "externalLinks": false,
-      "sameOrigin": false,
-      "popups": false
-    }
-  },
-  {
     "id": "json",
     "name": "JSON 格式化",
     "description": "格式化与校验 JSON",
@@ -223,8 +177,8 @@
   },
   {
     "id": "community-rainbow-chat-generator-v4-unicode-fix",
-    "name": "社区服彩虹聊天控制字符生成器 V4 - Unicode 修复版",
-    "description": "社区服彩虹聊天控制字符生成器 V4 - Unicode 修复版（导入工具）",
+    "name": "社区服彩虹聊天控制字符生成器",
+    "description": "社区服彩虹聊天控制字符生成器",
     "runtime": "static",
     "format": "single-html",
     "entry": "index.html",
@@ -239,7 +193,7 @@
     "readme": "社区服彩虹聊天控制字符生成器 V4 - Unicode 修复版",
     "license": "MIT",
     "display": {
-      "mode": "embedded",
+      "mode": "fullscreen",
       "height": "auto"
     },
     "permissions": {
@@ -257,5 +211,42 @@
     "updated": "2026-08-18",
     "favorite": false,
     "order": 70
+  },
+  {
+    "id": "adcp-v3-overview",
+    "name": "Agent Development Control Plane",
+    "description": "Agent Development Control Plane，本地优先的 AI 软件开发控制平面。",
+    "runtime": "static",
+    "format": "single-html",
+    "entry": "index.html",
+    "category": "development",
+    "version": "1.0.0",
+    "enabled": true,
+    "icon": "Wrench",
+    "keywords": [],
+    "author": "import",
+    "tags": [],
+    "status": "active",
+    "readme": "ADCP v3.0.0 — Agent Development Control Plane，本地优先的 AI 软件开发控制平面。",
+    "license": "MIT",
+    "display": {
+      "mode": "fullscreen",
+      "height": "auto"
+    },
+    "permissions": {
+      "clipboard": true,
+      "storage": false,
+      "network": false,
+      "notifications": false,
+      "modals": false,
+      "download": false,
+      "externalLinks": false,
+      "sameOrigin": false,
+      "popups": false
+    },
+    "type": "html",
+    "updated": "2026-08-22",
+    "favorite": true,
+    "order": 80
   }
 ]

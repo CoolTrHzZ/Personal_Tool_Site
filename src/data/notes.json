@@ -3,7 +3,9 @@
     "id": "about-library",
     "title": "仓库、Skill 与笔记怎么用",
     "summary": "收藏 GitHub 仓库 / Skill，以及用 Markdown 写说明页。",
-    "tags": ["guide"],
+    "tags": [
+      "guide"
+    ],
     "enabled": true,
     "order": 10,
     "updated": "2026-08-19",

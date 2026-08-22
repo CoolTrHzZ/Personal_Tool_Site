@@ -112,6 +112,9 @@ export default {
     colName: '名称',
     colStatus: '状态',
     colActions: '操作',
+    colDisplay: '载入样式',
+    fullscreenLoad: '打开即全屏',
+    fullscreenShort: '全屏',
   },
   wizard: {
     close: '关闭',

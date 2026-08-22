@@ -112,6 +112,9 @@ export default {
     colName: 'Name',
     colStatus: 'Status',
     colActions: 'Actions',
+    colDisplay: 'Load style',
+    fullscreenLoad: 'Open fullscreen',
+    fullscreenShort: 'Full',
   },
   wizard: {
     close: 'Close',

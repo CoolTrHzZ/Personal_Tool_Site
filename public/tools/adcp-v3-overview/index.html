@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#071018" />
+  <meta name="description" content="ADCP v3.0.0 — Agent Development Control Plane，本地优先的 AI 软件开发控制平面。" />
+  <title>ADCP v3.0.0 · Agent Development Control Plane</title>
+  <style>
+    :root{
+      --bg:#071018;
+      --bg-2:#0a141d;
+      --panel:#0c1822cc;
+      --panel-solid:#0d1923;
+      --line:#183241;
+      --line-2:#244658;
+      --text:#e9f6f8;
+      --muted:#8da9b4;
+      --muted-2:#65808c;
+      --cyan:#61e9ff;
+      --mint:#7ff0c7;
+      --amber:#ffcc6a;
+      --violet:#9b8cff;
+      --danger:#ff7b84;
+      --shadow: 0 18px 60px rgba(0,0,0,.32);
+      --radius:20px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(circle at 16% 0%, rgba(97,233,255,.12), transparent 30rem),
+        radial-gradient(circle at 86% 16%, rgba(155,140,255,.10), transparent 26rem),
+        linear-gradient(180deg,#071018 0%,#08121a 52%,#071018 100%);
+      line-height:1.68;
+      overflow-x:hidden;
+    }
+    body::before{
+      content:"";
+      position:fixed; inset:0;
+      pointer-events:none;
+      background-image:
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+      background-size:32px 32px;
+      mask-image:linear-gradient(to bottom,black,transparent 75%);
+      z-index:-1;
+    }
+
+    a{color:inherit;text-decoration:none}
+    button{font:inherit}
+    code,kbd,pre{font-family:var(--mono)}
+    .wrap{width:min(1180px,calc(100% - 40px));margin:0 auto}
+    .section{padding:92px 0}
+    .section.compact{padding:64px 0}
+    .eyebrow{
+      display:inline-flex; align-items:center; gap:8px;
+      font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+      color:var(--cyan);
+    }
+    .eyebrow::before{content:"";width:22px;height:1px;background:currentColor;box-shadow:0 0 12px currentColor}
+    .section-title{
+      margin:12px 0 12px;
+      font-size:clamp(30px,4vw,48px);
+      line-height:1.08;
+      letter-spacing:-.04em;
+    }
+    .section-lead{max-width:760px;color:var(--muted);font-size:17px;margin:0}
+    .grid{display:grid;gap:18px}
+
+    /* topbar */
+    .topbar{
+      position:sticky;top:0;z-index:30;
+      backdrop-filter:blur(16px);
+      background:linear-gradient(to bottom,rgba(7,16,24,.88),rgba(7,16,24,.60));
+      border-bottom:1px solid rgba(125,210,225,.10);
+    }
+    .nav{height:66px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+    .brand{display:flex;align-items:center;gap:11px;font-weight:900;letter-spacing:.04em}
+    .brandmark{
+      width:30px;height:30px;border:1px solid var(--line-2);border-radius:8px;
+      display:grid;place-items:center;position:relative;overflow:hidden;
+      background:linear-gradient(145deg,rgba(97,233,255,.1),rgba(127,240,199,.03));
+      box-shadow:inset 0 0 20px rgba(97,233,255,.06),0 0 20px rgba(97,233,255,.06);
+    }
+    .brandmark::before,.brandmark::after{content:"";position:absolute;background:var(--cyan);opacity:.85}
+    .brandmark::before{width:13px;height:1px;transform:rotate(45deg)}
+    .brandmark::after{width:13px;height:1px;transform:rotate(-45deg)}
+    .brand small{font-size:10px;color:var(--muted-2);font-weight:700;letter-spacing:.12em;margin-left:2px}
+    .navlinks{display:flex;gap:24px;color:var(--muted);font-size:13px;font-weight:700}
+    .navlinks a:hover{color:var(--text)}
+    .nav-cta{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
+      border:1px solid var(--line-2);color:var(--mint);font-size:12px;font-weight:800;
+      background:rgba(127,240,199,.04)
+    }
+    .status-dot{width:7px;height:7px;border-radius:999px;background:var(--mint);box-shadow:0 0 14px var(--mint)}
+
+    /* hero */
+    .hero{padding:88px 0 56px;position:relative}
+    .hero-grid{display:grid;grid-template-columns:1.06fr .94fr;gap:54px;align-items:center}
+    .version-pill{
+      display:inline-flex;align-items:center;gap:10px;padding:7px 11px;border-radius:999px;
+      border:1px solid var(--line-2);background:rgba(255,255,255,.025);
+      color:#bfeaf0;font:700 12px/1 var(--mono);
+    }
+    .version-pill b{color:var(--amber)}
+    h1{
+      margin:20px 0 20px;
+      font-size:clamp(46px,7vw,82px);
+      line-height:.95;
+      letter-spacing:-.065em;
+      max-width:780px;
+    }
+    h1 .outline{
+      color:transparent;
+      -webkit-text-stroke:1px rgba(233,246,248,.55);
+      text-shadow:0 0 30px rgba(97,233,255,.08);
+    }
+    .hero-copy{font-size:18px;color:#a7c0c9;max-width:690px;margin:0 0 28px}
+    .hero-copy strong{color:var(--text)}
+    .hero-actions{display:flex;flex-wrap:wrap;gap:12px}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:9px;
+      min-height:44px;padding:0 16px;border-radius:11px;border:1px solid var(--line-2);
+      background:rgba(255,255,255,.025);color:var(--text);font-weight:800;font-size:13px;cursor:pointer;
+      transition:.2s ease;
+    }
+    .btn:hover{transform:translateY(-1px);border-color:#396477;background:rgba(255,255,255,.045)}
+    .btn.primary{
+      color:#071018;border-color:transparent;
+      background:linear-gradient(135deg,var(--cyan),var(--mint));
+      box-shadow:0 10px 30px rgba(97,233,255,.14)
+    }
+    .hero-meta{display:flex;gap:22px;flex-wrap:wrap;margin-top:30px;color:var(--muted-2);font-size:12px}
+    .hero-meta span{display:flex;gap:7px;align-items:center}
+    .hero-meta i{width:5px;height:5px;border-radius:50%;background:var(--line-2)}
+
+    /* cockpit */
+    .cockpit{
+      min-height:500px;border-radius:28px;border:1px solid #244355;
+      background:
+        linear-gradient(180deg,rgba(14,28,39,.96),rgba(9,19,27,.96)),
+        radial-gradient(circle at 50% 0%,rgba(97,233,255,.10),transparent 60%);
+      box-shadow:var(--shadow),inset 0 0 50px rgba(97,233,255,.025);
+      position:relative;overflow:hidden;padding:18px;
+    }
+    .cockpit::before{
+      content:"CONTROL PLANE / LIVE GRAPH";
+      position:absolute;top:18px;left:20px;color:#688592;font:700 10px/1 var(--mono);letter-spacing:.15em;
+    }
+    .cockpit::after{
+      content:"";
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,transparent 49.8%,rgba(97,233,255,.04) 50%,transparent 50.2%),
+                 linear-gradient(transparent 49.8%,rgba(97,233,255,.035) 50%,transparent 50.2%);
+      background-size:56px 56px;
+    }
+    .plane{position:absolute;inset:58px 18px 18px}
+    .node{
+      position:absolute;padding:10px 12px;border-radius:12px;border:1px solid var(--line-2);
+      background:rgba(8,20,28,.92);box-shadow:0 12px 32px rgba(0,0,0,.24);
+      font:700 11px/1.2 var(--mono);z-index:2;white-space:nowrap;
+    }
+    .node small{display:block;color:var(--muted-2);font-size:9px;margin-top:6px;font-weight:600}
+    .node.core{left:50%;top:44%;transform:translate(-50%,-50%);padding:16px 18px;color:#081218;background:linear-gradient(135deg,var(--cyan),var(--mint));border:none}
+    .node.runtime{left:5%;top:8%;color:var(--cyan)}
+    .node.modules{right:5%;top:10%;color:var(--amber)}
+    .node.local{right:3%;bottom:12%;color:var(--violet)}
+    .node.adapters{left:4%;bottom:10%;color:var(--mint)}
+    .node.model{left:50%;bottom:3%;transform:translateX(-50%);color:#d4d6ff}
+    .wire{position:absolute;height:1px;transform-origin:left center;background:linear-gradient(90deg,rgba(97,233,255,.1),rgba(97,233,255,.58),rgba(127,240,199,.12));z-index:1}
+    .w1{left:21%;top:25%;width:34%;transform:rotate(25deg)}
+    .w2{left:50%;top:44%;width:35%;transform:rotate(-29deg)}
+    .w3{left:20%;top:71%;width:36%;transform:rotate(-27deg)}
+    .w4{left:50%;top:44%;width:36%;transform:rotate(29deg)}
+    .w5{left:50%;top:44%;width:30%;transform:rotate(90deg)}
+    .pulse{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--cyan);box-shadow:0 0 22px var(--cyan);left:49.2%;top:42.8%;z-index:4;animation:pulse 2.4s ease-in-out infinite}
+    @keyframes pulse{0%,100%{transform:scale(.8);opacity:.5}50%{transform:scale(1.45);opacity:1}}
+
+    /* problem */
+    .problem-grid{grid-template-columns:repeat(3,1fr);margin-top:34px}
+    .problem-card,.card{
+      border:1px solid var(--line);border-radius:var(--radius);padding:24px;
+      background:linear-gradient(180deg,rgba(255,255,255,.024),rgba(255,255,255,.012));
+      position:relative;overflow:hidden;
+    }
+    .problem-card::after{
+      content:"";position:absolute;width:120px;height:120px;border-radius:50%;right:-60px;top:-60px;
+      background:radial-gradient(circle,rgba(255,123,132,.10),transparent 68%);
+    }
+    .num{font:800 11px/1 var(--mono);color:var(--danger);letter-spacing:.12em}
+    .problem-card h3,.card h3{margin:14px 0 8px;font-size:18px;letter-spacing:-.02em}
+    .problem-card p,.card p{margin:0;color:var(--muted);font-size:14px}
+
+    /* principles */
+    .principle-grid{grid-template-columns:repeat(4,1fr);margin-top:32px}
+    .principle{padding:22px 18px 21px;border-top:1px solid var(--line-2);background:linear-gradient(180deg,rgba(97,233,255,.025),transparent)}
+    .principle b{display:block;font-size:15px;margin-bottom:8px}
+    .principle span{color:var(--muted);font-size:13px}
+    .icon{
+      width:34px;height:34px;border-radius:10px;border:1px solid var(--line-2);
+      display:grid;place-items:center;margin-bottom:18px;color:var(--cyan);font:800 12px/1 var(--mono);
+      background:rgba(97,233,255,.04)
+    }
+
+    /* architecture */
+    .arch-shell{
+      margin-top:34px;border:1px solid var(--line-2);border-radius:26px;padding:14px;
+      background:rgba(7,16,24,.50);box-shadow:var(--shadow);
+    }
+    .layer{
+      min-height:86px;display:grid;grid-template-columns:180px 1fr 120px;gap:18px;align-items:center;
+      padding:16px 18px;border-radius:16px;border:1px solid transparent;
+      position:relative;
+    }
+    .layer + .layer{margin-top:8px}
+    .layer:hover{border-color:var(--line);background:rgba(255,255,255,.018)}
+    .layer-name{font:900 13px/1.3 var(--mono);letter-spacing:.02em}
+    .layer-name small{display:block;color:var(--muted-2);font:600 10px/1.4 var(--mono);margin-top:7px}
+    .layer-body{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{
+      padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.018);
+      color:#b7cdd5;font:700 11px/1 var(--mono)
+    }
+    .layer-desc{text-align:right;color:var(--muted-2);font-size:11px}
+    .layer:nth-child(1){background:linear-gradient(90deg,rgba(97,233,255,.055),transparent)}
+    .layer:nth-child(2){background:linear-gradient(90deg,rgba(255,204,106,.045),transparent)}
+    .layer:nth-child(3){background:linear-gradient(90deg,rgba(155,140,255,.045),transparent)}
+    .layer:nth-child(4){background:linear-gradient(90deg,rgba(127,240,199,.045),transparent)}
+    .layer:nth-child(5){background:linear-gradient(90deg,rgba(255,255,255,.02),transparent)}
+
+    /* module precedence */
+    .module-grid{grid-template-columns:.9fr 1.1fr;gap:22px;margin-top:34px}
+    .stack-card{border:1px solid var(--line);border-radius:var(--radius);padding:24px;background:rgba(255,255,255,.018)}
+    .stack-item{
+      padding:15px 16px;border-radius:13px;border:1px solid var(--line);background:#0a151e;margin-top:10px;
+      display:flex;justify-content:space-between;gap:12px;align-items:center
+    }
+    .stack-item b{font:800 12px/1.2 var(--mono)}
+    .stack-item span{font:700 10px/1 var(--mono);color:var(--muted-2)}
+    .stack-item.local{border-color:#514e7d;box-shadow:inset 3px 0 0 var(--violet)}
+    .stack-item.project{border-color:#5f5031;box-shadow:inset 3px 0 0 var(--amber)}
+    .stack-item.runtime{border-color:#1c5361;box-shadow:inset 3px 0 0 var(--cyan)}
+    .precedence{display:flex;align-items:center;gap:8px;color:var(--muted-2);font:700 11px/1 var(--mono);margin:12px 0}
+    .precedence i{height:1px;flex:1;background:linear-gradient(90deg,var(--violet),var(--amber),var(--cyan));opacity:.5}
+    .module-features{grid-template-columns:repeat(2,1fr)}
+    .mini{
+      padding:18px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.014);
+    }
+    .mini b{display:block;font-size:14px;margin-bottom:5px}
+    .mini span{font-size:12px;color:var(--muted)}
+
+    /* workflow */
+    .flow{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:34px;align-items:stretch}
+    .flow-step{
+      min-height:154px;padding:18px 14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.018);
+      position:relative;
+    }
+    .flow-step:not(:last-child)::after{
+      content:"→";position:absolute;right:-11px;top:50%;transform:translateY(-50%);color:var(--cyan);z-index:2;font:700 16px/1 var(--mono)
+    }
+    .flow-step em{font:800 10px/1 var(--mono);color:var(--cyan);font-style:normal}
+    .flow-step b{display:block;margin:14px 0 8px;font-size:14px}
+    .flow-step span{font-size:11px;color:var(--muted)}
+    .gate{
+      margin-top:18px;padding:14px 16px;border-radius:14px;border:1px solid #315546;
+      background:linear-gradient(90deg,rgba(127,240,199,.07),rgba(127,240,199,.01));
+      color:#bdebd9;font-size:12px;font-weight:700
+    }
+
+    /* CLI */
+    .cli-wrap{margin-top:34px;display:grid;grid-template-columns:230px 1fr;gap:16px}
+    .tabs{border:1px solid var(--line);border-radius:17px;padding:8px;background:rgba(255,255,255,.014);height:max-content}
+    .tab{
+      width:100%;text-align:left;padding:12px 13px;border:0;border-radius:10px;background:transparent;color:var(--muted);
+      cursor:pointer;font-weight:800;font-size:12px
+    }
+    .tab.active{background:rgba(97,233,255,.08);color:var(--cyan)}
+    .terminal{
+      border:1px solid var(--line-2);border-radius:18px;overflow:hidden;background:#061018;box-shadow:var(--shadow)
+    }
+    .termbar{height:40px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:7px;padding:0 14px;color:var(--muted-2);font:700 10px/1 var(--mono)}
+    .dot{width:8px;height:8px;border-radius:50%;background:#34505d}
+    .term-title{margin-left:auto}
+    .terminal pre{margin:0;padding:22px;min-height:330px;overflow:auto;color:#bcd3da;font-size:12px;line-height:1.8}
+    .terminal .cmd{color:var(--cyan)}
+    .terminal .ok{color:var(--mint)}
+    .terminal .comment{color:#56717c}
+    .copy-btn{position:absolute;right:16px;top:52px}
+    .terminal-box{position:relative}
+    .copy{
+      border:1px solid var(--line);background:#0b1821;color:var(--muted);padding:7px 9px;border-radius:8px;cursor:pointer;font:700 10px/1 var(--mono)
+    }
+
+    /* compare */
+    .compare{margin-top:34px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .compare-col{border:1px solid var(--line);border-radius:20px;padding:24px;background:rgba(255,255,255,.016)}
+    .compare-col.good{border-color:#2c5e50;background:linear-gradient(180deg,rgba(127,240,199,.055),rgba(255,255,255,.012))}
+    .compare-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .compare-head b{font-size:18px}
+    .badge{font:800 10px/1 var(--mono);padding:6px 8px;border-radius:999px;border:1px solid var(--line-2);color:var(--muted)}
+    .good .badge{color:var(--mint);border-color:#336754}
+    .row{display:grid;grid-template-columns:20px 1fr;gap:10px;padding:11px 0;border-top:1px dashed rgba(143,175,186,.12);font-size:13px;color:var(--muted)}
+    .row strong{color:var(--text)}
+    .badx{color:var(--danger)} .goodx{color:var(--mint)}
+
+    /* scenario */
+    .scenario{
+      margin-top:34px;border:1px solid var(--line-2);border-radius:24px;overflow:hidden;
+      background:linear-gradient(145deg,rgba(97,233,255,.035),rgba(155,140,255,.025));
+    }
+    .scenario-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:14px}
+    .scenario-head b{font-size:15px}.scenario-head span{color:var(--muted-2);font:700 10px/1 var(--mono)}
+    .timeline{display:grid;grid-template-columns:repeat(4,1fr)}
+    .t-item{padding:24px;border-right:1px solid var(--line);min-height:180px}
+    .t-item:last-child{border-right:0}
+    .t-item em{font:800 10px/1 var(--mono);color:var(--amber);font-style:normal}
+    .t-item b{display:block;font-size:15px;margin:12px 0 8px}
+    .t-item p{font-size:12px;color:var(--muted);margin:0}
+
+    /* code / notes */
+    .callout{
+      display:grid;grid-template-columns:44px 1fr;gap:14px;padding:18px;border:1px solid #4d4930;border-radius:16px;
+      background:rgba(255,204,106,.045);margin-top:20px;color:#d7c798
+    }
+    .callout .mark{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;border:1px solid #6b603a;font:900 14px/1 var(--mono)}
+    .callout b{display:block;color:#f0e2b8;margin-bottom:4px;font-size:13px}
+    .callout span{font-size:12px}
+
+    /* FAQ */
+    .faq{margin-top:30px;border-top:1px solid var(--line)}
+    details{border-bottom:1px solid var(--line);padding:18px 0}
+    summary{cursor:pointer;font-weight:800;font-size:14px;list-style:none;display:flex;justify-content:space-between;gap:18px}
+    summary::-webkit-details-marker{display:none}
+    summary::after{content:"+";color:var(--cyan);font:800 16px/1 var(--mono)}
+    details[open] summary::after{content:"−"}
+    details p{color:var(--muted);font-size:13px;max-width:860px;margin:12px 0 0}
+
+    footer{padding:36px 0 50px;border-top:1px solid var(--line);color:var(--muted-2);font-size:11px}
+    .footer-grid{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}
+    .footer-code{font-family:var(--mono)}
+    .accent{color:var(--cyan)} .amber{color:var(--amber)} .mint{color:var(--mint)} .violet{color:var(--violet)}
+
+    @media (max-width:960px){
+      .hero-grid{grid-template-columns:1fr}.cockpit{min-height:430px}
+      .problem-grid,.principle-grid{grid-template-columns:repeat(2,1fr)}
+      .module-grid,.compare{grid-template-columns:1fr}
+      .flow{grid-template-columns:repeat(3,1fr)}
+      .flow-step:nth-child(3)::after{display:none}
+      .timeline{grid-template-columns:repeat(2,1fr)}
+      .t-item:nth-child(2){border-right:0}.t-item:nth-child(-n+2){border-bottom:1px solid var(--line)}
+      .cli-wrap{grid-template-columns:1fr}.tabs{display:grid;grid-template-columns:repeat(3,1fr)}
+      .layer{grid-template-columns:150px 1fr}.layer-desc{display:none}
+    }
+    @media (max-width:700px){
+      .wrap{width:min(100% - 26px,1180px)}.section{padding:68px 0}.hero{padding-top:62px}
+      .navlinks{display:none}.brand small{display:none}
+      h1{font-size:48px}.hero-copy{font-size:16px}
+      .problem-grid,.principle-grid,.module-features{grid-template-columns:1fr}
+      .flow{grid-template-columns:1fr}
+      .flow-step:not(:last-child)::after{content:"↓";right:50%;top:auto;bottom:-13px;transform:translateX(50%)}
+      .flow-step:nth-child(3)::after{display:block}
+      .timeline{grid-template-columns:1fr}.t-item{border-right:0;border-bottom:1px solid var(--line)}.t-item:last-child{border-bottom:0}
+      .tabs{grid-template-columns:repeat(2,1fr)}
+      .layer{grid-template-columns:1fr}.layer-body{margin-top:8px}
+      .cockpit{min-height:400px}.node{font-size:9px}.node small{font-size:8px}
+      .node.core{top:43%}.node.model{bottom:2%}
+      .hero-actions .btn{flex:1}
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap nav">
+      <a class="brand" href="#top" aria-label="ADCP 首页">
+        <span class="brandmark"></span>
+        <span>ADCP <small>CONTROL PLANE</small></span>
+      </a>
+      <nav class="navlinks" aria-label="主导航">
+        <a href="#why">为什么需要</a>
+        <a href="#architecture">架构</a>
+        <a href="#modules">模块</a>
+        <a href="#workflow">工作流</a>
+        <a href="#cli">CLI</a>
+      </nav>
+      <span class="nav-cta"><i class="status-dot"></i> v3.0.0</span>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <span class="version-pill">ADCP <b>v3.0.0</b> · local-first</span>
+          <h1>把 AI 开发<br><span class="outline">变成可控系统</span></h1>
+          <p class="hero-copy">
+            <strong>Agent Development Control Plane</strong> 不是另一个编码模型，也不是把一堆 rules 塞进全局目录。
+            它是一层落在项目旁边的开发控制平面：保存项目知识、锁定模块版本、约束执行流程、统一 Codex / Cursor / Claude 等入口，
+            让不同模型、不同设备、不同开发阶段都围绕同一套项目事实继续工作。
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#cli">查看 60 秒上手</a>
+            <a class="btn" href="#architecture">理解 v3 架构</a>
+          </div>
+          <div class="hero-meta">
+            <span><i></i> Runtime 与项目解耦</span>
+            <span><i></i> 模块显式锁定</span>
+            <span><i></i> 本地覆盖不污染仓库</span>
+            <span><i></i> 多 Agent 工具兼容</span>
+          </div>
+        </div>
+
+        <div class="cockpit" aria-label="ADCP 控制平面架构示意">
+          <div class="plane">
+            <span class="wire w1"></span><span class="wire w2"></span><span class="wire w3"></span><span class="wire w4"></span><span class="wire w5"></span>
+            <span class="pulse"></span>
+            <div class="node runtime">RUNTIME<small>global · stable</small></div>
+            <div class="node modules">MODULES<small>locked · project</small></div>
+            <div class="node local">LOCAL OVERRIDE<small>.adcp-local</small></div>
+            <div class="node adapters">ADAPTERS<small>codex / cursor / claude</small></div>
+            <div class="node model">MODEL ADAPTER<small>provider-neutral</small></div>
+            <div class="node core">ADCP / PROJECT CORE<small>knowledge · workflow · state</small></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section compact" id="why">
+      <div class="wrap">
+        <span class="eyebrow">The problem</span>
+        <h2 class="section-title">真正的问题不是“模型不够强”</h2>
+        <p class="section-lead">大型或长期项目里，更常见的问题是：模型每次都要重新理解项目、全局 Skill 干扰当前仓库、工具之间规则不同、开发做到一半换设备就丢上下文。</p>
+        <div class="grid problem-grid">
+          <article class="problem-card"><span class="num">01 / CONTEXT</span><h3>上下文不断重建</h3><p>项目背景、架构、约束、当前任务和验收标准散落在聊天记录、README 和人的脑子里。</p></article>
+          <article class="problem-card"><span class="num">02 / POLLUTION</span><h3>全局 Skill 污染项目</h3><p>同一个全局规则未必适用于所有项目；更新一个 Skill 还可能悄悄改变已经稳定的项目行为。</p></article>
+          <article class="problem-card"><span class="num">03 / TOOLING</span><h3>不同工具各说各话</h3><p>Codex、Cursor、Claude 或本地模型读取入口不同，项目规则容易出现重复、漂移和冲突。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <span class="eyebrow">Design principles</span>
+        <h2 class="section-title">ADCP 的四条设计原则</h2>
+        <div class="grid principle-grid">
+          <div class="principle"><span class="icon">L1</span><b>Local-first</b><span>项目控制信息优先落在项目本地，能随仓库迁移，也能离线理解。</span></div>
+          <div class="principle"><span class="icon">LK</span><b>Project Locked</b><span>模块进入项目后显式锁定；Runtime 更新不应该静默改写项目行为。</span></div>
+          <div class="principle"><span class="icon">OV</span><b>Local Override</b><span>开发者可以在本机覆盖模块和模型配置，而不污染团队仓库。</span></div>
+          <div class="principle"><span class="icon">AG</span><b>Agent Neutral</b><span>控制平面不绑定单一编码 Agent，适配层负责对接不同开发工具。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="architecture">
+      <div class="wrap">
+        <span class="eyebrow">Architecture</span>
+        <h2 class="section-title">v3.0：从“规则目录”升级为分层控制平面</h2>
+        <p class="section-lead">稳定 Runtime 负责能力，项目本身保存事实与锁定模块，本地覆盖层保留每个开发者的个性化配置。三者职责明确，更新边界也明确。</p>
+
+        <div class="arch-shell">
+          <div class="layer">
+            <div class="layer-name accent">GLOBAL RUNTIME<small>机器级 · 可独立更新</small></div>
+            <div class="layer-body"><span class="chip">agent CLI</span><span class="chip">module resolver</span><span class="chip">doctor</span><span class="chip">migration</span><span class="chip">lifecycle</span></div>
+            <div class="layer-desc">提供能力<br>不偷改项目</div>
+          </div>
+          <div class="layer">
+            <div class="layer-name amber">PROJECT MODULES<small>.framework/modules</small></div>
+            <div class="layer-body"><span class="chip">core</span><span class="chip">full-delivery</span><span class="chip">runtime-acceptance</span><span class="chip">shell-strict*</span><span class="chip">inspector*</span></div>
+            <div class="layer-desc">模块化能力<br>显式启停</div>
+          </div>
+          <div class="layer">
+            <div class="layer-name violet">LOCAL OVERRIDE<small>.adcp-local</small></div>
+            <div class="layer-body"><span class="chip">workspace</span><span class="chip">model.json</span><span class="chip">module overrides</span></div>
+            <div class="layer-desc">开发者私有<br>优先级最高</div>
+          </div>
+          <div class="layer">
+            <div class="layer-name mint">PROJECT KNOWLEDGE<small>.agent / schema 2</small></div>
+            <div class="layer-body"><span class="chip">PROJECT.md</span><span class="chip">ARCHITECTURE.md</span><span class="chip">STATE</span><span class="chip">TASKS</span><span class="chip">REPORTS</span><span class="chip">DECISIONS</span></div>
+            <div class="layer-desc">项目事实<br>持续沉淀</div>
+          </div>
+          <div class="layer">
+            <div class="layer-name">AGENT ADAPTERS<small>tool-facing surface</small></div>
+            <div class="layer-body"><span class="chip">AGENTS.md</span><span class="chip">.codex/</span><span class="chip">.cursor/</span><span class="chip">Claude adapter</span><span class="chip">ModelAdapter</span></div>
+            <div class="layer-desc">同一事实<br>多个入口</div>
+          </div>
+        </div>
+        <p style="color:var(--muted-2);font-size:11px;margin:12px 4px 0">* 可选模块。页面只展示框架能力边界，不代表每个项目都必须启用。</p>
+      </div>
+    </section>
+
+    <section class="section" id="modules">
+      <div class="wrap">
+        <span class="eyebrow">Modular skills</span>
+        <h2 class="section-title">Skill 不再“全局安装后听天由命”</h2>
+        <p class="section-lead">v3 的关键变化，是把能力做成项目可锁定的模块。模块可以来自内置能力，也可以逐步扩展为外部仓库能力；安装后记录版本/内容哈希，发生漂移时可被 doctor 检出。</p>
+
+        <div class="grid module-grid">
+          <div class="stack-card">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+              <b style="font-size:16px">模块解析优先级</b><span style="font:700 10px/1 var(--mono);color:var(--muted-2)">RESOLUTION ORDER</span>
+            </div>
+            <div class="stack-item local"><b>.adcp-local / override</b><span>LOCAL</span></div>
+            <div class="precedence"><span>overrides</span><i></i></div>
+            <div class="stack-item project"><b>.framework/modules</b><span>PROJECT</span></div>
+            <div class="precedence"><span>locked by</span><i></i></div>
+            <div class="stack-item runtime"><b>modules.lock.json</b><span>HASH / VERSION</span></div>
+          </div>
+
+          <div class="grid module-features">
+            <div class="mini"><b>项目级锁定</b><span>同一个 ADCP Runtime，可以服务多个模块版本不同的项目。</span></div>
+            <div class="mini"><b>内容哈希检测</b><span>模块文件被手改或发生漂移时，不再默默继续执行。</span></div>
+            <div class="mini"><b>显式启用 / 禁用</b><span>不是所有项目都需要所有 Skill；按项目组合，而不是全局堆积。</span></div>
+            <div class="mini"><b>本地个性化</b><span>个人习惯、模型地址、临时实验可以只存在本机，不污染 Git。</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="workflow">
+      <div class="wrap">
+        <span class="eyebrow">Delivery workflow</span>
+        <h2 class="section-title">让 Agent 不是“写一点就停”，而是推进到可验收</h2>
+        <p class="section-lead">ADCP 把项目从初始化、知识加载、任务执行到验收与交付串成生命周期。Full Delivery 模块强调完整实现、测试、验收和状态沉淀，而不是只输出零散代码片段。</p>
+
+        <div class="flow">
+          <div class="flow-step"><em>01</em><b>INIT</b><span>识别空项目 / 已有项目 / capsule，建立控制平面。</span></div>
+          <div class="flow-step"><em>02</em><b>LOAD</b><span>读取项目知识、架构、约束、当前任务与模块。</span></div>
+          <div class="flow-step"><em>03</em><b>PLAN</b><span>绑定任务范围、实现边界和验收标准。</span></div>
+          <div class="flow-step"><em>04</em><b>BUILD</b><span>按项目规则开发，必要时由多个 Agent/工具接力。</span></div>
+          <div class="flow-step"><em>05</em><b>VERIFY</b><span>运行测试、doctor、acceptance gate，检查结果而非只看过程。</span></div>
+          <div class="flow-step"><em>06</em><b>FINALIZE</b><span>更新状态、报告与可恢复信息，进入用户验收。</span></div>
+        </div>
+        <div class="gate">Terminal State 的重点不是“模型说做完了”，而是：项目状态、验证结果和交付物都满足可检查的完成条件。</div>
+      </div>
+    </section>
+
+    <section class="section" id="cli">
+      <div class="wrap">
+        <span class="eyebrow">CLI quickstart</span>
+        <h2 class="section-title">60 秒理解怎么操作</h2>
+        <p class="section-lead">下面按生命周期整理常用命令。点击左侧分类切换，命令可直接复制。</p>
+
+        <div class="cli-wrap">
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-tab="start">初始化</button>
+            <button class="tab" data-tab="module">模块</button>
+            <button class="tab" data-tab="model">模型</button>
+            <button class="tab" data-tab="lifecycle">生命周期</button>
+            <button class="tab" data-tab="workspace">Workspace</button>
+            <button class="tab" data-tab="upgrade">升级</button>
+          </div>
+
+          <div class="terminal-box">
+            <button class="copy copy-btn" id="copyCode">COPY</button>
+            <div class="terminal">
+              <div class="termbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">adcp://project</span></div>
+              <pre id="termContent"></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <div class="mark">!</div>
+          <div><b>v3 的更新原则：Runtime 更新 ≠ 项目升级</b><span><code>agent self-update</code> 只更新全局 Runtime；已有项目保持当前模块与 schema，只有显式执行 <code>agent upgrade .</code> 才迁移项目。这样能避免“今天升级 CLI，昨天稳定的项目突然变行为”。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <span class="eyebrow">Why it matters</span>
+        <h2 class="section-title">没有 ADCP 与使用 ADCP 的区别</h2>
+        <div class="compare">
+          <div class="compare-col">
+            <div class="compare-head"><b>直接使用编码 Agent</b><span class="badge">UNCONTROLLED</span></div>
+            <div class="row"><span class="badx">×</span><span>每次重新解释<strong>项目背景与规则</strong></span></div>
+            <div class="row"><span class="badx">×</span><span>全局 Skill 改动可能影响<strong>所有仓库</strong></span></div>
+            <div class="row"><span class="badx">×</span><span>换工具后需要重写<strong>入口文件和提示词</strong></span></div>
+            <div class="row"><span class="badx">×</span><span>开发过程容易停在<strong>“代码生成完成”</strong></span></div>
+            <div class="row"><span class="badx">×</span><span>换设备或多人开发时依赖<strong>口头同步</strong></span></div>
+          </div>
+          <div class="compare-col good">
+            <div class="compare-head"><b>项目运行在 ADCP 上</b><span class="badge">CONTROLLED</span></div>
+            <div class="row"><span class="goodx">✓</span><span>项目知识、状态、决策作为<strong>可读取事实</strong></span></div>
+            <div class="row"><span class="goodx">✓</span><span>模块按项目锁定，支持<strong>本地覆盖</strong></span></div>
+            <div class="row"><span class="goodx">✓</span><span>通过 adapter 暴露给<strong>多个 Agent 工具</strong></span></div>
+            <div class="row"><span class="goodx">✓</span><span>以测试、doctor、gate 推进到<strong>可验收状态</strong></span></div>
+            <div class="row"><span class="goodx">✓</span><span>仓库 + 本地层共同支撑<strong>跨设备持续开发</strong></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <span class="eyebrow">Real usage</span>
+        <h2 class="section-title">一个典型项目是怎样持续演进的</h2>
+        <div class="scenario">
+          <div class="scenario-head"><b>Example · ai_baseline</b><span>PROJECT LIFECYCLE</span></div>
+          <div class="timeline">
+            <div class="t-item"><em>DAY 0</em><b>接入已有项目</b><p>执行 init，保留业务代码，建立项目知识与适配入口；已有项目走 knowledge init，而不是重建脚手架。</p></div>
+            <div class="t-item"><em>DAY 7</em><b>添加项目模块</b><p>启用适合当前仓库的开发模块，并锁定在项目，不要求全局环境同步到同一版本。</p></div>
+            <div class="t-item"><em>DAY 20</em><b>换 Cursor / Codex</b><p>不同编码工具读取的是同一套项目事实和模块能力，减少“换工具=重新教一遍项目”。</p></div>
+            <div class="t-item"><em>DAY 60</em><b>升级 ADCP</b><p>先更新全局 Runtime；项目继续保持原状。确认需要新架构时，再显式执行 project upgrade。</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section compact">
+      <div class="wrap">
+        <span class="eyebrow">Model adapter</span>
+        <h2 class="section-title">模型也不应该绑死在框架里</h2>
+        <p class="section-lead">ModelAdapter 提供 provider-neutral 接口，目前可对接 <span class="accent">OpenAI-compatible</span>、<span class="mint">Ollama</span> 和 <span class="violet">Mock</span>。API Key 配置只记录环境变量名，避免把密钥直接写进项目文件。</p>
+        <div class="grid principle-grid" style="margin-top:30px">
+          <div class="principle"><span class="icon">OA</span><b>OpenAI-compatible</b><span>对接兼容 API 的云端或本地推理服务。</span></div>
+          <div class="principle"><span class="icon">OL</span><b>Ollama</b><span>适配本地模型运行环境，便于个人开发与实验。</span></div>
+          <div class="principle"><span class="icon">MK</span><b>Mock</b><span>用于离线测试、自动化测试和无需真实推理的流程验证。</span></div>
+          <div class="principle"><span class="icon">ENV</span><b>Secret by env</b><span>项目只保存环境变量名，不把 API Key 明文固化进仓库。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <span class="eyebrow">Positioning</span>
+        <h2 class="section-title">ADCP 是什么，也不是什么</h2>
+        <div class="compare">
+          <div class="compare-col good">
+            <div class="compare-head"><b>它是</b><span class="badge">CONTROL PLANE</span></div>
+            <div class="row"><span class="goodx">✓</span><span>AI 软件开发项目的<strong>本地控制平面</strong></span></div>
+            <div class="row"><span class="goodx">✓</span><span>项目知识、模块、状态与验收的<strong>统一组织层</strong></span></div>
+            <div class="row"><span class="goodx">✓</span><span>连接不同编码 Agent 的<strong>兼容层</strong></span></div>
+          </div>
+          <div class="compare-col">
+            <div class="compare-head"><b>它不是</b><span class="badge">NOT ANOTHER AGENT</span></div>
+            <div class="row"><span class="badx">×</span><span>不是新的 IDE 或聊天客户端</span></div>
+            <div class="row"><span class="badx">×</span><span>不是必须替代 Codex / Cursor 的编码模型</span></div>
+            <div class="row"><span class="badx">×</span><span>不是把所有 Skill 强制装到全局的插件市场</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section compact">
+      <div class="wrap">
+        <span class="eyebrow">FAQ</span>
+        <h2 class="section-title">常见问题</h2>
+        <div class="faq">
+          <details open>
+            <summary>我已经有一个项目了，接入 ADCP 会不会覆盖现有代码？</summary>
+            <p>设计上不会把已有业务项目当成空项目重建。已有项目走知识初始化流程，保留业务代码与已有项目知识，并添加 ADCP 所需的控制平面文件和适配入口。</p>
+          </details>
+          <details>
+            <summary>为什么不把所有 Skill 全局安装一次？</summary>
+            <p>因为不同项目需要的开发规范和工具能力并不相同。项目级锁定可以让“当前项目正在依赖什么”变成明确事实，同时避免全局更新给稳定项目带来隐性行为变化。</p>
+          </details>
+          <details>
+            <summary>同一个项目里，我能有自己的本地配置吗？</summary>
+            <p>可以。v3 引入 <code>.adcp-local</code> 作为开发者本地覆盖层，可放 workspace、model.json 和本地模块覆盖。它的优先级高于项目模块，适合个人环境差异和实验配置。</p>
+          </details>
+          <details>
+            <summary>升级 ADCP 后，所有项目都会立刻升级吗？</summary>
+            <p>不会。全局 Runtime 和项目升级是两个动作。更新 Runtime 不等价于迁移项目；只有显式运行 <code>agent upgrade PROJECT</code> 才会升级该项目的结构或模块状态。</p>
+          </details>
+          <details>
+            <summary>ADCP 是否只能配合 Codex 使用？</summary>
+            <p>不是。<code>--platform all</code> 会保留 Codex + Cursor 等兼容面，并通过 AGENTS.md、工具目录和 adapter 机制把同一套项目事实暴露给不同编码 Agent。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-grid">
+      <span>ADCP · Agent Development Control Plane · v3.0.0</span>
+      <span class="footer-code">local-first / project-locked / agent-neutral</span>
+    </div>
+  </footer>
+
+  <script>
+    const snippets = {
+      start: `<span class="comment"># 1. 在目标项目中初始化 ADCP，并生成多工具适配面</span>
+<span class="cmd">agent init . --platform all</span>
+
+<span class="comment"># 2. 检查项目控制平面、模块、适配器等状态</span>
+<span class="cmd">agent doctor .</span>
+
+<span class="ok">✓ project ready</span>
+<span class="ok">✓ adapters ready</span>
+<span class="ok">✓ module state readable</span>`,
+      module: `<span class="comment"># 查看当前项目模块</span>
+<span class="cmd">agent module list .</span>
+
+<span class="comment"># 解释模块来自哪里、为什么生效</span>
+<span class="cmd">agent module explain . &lt;module&gt;</span>
+
+<span class="comment"># 启用 / 禁用模块</span>
+<span class="cmd">agent module enable . &lt;module&gt;</span>
+<span class="cmd">agent module disable . &lt;module&gt;</span>
+
+<span class="comment"># 安装模块并进入项目锁定范围</span>
+<span class="cmd">agent module install . &lt;source&gt;</span>
+
+<span class="comment"># 检查模块版本 / 哈希 / 漂移</span>
+<span class="cmd">agent module doctor .</span>`,
+      model: `<span class="comment"># 查看可用 provider</span>
+<span class="cmd">agent model providers</span>
+
+<span class="comment"># 配置当前开发环境的模型适配</span>
+<span class="cmd">agent model configure</span>
+
+<span class="comment"># 查看配置并测试连接</span>
+<span class="cmd">agent model show</span>
+<span class="cmd">agent model test</span>
+
+<span class="comment"># provider: openai-compatible / ollama / mock</span>
+<span class="ok">✓ API key is referenced by environment variable name</span>`,
+      lifecycle: `<span class="comment"># 完成当前开发周期并沉淀状态</span>
+<span class="cmd">agent finalize .</span>
+
+<span class="comment"># 从可恢复状态继续</span>
+<span class="cmd">agent restore .</span>
+
+<span class="comment"># 移除项目中的 ADCP 控制平面</span>
+<span class="cmd">agent deinit .</span>
+
+<span class="comment"># 在 git-sync / capsule 模式之间选择协作方式</span>
+<span class="cmd">agent mode git-sync .</span>
+<span class="cmd">agent mode capsule .</span>`,
+      workspace: `<span class="comment"># 初始化开发者本地 workspace</span>
+<span class="cmd">agent workspace init .</span>
+
+<span class="comment"># 查看本地层状态</span>
+<span class="cmd">agent workspace show .</span>
+
+<span class="comment"># 检查 .adcp-local 配置</span>
+<span class="cmd">agent workspace doctor .</span>
+
+<span class="ok">local override &gt; project modules</span>`,
+      upgrade: `<span class="comment"># 只更新本机 ADCP Runtime</span>
+<span class="cmd">agent self-update</span>
+
+<span class="comment"># 项目仍保持当前锁定结构，不自动迁移</span>
+
+<span class="comment"># 明确决定升级某个项目时再执行</span>
+<span class="cmd">agent upgrade .</span>
+
+<span class="ok">✓ preserve .agent knowledge / tasks / reports / decisions</span>
+<span class="ok">✓ migrate project schema and module lock explicitly</span>`
+    };
+
+    const term = document.getElementById('termContent');
+    const tabs = document.querySelectorAll('.tab');
+    function render(key){ term.innerHTML = snippets[key]; }
+    render('start');
+
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(x => x.classList.remove('active'));
+        btn.classList.add('active');
+        render(btn.dataset.tab);
+      });
+    });
+
+    document.getElementById('copyCode').addEventListener('click', async (e) => {
+      const text = term.innerText;
+      try{
+        await navigator.clipboard.writeText(text);
+        e.currentTarget.textContent='COPIED';
+        setTimeout(()=>e.currentTarget.textContent='COPY',1200);
+      }catch{
+        e.currentTarget.textContent='SELECT';
+      }
+    });
+  </script>
+</body>
+</html>

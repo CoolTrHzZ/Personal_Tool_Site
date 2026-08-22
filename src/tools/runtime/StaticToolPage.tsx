@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Maximize2, Minimize2, PanelTop, RefreshCw } from 'lucide-react'
 import type { DisplayMode, ToolDefinition } from '../types'
@@ -30,6 +31,8 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
   const [frameKey, setFrameKey] = useState(0)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const toastSeq = useRef(0)
+  useEffect(() => { setMode(tool.display.mode) }, [tool.id, tool.display.mode])
+  useEffect(() => { setHeight(tool.display.height === 'auto' ? FALLBACK_HEIGHT : tool.display.height) }, [tool.id, tool.display.height])
 
   const src = useMemo(() => {
     if (tool.runtime === 'iframe') return tool.entry
@@ -140,12 +143,16 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
     return () => observer.disconnect()
   }, [])
 
-  // Esc 退出全屏
+  // Esc 退出全屏；锁滚动，避免宿主页面在全屏下滚动
   useEffect(() => {
     if (mode !== 'fullscreen') return
+    document.documentElement.classList.add('tool-fullscreen-lock')
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMode('embedded') }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      document.documentElement.classList.remove('tool-fullscreen-lock')
+      window.removeEventListener('keydown', onKey)
+    }
   }, [mode])
 
   const frameStyle = mode === 'embedded' ? { height } : undefined
@@ -154,6 +161,7 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
       key={frameKey}
       ref={iframeRef}
       className="tool-frame"
+      data-testid="tool-frame"
       src={src}
       sandbox={sandbox}
       title={tool.name}
@@ -181,17 +189,18 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
   )
 
   if (mode === 'fullscreen') {
-    return (
-      <div className="tool-fullscreen">
+    return createPortal(
+      <div className="tool-fullscreen" data-testid="tool-fullscreen">
         <header className="tool-fullscreen-bar">
           <strong>{tool.name}</strong>
           <span>v{tool.version}</span>
           {modeBar}
           <button type="button" className="tool-exit-fullscreen" onClick={() => setMode('embedded')}>退出全屏 (Esc)</button>
         </header>
-        {frame}
+        <div className="tool-fullscreen-stage">{frame}</div>
         {toastsView}
-      </div>
+      </div>,
+      document.body,
     )
   }
 

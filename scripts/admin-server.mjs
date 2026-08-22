@@ -89,7 +89,11 @@ async function rebuildToolIndex() {
   return unique
 }
 
-async function tools() { return rebuildToolIndex() }
+async function tools() {
+  if (!existsSync(indexManifestPath)) return rebuildToolIndex()
+  const cached = await readJsonFile(indexManifestPath, null)
+  return Array.isArray(cached) ? cached : rebuildToolIndex()
+}
 
 async function runValidation() {
   const issues = []
@@ -264,7 +268,9 @@ async function analyzeToolSource(payload) {
     status: 'active',
     readme: providedManifest.readme || meta.description || `${name}`,
     license: providedManifest.license || 'MIT',
-    display: { mode: 'embedded', height: 'auto' },
+    display: providedManifest.display && typeof providedManifest.display === 'object'
+      ? providedManifest.display
+      : { mode: 'embedded', height: 'auto' },
     permissions,
   }, (Math.max(0, ...existing.map(tool => tool.order || 0)) || 0) + 10)
 
@@ -343,25 +349,67 @@ async function findStaticToolDir(id) {
   return dir
 }
 
-async function updateToolManifest(id, patch) {
-  const dir = await findStaticToolDir(id)
-  const current = await readJsonFile(join(dir, 'manifest.json'), {})
-  const next = normalizeManifest({ ...current, ...patch, id }, current.order ?? 0)
-  assertManifest(next, { hasEntry: existsSync(join(dir, next.entry)) })
-  await writeFileAtomic(join(dir, 'manifest.json'), JSON.stringify(next, null, 2) + '\n')
+async function readCoreManifests() {
+  const value = await readJsonFile(coreManifestPath, [])
+  if (!Array.isArray(value)) throw new Error('core.json 无效')
+  return value
+}
+
+async function writeCoreManifests(value) {
+  await writeFileAtomic(coreManifestPath, JSON.stringify(value, null, 2) + '\n')
+}
+
+async function updateCoreTool(id, patch) {
+  const core = await readCoreManifests()
+  const index = core.findIndex(item => item.id === id)
+  if (index < 0) throw new Error(`内置工具不存在: ${id}`)
+  const current = core[index]
+  const next = { ...current, ...patch, id, display: { ...(current.display || {}), ...(patch.display || {}) } }
+  core[index] = next
+  await writeCoreManifests(core)
   await rebuildToolIndex()
-  return next
+  return normalizeManifest(next, next.order ?? 0)
+}
+
+async function updateToolManifest(id, patch) {
+  if (existsSync(join(toolsDir, id, 'manifest.json'))) {
+    const dir = await findStaticToolDir(id)
+    const current = await readJsonFile(join(dir, 'manifest.json'), {})
+    const next = normalizeManifest({
+      ...current,
+      ...patch,
+      id,
+      display: { ...(current.display || {}), ...(patch.display || {}) },
+    }, current.order ?? 0)
+    assertManifest(next, { hasEntry: existsSync(join(dir, next.entry)) })
+    await writeFileAtomic(join(dir, 'manifest.json'), JSON.stringify(next, null, 2) + '\n')
+    await rebuildToolIndex()
+    return next
+  }
+  return updateCoreTool(id, patch)
 }
 
 async function toggleTool(id) {
-  const dir = await findStaticToolDir(id)
-  const current = await readJsonFile(join(dir, 'manifest.json'), {})
-  return updateToolManifest(id, { enabled: current.enabled === false, status: current.enabled === false ? 'active' : 'disabled' })
+  if (existsSync(join(toolsDir, id, 'manifest.json'))) {
+    const current = await readJsonFile(join(toolsDir, id, 'manifest.json'), {})
+    return updateToolManifest(id, { enabled: current.enabled === false, status: current.enabled === false ? 'active' : 'disabled' })
+  }
+  const core = await readCoreManifests()
+  const current = core.find(item => item.id === id)
+  if (!current) throw new Error(`工具不存在: ${id}`)
+  return updateCoreTool(id, { enabled: current.enabled === false, status: current.enabled === false ? 'active' : 'disabled' })
 }
 
 async function deleteTool(id) {
-  await findStaticToolDir(id)
-  await rm(join(toolsDir, id), { recursive: true, force: true })
+  if (existsSync(join(toolsDir, id, 'manifest.json'))) {
+    await rm(join(toolsDir, id), { recursive: true, force: true })
+    await rebuildToolIndex()
+    return { ok: true }
+  }
+  const core = await readCoreManifests()
+  const next = core.filter(item => item.id !== id)
+  if (next.length === core.length) throw new Error(`工具不存在: ${id}`)
+  await writeCoreManifests(next)
   await rebuildToolIndex()
   return { ok: true }
 }

@@ -32,9 +32,10 @@ test('HTML 工具：拖入 → 识别 → 元数据 → 权限 → 兼容性 →
   await expect(page.locator('#wizard-body')).toContainText('剪贴板')
   await page.click('#wizard-next')
 
-  // Step 5 预览：iframe 挂载并可交互
+  // Step 5 预览：选择全屏载入，必须写入即将导入的 manifest
   const frame = page.locator('.wizard-preview-frame iframe')
   await expect(frame).toBeVisible()
+  await page.locator('#wizard-body select[name="display.mode"]').selectOption('fullscreen')
   await page.click('#wizard-next')
 
   // Step 6 确认导入
@@ -48,6 +49,8 @@ test('HTML 工具：拖入 → 识别 → 元数据 → 权限 → 兼容性 →
   const manifest = await manifestResponse.json()
   expect(manifest.id).toBe(TOOL_ID)
   expect(manifest.permissions.clipboard).toBe(true)
+  expect(manifest.display.mode).toBe('fullscreen')
+  await expect(page.locator('#tools tr', { hasText: TOOL_ID }).getByRole('switch')).toHaveAttribute('aria-checked', 'true')
 
   const listResponse = await request.get('/api/tools')
   expect(listResponse.ok()).toBeTruthy()

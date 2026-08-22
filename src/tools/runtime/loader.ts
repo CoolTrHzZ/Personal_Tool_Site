@@ -3,16 +3,13 @@ import { reactTools } from '../registry'
 import { migrateManifest } from './manifest'
 import type { ToolDefinition, ToolManifest } from '../types'
 
-function mergeManifests(remote: ToolManifest[]) {
-  const byId = new Map<string, ToolManifest>([...(coreManifests as ToolManifest[]).map(manifest => [manifest.id, manifest] as const), ...remote.map(manifest => [manifest.id, manifest] as const)])
-  return [...byId.values()]
-}
-
 export async function loadToolManifests() {
   try {
     const response = await fetch(`${import.meta.env.BASE_URL}tools-manifests.json`)
     if (!response.ok) throw new Error('manifest request failed')
-    return mergeManifests(await response.json() as ToolManifest[])
+    const remote = await response.json() as ToolManifest[]
+    if (!Array.isArray(remote)) throw new Error('manifest list invalid')
+    return remote
   } catch { return coreManifests as ToolManifest[] }
 }
 

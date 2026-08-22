@@ -107,6 +107,14 @@ describe('wizard step2 metadata form', () => {
     expect(result.manifest.favorite).toBe(true)
   })
 
+  it('元数据步选择全屏会写入 display.mode', () => {
+    const form = renderMetadataForm(document, { manifest: baseManifest, categories: [], t })
+    form.elements.namedItem('display.mode').value = 'fullscreen'
+    const result = collectMetadataForm(form, baseManifest)
+    expect(result.ok).toBe(true)
+    expect(result.manifest.display.mode).toBe('fullscreen')
+  })
+
   it('非法 id / name / version 分别返回错误码', () => {
     const form = renderMetadataForm(document, { manifest: baseManifest, categories: [], t })
     form.elements.namedItem('id').value = 'Bad Id!'

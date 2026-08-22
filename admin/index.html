@@ -127,7 +127,7 @@
             <button type="button" class="ui-button ui-button-primary" data-add-note="1" data-i18n="form.addNote">添加笔记</button>
           </div>
           <p class="muted" data-i18n="notes.listHint">添加或编辑会打开独立的 Markdown 工作室（撰写、预览、原始 JSON），与收藏仓库抽屉分开。</p>
-          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>标题</th><th>摘要</th><th>更新</th><th>状态</th><th>操作</th></tr></thead><tbody id="notes"></tbody></table></div>
+          <div class="ui-table-wrap"><table class="ui-table table-notes"><colgroup><col class="col-note-title"><col class="col-note-summary"><col class="col-note-updated"><col class="col-note-status"><col class="col-note-actions"></colgroup><thead><tr><th>标题</th><th>摘要</th><th>更新</th><th>状态</th><th>操作</th></tr></thead><tbody id="notes"></tbody></table></div>
         </section>
       </section>
 
@@ -200,7 +200,7 @@
             </div>
           </div>
           <p class="muted" data-i18n="tools.indexHint">工具目录内 manifest.json 为 Source of Truth，索引自动重建。</p>
-          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Tool</th><th>Runtime</th><th>Format</th><th>Version</th><th>Status</th><th>Updated</th><th>操作</th></tr></thead><tbody id="tools"></tbody></table></div>
+          <div class="ui-table-wrap"><table class="ui-table table-tools"><colgroup><col class="col-tool-name"><col class="col-tool-runtime"><col class="col-tool-format"><col class="col-tool-version"><col class="col-tool-status"><col class="col-tool-display"><col class="col-tool-updated"><col class="col-tool-actions"></colgroup><thead><tr><th>Tool</th><th>Runtime</th><th>Format</th><th>Version</th><th>Status</th><th data-i18n="tools.colDisplay">载入样式</th><th>Updated</th><th>操作</th></tr></thead><tbody id="tools"></tbody></table></div>
         </section>
       </section>
 

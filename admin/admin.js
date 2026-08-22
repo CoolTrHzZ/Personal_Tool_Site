@@ -349,6 +349,7 @@ function renderNotes() {
     title.className = 'cell-tool'
     title.title = item.title
     const summary = text('td', item.summary || '')
+    summary.className = 'cell-clip'
     summary.title = item.summary || ''
     row.append(title, summary, text('td', item.updated || '—'), text('td', item.enabled ? i18n.t('table.enable') : i18n.t('table.disable')))
     const actions = el('td', 'cell-actions', '')
@@ -367,7 +368,32 @@ function renderTools() {
     const nameCell = el('td', 'cell-tool')
     nameCell.title = `${tool.name} · ${tool.id}`
     nameCell.append(el('strong', '', tool.name), el('small', '', tool.id))
-    row.append(nameCell, text('td', tool.runtime), text('td', tool.format || '-'), text('td', `v${tool.version}`), text('td', toolStatus(tool)), text('td', tool.updated || '—'))
+    const displayCell = el('td', 'cell-display')
+    if (tool.runtime === 'react') {
+      displayCell.textContent = '—'
+    } else {
+      const on = tool.display?.mode === 'fullscreen'
+      const toggle = button('', { displayFullscreen: tool.id }, `ui-switch${on ? ' is-on' : ''}`)
+      toggle.type = 'button'
+      toggle.setAttribute('role', 'switch')
+      toggle.setAttribute('aria-checked', on ? 'true' : 'false')
+      toggle.setAttribute('aria-label', i18n.t('tools.fullscreenLoad'))
+      toggle.setAttribute('data-display-fullscreen', tool.id)
+      const track = el('span', 'ui-switch-track')
+      track.append(el('span', 'ui-switch-thumb'))
+      toggle.append(track, el('span', 'ui-switch-text', i18n.t('tools.fullscreenShort')))
+      toggle.addEventListener('click', async event => {
+        event.stopPropagation()
+        const height = tool.display?.height ?? 'auto'
+        const mode = tool.display?.mode === 'fullscreen' ? 'embedded' : 'fullscreen'
+        try {
+          await request(`tools/${encodeURIComponent(tool.id)}`, { method: 'PUT', body: JSON.stringify({ display: { mode, height } }) })
+          await reload(i18n.t('msg.manifestSaved'))
+        } catch (error) { toastError(error.message) }
+      })
+      displayCell.append(toggle)
+    }
+    row.append(nameCell, text('td', tool.runtime), text('td', tool.format || '-'), text('td', `v${tool.version}`), text('td', toolStatus(tool)), displayCell, text('td', tool.updated || '—'))
     const actions = el('td', 'cell-actions', '')
     const items = [button(i18n.t('table.inspect'), { inspect: tool.id })]
     if (tool.runtime !== 'react') {
@@ -376,9 +402,11 @@ function renderTools() {
         button(toolStatus(tool) === 'disabled' ? i18n.t('table.enable') : i18n.t('table.disable'), { toggleTool: tool.id }),
         button(i18n.t('lifecycle.overwrite'), { overwriteTool: tool.id }),
         button(i18n.t('lifecycle.export'), { exportTool: tool.id }),
-        button(i18n.t('table.delete'), { deleteTool: tool.id }, 'ui-button ui-button-danger ui-button-sm'),
       )
+    } else {
+      items.push(button(toolStatus(tool) === 'disabled' ? i18n.t('table.enable') : i18n.t('table.disable'), { toggleTool: tool.id }))
     }
+    items.push(button(i18n.t('table.delete'), { deleteTool: tool.id }, 'ui-button ui-button-danger ui-button-sm'))
     actions.append(kebab(items))
     row.append(actions)
     return row
@@ -804,8 +832,10 @@ function renderWizardStep5() {
     option.textContent = label
     heightSelect.append(option)
   }
+  heightSelect.name = 'display.mode'
+  heightSelect.setAttribute('aria-label', i18n.t('wizard.f.displayMode'))
   heightSelect.value = manifest.display?.mode || 'embedded'
-  const frameWrap = el('div', 'wizard-preview-frame mode-embedded')
+  const frameWrap = el('div', `wizard-preview-frame mode-${heightSelect.value}`)
   const viewport = el('div', 'viewport-switch')
   for (const [width, label] of [[1440, 'Desktop'], [768, 'Tablet'], [390, 'Mobile']]) {
     const item = button(label, {}, 'ui-button ui-button-ghost ui-button-sm')
@@ -824,7 +854,11 @@ function renderWizardStep5() {
   frame.title = manifest.name
   loadFrame()
   frameWrap.append(frame)
-  heightSelect.addEventListener('change', () => { frameWrap.className = `wizard-preview-frame mode-${heightSelect.value}` })
+  heightSelect.addEventListener('change', () => {
+    frameWrap.className = `wizard-preview-frame mode-${heightSelect.value}`
+    const mode = ['embedded', 'workspace', 'fullscreen'].includes(heightSelect.value) ? heightSelect.value : 'embedded'
+    wizard.manifest = { ...wizard.manifest, display: { ...(wizard.manifest.display || {}), mode, height: wizard.manifest.display?.height ?? 'auto' } }
+  })
   refresh.addEventListener('click', loadFrame)
   openTab.addEventListener('click', () => window.open(analysis.previewUrl, '_blank', 'noopener'))
   // 迷你 bridge：预览同样支持 resize 自动高度（embedded 模式）
@@ -855,6 +889,15 @@ function renderWizardStep6() {
   if (exists) body.append(checkField(document, 'overwrite', true, i18n.t('wizard.overwrite', { id: manifest.id }), i18n.t('wizard.overwriteHint')))
 }
 
+function collectWizardStep5() {
+  const select = $('#wizard-body select[name="display.mode"]')
+  if (select instanceof HTMLSelectElement) {
+    const mode = ['embedded', 'workspace', 'fullscreen'].includes(select.value) ? select.value : 'embedded'
+    wizard.manifest = { ...wizard.manifest, display: { ...(wizard.manifest.display || {}), mode, height: wizard.manifest.display?.height ?? 'auto' } }
+  }
+  return true
+}
+
 // Step Registry（v3.0.1 三十六/三十七）：render / collect / validate 统一注册，不再散落 if
 const WIZARD_STEPS = {
   1: {
@@ -869,6 +912,7 @@ const WIZARD_STEPS = {
   4: { render: renderWizardStep4 },
   5: {
     render: renderWizardStep5,
+    collect: collectWizardStep5,
     validate: () => {
       if (!wizard.analysis?.previewUrl) { wizard.error = i18n.t('wizard.previewUnavailable'); return false }
       wizard.previewReady = true
