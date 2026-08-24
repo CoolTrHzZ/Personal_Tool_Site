@@ -1,13 +1,156 @@
 [
-  { "id": "github", "name": "GitHub", "url": "https://github.com", "description": "代码托管与协作平台", "category": "development", "icon": "auto", "tags": ["git", "code"], "enabled": true, "order": 10 },
-  { "id": "mdn", "name": "MDN", "url": "https://developer.mozilla.org", "description": "Web 技术开发文档", "category": "development", "icon": "auto", "tags": ["web", "docs"], "enabled": true, "order": 20 },
-  { "id": "npm", "name": "npm", "url": "https://www.npmjs.com", "description": "JavaScript 包管理平台", "category": "development", "icon": "auto", "tags": ["javascript", "package"], "enabled": true, "order": 30 },
-  { "id": "stackoverflow", "name": "Stack Overflow", "url": "https://stackoverflow.com", "description": "开发者问答社区", "category": "development", "icon": "auto", "tags": ["question", "code"], "enabled": true, "order": 40 },
-  { "id": "chatgpt", "name": "ChatGPT", "url": "https://chatgpt.com", "description": "AI 对话与创作助手", "category": "ai", "icon": "auto", "tags": ["openai", "assistant"], "enabled": true, "order": 10 },
-  { "id": "claude", "name": "Claude", "url": "https://claude.ai", "description": "AI 对话助手", "category": "ai", "icon": "auto", "tags": ["assistant", "ai"], "enabled": true, "order": 20 },
-  { "id": "perplexity", "name": "Perplexity", "url": "https://www.perplexity.ai", "description": "AI 搜索与研究工具", "category": "ai", "icon": "auto", "tags": ["search", "research"], "enabled": true, "order": 30 },
-  { "id": "figma", "name": "Figma", "url": "https://www.figma.com", "description": "在线界面设计工具", "category": "design", "icon": "auto", "tags": ["ui", "design"], "enabled": true, "order": 10 },
-  { "id": "excalidraw", "name": "Excalidraw", "url": "https://excalidraw.com", "description": "手绘风格白板", "category": "design", "icon": "auto", "tags": ["whiteboard", "diagram"], "enabled": true, "order": 20 },
-  { "id": "cloudflare", "name": "Cloudflare", "url": "https://dash.cloudflare.com", "description": "网络与边缘服务", "category": "ops", "icon": "auto", "tags": ["dns", "cdn"], "enabled": true, "order": 10 },
-  { "id": "vercel", "name": "Vercel", "url": "https://vercel.com", "description": "前端部署平台", "category": "ops", "icon": "auto", "tags": ["deploy", "hosting"], "enabled": true, "order": 20 }
+  {
+    "id": "github",
+    "name": "GitHub",
+    "url": "https://github.com",
+    "description": "代码托管与协作平台",
+    "category": "development",
+    "icon": "auto",
+    "tags": [
+      "git",
+      "code"
+    ],
+    "enabled": true,
+    "order": 10
+  },
+  {
+    "id": "mdn",
+    "name": "MDN",
+    "url": "https://developer.mozilla.org",
+    "description": "Web 技术开发文档",
+    "category": "development",
+    "icon": "auto",
+    "tags": [
+      "web",
+      "docs"
+    ],
+    "enabled": true,
+    "order": 20
+  },
+  {
+    "id": "npm",
+    "name": "npm",
+    "url": "https://www.npmjs.com",
+    "description": "JavaScript 包管理平台",
+    "category": "development",
+    "icon": "auto",
+    "tags": [
+      "javascript",
+      "package"
+    ],
+    "enabled": true,
+    "order": 30
+  },
+  {
+    "id": "stackoverflow",
+    "name": "Stack Overflow",
+    "url": "https://stackoverflow.com",
+    "description": "开发者问答社区",
+    "category": "development",
+    "icon": "auto",
+    "tags": [
+      "question",
+      "code"
+    ],
+    "enabled": true,
+    "order": 40
+  },
+  {
+    "id": "chatgpt",
+    "name": "ChatGPT",
+    "url": "https://chatgpt.com",
+    "description": "AI 对话与创作助手",
+    "category": "ai",
+    "icon": "auto",
+    "tags": [
+      "openai",
+      "assistant"
+    ],
+    "enabled": true,
+    "order": 10
+  },
+  {
+    "id": "claude",
+    "name": "Claude",
+    "url": "https://claude.ai",
+    "description": "AI 对话助手",
+    "category": "ai",
+    "icon": "auto",
+    "tags": [
+      "assistant",
+      "ai"
+    ],
+    "enabled": true,
+    "order": 20
+  },
+  {
+    "id": "perplexity",
+    "name": "Perplexity",
+    "url": "https://www.perplexity.ai",
+    "description": "AI 搜索与研究工具",
+    "category": "ai",
+    "icon": "auto",
+    "tags": [
+      "search",
+      "research"
+    ],
+    "enabled": true,
+    "order": 30
+  },
+  {
+    "id": "figma",
+    "name": "Figma",
+    "url": "https://www.figma.com",
+    "description": "在线界面设计工具",
+    "category": "design",
+    "icon": "auto",
+    "tags": [
+      "ui",
+      "design"
+    ],
+    "enabled": true,
+    "order": 10
+  },
+  {
+    "id": "excalidraw",
+    "name": "Excalidraw",
+    "url": "https://excalidraw.com",
+    "description": "手绘风格白板",
+    "category": "design",
+    "icon": "auto",
+    "tags": [
+      "whiteboard",
+      "diagram"
+    ],
+    "enabled": true,
+    "order": 20
+  },
+  {
+    "id": "cloudflare",
+    "name": "Cloudflare",
+    "url": "https://dash.cloudflare.com",
+    "description": "网络与边缘服务",
+    "category": "ops",
+    "icon": "auto",
+    "tags": [
+      "dns",
+      "cdn"
+    ],
+    "enabled": true,
+    "order": 10
+  },
+  {
+    "id": "vercel",
+    "name": "Vercel",
+    "url": "https://vercel.com",
+    "description": "前端部署平台",
+    "category": "ops",
+    "icon": "auto",
+    "tags": [
+      "deploy",
+      "hosting"
+    ],
+    "enabled": true,
+    "order": 20
+  }
 ]

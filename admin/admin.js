@@ -5,6 +5,7 @@ import {
   field, renderMetadataForm, renderPermissionsForm,
 } from './wizard-forms.js'
 import { TAG_PAGE_SIZES, collectTagItems, filterTagItems, paginateTagItems, tagSourceLabel } from './tags-core.js'
+import { ICON_NAMES, createIconSvg } from './icon-catalog.js'
 
 const i18n = await loadI18n()
 const $ = selector => document.querySelector(selector)
@@ -17,7 +18,7 @@ const bind = (selector, event, handler) => {
   return node
 }
 const ACTIVITY_KEY = 'adminActivity'
-let state = { navigation: [], categories: [], site: {}, tools: [], library: [], notes: [], tags: [], tagStats: { navigationTagCount: 0, toolTagCount: 0 } }
+let state = { navigation: [], categories: [], site: {}, tools: [], library: [], aiResources: [], notes: [], tags: [], tagStats: { navigationTagCount: 0, toolTagCount: 0, aiResourceTagCount: 0 }, system: null, validation: null, loadErrors: [] }
 document.documentElement.lang = i18n.locale
 if ($('#locale-select')) $('#locale-select').value = i18n.locale
 i18n.apply()
@@ -85,10 +86,12 @@ function toast(message, level = 'success') {
   setTimeout(() => { item.classList.add('toast-out'); setTimeout(() => item.remove(), 200) }, 3000)
 }
 const toastError = message => toast(message, 'error')
-const adminScene = { dashboard: 'dash', websites: 'nav', library: 'nav', notes: 'cms', 'note-editor': 'cms', tools: 'tools', marketplace: 'market', categories: 'nav', tags: 'cms', settings: 'form', validate: 'cms', import: 'form' }
+const adminScene = { dashboard: 'dash', websites: 'nav', library: 'nav', 'ai-resources': 'cms', notes: 'cms', 'note-editor': 'cms', tools: 'tools', marketplace: 'market', categories: 'nav', tags: 'cms', settings: 'form', validate: 'cms', import: 'form' }
 let currentView = 'dashboard'
 
 function showView(view) {
+  closeEditorDrawer()
+  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   currentView = view
   document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view))
   const navView = view === 'note-editor' ? 'notes' : view
@@ -100,8 +103,6 @@ function showView(view) {
   title.classList.add('title-swap')
   if ($('#page-telemetry')) $('#page-telemetry').textContent = `index · tools ${state.tools.length} · websites ${state.navigation.length} · System Online`
   $('.carbon-fx')?.setAttribute('data-scene', adminScene[view] || 'cms')
-  closeEditorDrawer()
-  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   if (view === 'import') $('#tool-dropzone')?.focus()
 }
 
@@ -190,19 +191,85 @@ function renderSite() {
   if (settingsTab === 'about') extra.append(el('p', '', `${state.site.name || 'DevOS'}`), el('p', 'muted', state.site.tagline || ''), el('p', 'muted', state.site.publicUrl || i18n.t('form.publicUrlEmpty')), el('p', 'muted', `v${$('#app-version')?.textContent || ''}`))
 }
 function renderStats() {
-  $('#stat-websites').textContent = state.navigation.length
-  $('#stat-tools').textContent = state.tools.length || '—'
-  $('#stat-categories').textContent = state.categories.length
-  $('#stat-tags').textContent = state.tags.length
-  const enabledTools = state.tools.filter(tool => tool.enabled !== false).length
-  const fills = {
-    tools: state.tools.length ? enabledTools / state.tools.length : 0,
-    websites: state.navigation.length ? state.navigation.filter(item => item.enabled !== false).length / state.navigation.length : 0,
-    categories: state.categories.length ? 1 : 0,
-    tags: state.tags.length ? 1 : 0,
+  const enabled = item => item.enabled !== false && toolStatus(item) !== 'disabled'
+  const groups = [
+    { id: 'websites', fill: 'websites', label: i18n.t('dash.websites'), view: 'websites', items: state.navigation, active: item => item.enabled !== false },
+    { id: 'library', source: 'library', fill: 'library', label: i18n.t('dash.library'), view: 'library', items: state.library, active: item => item.enabled !== false },
+    { id: 'ai-resources', source: 'ai-resources', fill: 'aiResources', label: i18n.t('dash.aiResources'), view: 'ai-resources', items: state.aiResources, active: item => item.enabled !== false },
+    { id: 'notes', source: 'notes', fill: 'notes', label: i18n.t('dash.notes'), view: 'notes', items: state.notes, active: item => item.enabled !== false },
+    { id: 'tools', source: 'tools', fill: 'tools', label: i18n.t('dash.tools'), view: 'tools', items: state.tools, active: enabled },
+    { id: 'categories', fill: 'categories', label: i18n.t('dash.categories'), view: 'categories', items: state.categories },
+    { id: 'tags', fill: 'tags', label: i18n.t('dash.tags'), view: 'tags', items: state.tags.slice().sort((a, b) => b.total - a.total) },
+  ]
+  const inventory = $('#dashboard-inventory')
+  inventory.replaceChildren()
+  for (const group of groups) {
+    const total = group.items.length
+    const active = group.active ? group.items.filter(group.active).length : total
+    const failed = state.loadErrors.includes(group.source)
+    const meta = failed
+      ? i18n.t('dash.loadFailed')
+      : group.active
+      ? i18n.t('dash.enabledCount', { enabled: active, disabled: total - active })
+      : i18n.t('dash.configuredCount', { total })
+    $(`#stat-${group.id}`).textContent = failed ? '!' : String(total)
+    $(`#stat-${group.id}-meta`).textContent = meta
+    document.querySelector(`[data-fill="${group.fill}"]`)?.style.setProperty('--fill', String(total ? active / total : 0))
+
+    const card = button('', { view: group.view }, 'dashboard-config-card')
+    const head = el('span', 'dashboard-config-head')
+    head.append(el('strong', '', group.label), el('span', 'dashboard-config-count', String(total)))
+    const names = el('span', 'dashboard-config-items')
+    for (const item of group.items.slice(0, 5)) names.append(el('span', 'dashboard-config-item', item.name || item.title || item.id))
+    if (failed) names.append(el('span', 'dashboard-config-item dashboard-config-error', i18n.t('dash.loadFailed')))
+    else if (!total) names.append(el('span', 'dashboard-config-item', i18n.t('dash.emptyGroup')))
+    if (total > 5) names.append(el('span', 'dashboard-config-item dashboard-config-more', `+${total - 5}`))
+    card.append(head, names, el('span', 'dashboard-config-meta', meta))
+    inventory.append(card)
   }
-  document.querySelectorAll('[data-fill]').forEach(node => node.style.setProperty('--fill', String(fills[node.dataset.fill] ?? 0)))
-  const items = readActivity()
+
+  const runtimes = new Map()
+  for (const tool of state.tools) runtimes.set(tool.runtime || 'unknown', (runtimes.get(tool.runtime || 'unknown') || 0) + 1)
+  $('#dashboard-runtime-mix').replaceChildren(...[...runtimes].map(([runtime, count]) => el('span', 'dashboard-runtime-chip', `${runtime} ${count}`)))
+  const issues = state.validation?.issues || []
+  const validationOk = state.validation?.ok === true
+  const adminOk = state.system?.admin === 'running'
+  const indexOk = state.system?.index === 'synced'
+  const runtimeOk = state.system?.runtime === 'ready'
+  const healthIssueCount = issues.length + state.loadErrors.length + Number(!adminOk) + Number(!indexOk) + Number(!runtimeOk)
+  const healthOk = validationOk && healthIssueCount === 0
+  const health = $('#dashboard-health')
+  health.classList.toggle('is-ok', healthOk)
+  health.classList.toggle('is-error', !healthOk)
+  $('#dashboard-health-title').textContent = healthOk ? i18n.t('dash.healthOk') : i18n.t('dash.healthIssues', { count: healthIssueCount || 1 })
+  const managedTotal = groups.slice(0, 5).reduce((sum, group) => sum + group.items.length, 0)
+  $('#dashboard-health-detail').textContent = i18n.t('dash.assetSummary', { assets: managedTotal, groups: groups.length })
+  $('#dashboard-site-name').textContent = state.site.name || 'DevOS'
+  $('#dashboard-site-description').textContent = state.site.tagline || state.site.description || i18n.t('dash.overviewHint')
+
+  const setStatus = (selector, value, tone = '') => {
+    const node = $(selector)
+    node.textContent = value
+    node.className = tone
+  }
+  const dataIssueCount = issues.length + state.loadErrors.length
+  setStatus('#status-data', validationOk && !state.loadErrors.length ? i18n.t('dash.statusHealthy') : i18n.t('dash.statusIssues', { count: dataIssueCount || 1 }), validationOk && !state.loadErrors.length ? '' : 'is-error')
+  setStatus('#status-index', indexOk ? i18n.t('dash.statusSynced', { count: state.tools.length }) : i18n.t('dash.statusUnavailable'), indexOk ? '' : 'is-warning')
+  setStatus('#status-admin', adminOk ? i18n.t('dash.statusRunning') : i18n.t('dash.statusUnavailable'), adminOk ? '' : 'is-error')
+  setStatus('#status-runtime', runtimeOk ? i18n.t('dash.statusReady') : i18n.t('dash.statusRuntime', { status: state.system?.runtime || i18n.t('dash.statusUnavailable') }), runtimeOk ? '' : 'is-error')
+
+  const siteRows = [
+    [i18n.t('dash.siteName'), state.site.name || 'DevOS'],
+    [i18n.t('dash.publicUrl'), state.site.publicUrl || i18n.t('dash.notConfigured')],
+    ['basePath', state.site.basePath || './'],
+    [i18n.t('dash.adminUrl'), state.site.adminUrl || 'http://127.0.0.1:4174/admin/'],
+    [i18n.t('dash.version'), state.system?.version ? `v${state.system.version}` : '—'],
+  ]
+  const siteConfig = $('#dashboard-site-config')
+  siteConfig.replaceChildren()
+  for (const [label, value] of siteRows) siteConfig.append(el('dt', '', label), el('dd', '', value))
+
+  const items = readActivity().filter((item, index, all) => index === 0 || item.message !== all[index - 1]?.message).slice(0, 6)
   $('#activity-list').replaceChildren(...(items.length ? items.map(item => {
     const row = document.createElement('li')
     row.append(el('small', '', String(item.at || '').slice(0, 16).replace('T', ' ')), el('span', '', item.message || ''))
@@ -216,6 +283,83 @@ function chips(values) {
   else for (const value of items) wrap.append(el('span', 'tag-chip', value))
   return wrap
 }
+
+function renderCategoryPicker(form) {
+  const host = form.querySelector('.category-picker')
+  const field = form.elements.category
+  if (!host || !field) return
+  if (!field.value && state.categories[0]) field.value = state.categories[0].id
+  host.replaceChildren(...state.categories.map(category => {
+    const option = button('', { categoryOption: category.id }, 'picker-card')
+    option.setAttribute('aria-pressed', String(field.value === category.id))
+    option.append(el('strong', '', category.name), el('small', '', category.id))
+    option.addEventListener('click', () => { field.value = category.id; renderCategoryPicker(form) })
+    return option
+  }))
+  if (!state.categories.length) host.append(el('span', 'picker-empty', i18n.t('picker.noCategories')))
+}
+
+function renderTagPicker(form) {
+  const host = form.querySelector('.tags-picker')
+  const field = form.elements.tags
+  if (!host || !field) return
+  const selected = new Set(String(field.value || '').split(',').map(value => value.trim()).filter(Boolean))
+  const search = document.createElement('input')
+  search.className = 'ui-input picker-search'
+  search.type = 'search'
+  search.placeholder = i18n.t('picker.tagSearch')
+  const selection = el('div', 'tag-chips')
+  const options = el('div', 'tag-option-list')
+  const draw = () => {
+    selection.hidden = selected.size === 0
+    selection.replaceChildren(...chips([...selected]).childNodes)
+    const query = search.value.trim().toLowerCase()
+    const items = state.tags.filter(item => !query || item.name.toLowerCase().includes(query))
+    options.replaceChildren(...items.map(item => {
+      const option = button(item.name, { tagOption: item.name }, 'tag-option')
+      option.setAttribute('aria-pressed', String(selected.has(item.name)))
+      option.classList.toggle('is-selected', selected.has(item.name))
+      option.addEventListener('click', () => {
+        if (selected.has(item.name)) selected.delete(item.name)
+        else selected.add(item.name)
+        field.value = [...selected].join(', ')
+        draw()
+      })
+      return option
+    }))
+    if (!items.length) options.append(el('span', 'picker-empty', i18n.t('picker.noTags')))
+  }
+  search.addEventListener('input', draw)
+  host.replaceChildren(search, selection, options)
+  draw()
+}
+
+function renderIconPicker(form) {
+  const host = form.querySelector('.icon-picker')
+  const field = form.elements.icon
+  if (!host || !field) return
+  const website = host.id === 'nav-icon-picker'
+  const names = website ? ['auto', 'letter'] : ICON_NAMES
+  host.replaceChildren(...names.map(name => {
+    const option = button('', { iconOption: name }, 'icon-option')
+    option.setAttribute('aria-pressed', String(field.value === name))
+    const preview = name === 'auto' ? el('span', 'icon-option-letter', 'A') : name === 'letter' ? el('span', 'icon-option-letter', 'A') : createIconSvg(name, 20)
+    option.append(preview, el('small', '', name === 'auto' ? i18n.t('picker.autoIcon') : name === 'letter' ? i18n.t('picker.letterIcon') : name))
+    option.addEventListener('click', () => { field.value = name; renderIconPicker(form) })
+    return option
+  }))
+}
+
+function renderEditorPickers(form) {
+  if (form.querySelector('.category-picker')) {
+    renderCategoryPicker(form)
+    renderTagPicker(form)
+    renderIconPicker(form)
+  }
+  if (form.querySelector('#ai-tags-picker')) renderTagPicker(form)
+  if (form.querySelector('#category-icon-picker')) renderIconPicker(form)
+}
+
 function kebab(actions) {
   const wrap = el('div', 'kebab')
   const toggle = button('⋯', {}, 'ui-button ui-button-ghost ui-button-sm kebab-toggle')
@@ -269,7 +413,9 @@ function renderCategories() {
     const sites = state.navigation.filter(item => item.category === category.id).length
     const tools = state.tools.filter(item => item.category === category.id).length
     const row = document.createElement('tr')
-    row.append(text('td', category.name), text('td', category.id), text('td', String(sites)), text('td', String(tools)))
+    const icon = el('td', 'category-icon-cell')
+    icon.append(createIconSvg(category.icon || 'Code2', 18))
+    row.append(text('td', category.name), text('td', category.id), icon, text('td', String(sites)), text('td', String(tools)))
     const actions = el('td', 'cell-actions', '')
     actions.append(kebab([
       button(i18n.t('table.edit'), { editCategory: category.id }),
@@ -335,6 +481,30 @@ function renderLibrary() {
       button(i18n.t('table.edit'), { editLibrary: item.id }),
       button(item.enabled ? i18n.t('table.disable') : i18n.t('table.enable'), { toggleLibrary: item.id }),
       button(i18n.t('table.delete'), { deleteLibrary: item.id }, 'ui-button ui-button-danger ui-button-sm'),
+    ]))
+    row.append(actions)
+    return row
+  }))
+}
+function renderAIResources() {
+  const table = $('#ai-resources')
+  if (!table) return
+  const labels = { skill: 'Skill', agent: 'Agent', prompt: 'Prompt', model: '模型', app: '应用 / 产品' }
+  table.replaceChildren(...state.aiResources.slice().sort((a, b) => a.order - b.order).map(item => {
+    const row = document.createElement('tr')
+    const name = text('td', item.name)
+    name.className = 'cell-tool'
+    name.title = item.name
+    const detail = el('td', 'cell-url', item.content || item.url || '—')
+    detail.title = item.content || item.url || ''
+    const tags = el('td', 'cell-tags')
+    tags.append(chips(item.tags || []))
+    row.append(name, text('td', labels[item.kind] || item.kind), detail, tags, text('td', item.enabled ? i18n.t('table.enable') : i18n.t('table.disable')))
+    const actions = el('td', 'cell-actions')
+    actions.append(kebab([
+      button(i18n.t('table.edit'), { editAiResource: item.id }),
+      button(item.enabled ? i18n.t('table.disable') : i18n.t('table.enable'), { toggleAiResource: item.id }),
+      button(i18n.t('table.delete'), { deleteAiResource: item.id }, 'ui-button ui-button-danger ui-button-sm'),
     ]))
     row.append(actions)
     return row
@@ -439,7 +609,7 @@ function renderTags() {
   const filtered = filterTagItems(state.tags, tagsView)
   const page = paginateTagItems(filtered, tagsView.page, tagsView.pageSize)
   tagsView.page = page.page
-  $('#tag-summary').textContent = i18n.t('tags.summary', { total: String(state.tags.length), sites: String(state.tagStats.navigationTagCount), tools: String(state.tagStats.toolTagCount) })
+  $('#tag-summary').textContent = i18n.t('tags.summary', { total: String(state.tags.length), sites: String(state.tagStats.navigationTagCount), tools: String(state.tagStats.toolTagCount), ai: String(state.tagStats.aiResourceTagCount || 0) })
   const tbody = $('#tags')
   if (!page.items.length) {
     const row = document.createElement('tr')
@@ -477,6 +647,7 @@ function openTagDrawer(name) {
   body.replaceChildren(el('h3', 'drawer-title', item.name), el('p', 'muted', i18n.t('tags.usageCount', { count: String(item.total) })))
   const toolSources = item.sources.filter(source => source.type === 'tool')
   const navigationSources = item.sources.filter(source => source.type === 'navigation')
+  const aiSources = item.sources.filter(source => source.type === 'ai-resource')
   if (toolSources.length) {
     const section = el('div', 'drawer-section')
     section.append(el('h4', '', i18n.t('tags.usedByTools')))
@@ -489,6 +660,12 @@ function openTagDrawer(name) {
     for (const source of navigationSources) section.append(el('div', 'drawer-item', `${source.name} (${source.id})`))
     body.append(section)
   }
+  if (aiSources.length) {
+    const section = el('div', 'drawer-section')
+    section.append(el('h4', '', i18n.t('tags.usedByAI')))
+    for (const source of aiSources) section.append(el('div', 'drawer-item', `${source.name} (${source.id})`))
+    body.append(section)
+  }
   const actions = el('div', 'drawer-actions')
   actions.append(
     button(i18n.t('tags.renameBtn'), { renameTag: item.name }, 'ui-button ui-button-primary ui-button-sm'),
@@ -499,30 +676,42 @@ function openTagDrawer(name) {
   armOutside($('#tag-drawer'), () => { $('#tag-drawer').hidden = true; tagsView.current = null })
 }
 
-function render() { renderSite(); renderStats(); renderCategories(); renderNavigation(); renderLibrary(); renderNotes(); renderTools(); renderMarketplace(); renderTags(); i18n.apply() }
+function render() { renderSite(); renderStats(); renderCategories(); renderNavigation(); renderLibrary(); renderAIResources(); renderNotes(); renderTools(); renderMarketplace(); renderTags(); i18n.apply() }
 
 async function reload(message = i18n.t('msg.updated'), record = true) {
-  const [navigation, categories, site] = await Promise.all([request('navigation'), request('categories'), request('site')])
+  const [navigation, categories, site, system, validation] = await Promise.all([
+    request('navigation'), request('categories'), request('site'),
+    request('system').catch(() => null),
+    request('validate').catch(error => ({ ok: false, issues: [error.message] })),
+  ])
   state.navigation = navigation
   state.categories = categories
   state.site = site
-  try { state.library = await request('library') } catch { state.library = [] }
-  try { state.notes = await request('notes') } catch { state.notes = [] }
-  try { state.tools = await request('tools') } catch { state.tools = [] }
+  state.system = system
+  state.validation = validation
+  state.loadErrors = []
+  const loadCollection = async path => {
+    try { return await request(path) } catch { state.loadErrors.push(path); return [] }
+  }
+  ;[state.library, state.aiResources, state.notes, state.tools] = await Promise.all([
+    loadCollection('library'), loadCollection('ai-resources'), loadCollection('notes'), loadCollection('tools'),
+  ])
   try {
     const tagData = await request('tags')
     state.tags = tagData.items
-    state.tagStats = { navigationTagCount: tagData.navigationTagCount, toolTagCount: tagData.toolTagCount }
+      state.tagStats = { navigationTagCount: tagData.navigationTagCount, toolTagCount: tagData.toolTagCount, aiResourceTagCount: tagData.aiResourceTagCount || 0 }
   } catch {
+    state.loadErrors.push('tags')
     state.tags = collectTagItems(state)
     state.tagStats = {
       navigationTagCount: state.tags.filter(item => item.navigationCount > 0).length,
       toolTagCount: state.tags.filter(item => item.toolCount > 0).length,
+      aiResourceTagCount: state.tags.filter(item => item.aiResourceCount > 0).length,
     }
   }
+  if (message && record) logActivity(message)
   render()
   if (message) toast(message)
-  if (record) logActivity(message)
 }
 
 let stopOutside = null
@@ -540,15 +729,28 @@ function armOutside(node, close) {
 }
 
 function closeEditorDrawer() {
+  stopOutside?.()
+  const returnFocus = editorReturnFocus
+  editorReturnFocus = null
   $('#editor-drawer').hidden = true
   $('#nav-form').hidden = true
   $('#category-form').hidden = true
   if ($('#library-form')) $('#library-form').hidden = true
+  if ($('#ai-resource-form')) $('#ai-resource-form').hidden = true
+  returnFocus?.focus()
 }
 function hideEditorForms() {
   $('#nav-form').hidden = true
   $('#category-form').hidden = true
   if ($('#library-form')) $('#library-form').hidden = true
+  if ($('#ai-resource-form')) $('#ai-resource-form').hidden = true
+}
+let editorReturnFocus = null
+function showEditorModal(form) {
+  editorReturnFocus = document.activeElement
+  renderEditorPickers(form)
+  $('#editor-drawer').hidden = false
+  requestAnimationFrame(() => form.querySelector('input:not([type="hidden"]), select, textarea, button')?.focus())
 }
 function openWebsiteDrawer(item) {
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
@@ -557,9 +759,8 @@ function openWebsiteDrawer(item) {
   form.hidden = false
   $('#editor-drawer-title').textContent = item ? i18n.t('form.saveWebsite') : i18n.t('form.addWebsite')
   if (item) fill(form, item, true)
-  else { form.reset(); form.elements.originalId.value = ''; form.querySelector('button').textContent = i18n.t('form.saveWebsite') }
-  $('#editor-drawer').hidden = false
-  armOutside($('#editor-drawer'), closeEditorDrawer)
+  else { form.reset(); form.elements.originalId.value = ''; form.querySelector('.ui-modal-actions .ui-button-primary').textContent = i18n.t('form.saveWebsite') }
+  showEditorModal(form)
 }
 function openCategoryDrawer(item) {
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
@@ -568,9 +769,8 @@ function openCategoryDrawer(item) {
   form.hidden = false
   $('#editor-drawer-title').textContent = item ? i18n.t('form.saveCategory') : i18n.t('form.addCategory')
   if (item) fill(form, item)
-  else { form.reset(); form.elements.originalId.value = ''; form.querySelector('button').textContent = i18n.t('form.saveCategory') }
-  $('#editor-drawer').hidden = false
-  armOutside($('#editor-drawer'), closeEditorDrawer)
+  else { form.reset(); form.elements.originalId.value = ''; form.querySelector('.ui-modal-actions .ui-button-primary').textContent = i18n.t('form.saveCategory') }
+  showEditorModal(form)
 }
 function readNoteForm() {
   const form = $('#note-studio-form')
@@ -672,8 +872,22 @@ function openLibraryDrawer(item) {
   $('#editor-drawer-title').textContent = item ? i18n.t('form.saveLibrary') : i18n.t('form.addLibrary')
   if (item) fill(form, item, true)
   else { form.reset(); form.elements.originalId.value = ''; form.elements.kind.value = 'repo' }
-  $('#editor-drawer').hidden = false
-  armOutside($('#editor-drawer'), closeEditorDrawer)
+  showEditorModal(form)
+}
+function openAIResourceDrawer(item) {
+  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
+  hideEditorForms()
+  const form = $('#ai-resource-form')
+  form.hidden = false
+  $('#editor-drawer-title').textContent = item ? i18n.t('form.saveAIResource') : i18n.t('form.addAIResource')
+  if (item) fill(form, item, true)
+  else {
+    form.reset()
+    form.elements.originalId.value = ''
+    form.elements.kind.value = 'skill'
+    form.elements.updated.value = new Date().toISOString().slice(0, 10)
+  }
+  showEditorModal(form)
 }
 
 function fill(form, item, tags = false) {
@@ -1105,6 +1319,7 @@ bind('#tag-source', 'change', event => { tagsView.source = event.target.value; t
 bind('#tag-sort', 'change', event => { tagsView.sort = event.target.value; tagsView.page = 1; renderTags() })
 bind('#tag-size', 'change', event => { tagsView.pageSize = Number(event.target.value) || 20; tagsView.page = 1; renderTags() })
 bind('#editor-drawer-close', 'click', closeEditorDrawer)
+bind('#editor-drawer', 'click', event => { if (event.target.id === 'editor-drawer') closeEditorDrawer() })
 bind('#admin-menu', 'click', () => {
   const shell = $('.admin-shell')
   const open = shell.classList.toggle('nav-open')
@@ -1115,6 +1330,7 @@ bind('#website-category', 'change', renderNavigation)
 bind('#website-status', 'change', renderNavigation)
 bind('#nav-cancel', 'click', closeEditorDrawer)
 bind('#library-cancel', 'click', closeEditorDrawer)
+bind('#ai-resource-cancel', 'click', closeEditorDrawer)
 bind('#category-cancel', 'click', closeEditorDrawer)
 bind('#note-body', 'input', () => { refreshNotePreview() })
 bind('#note-studio-form', 'input', event => {
@@ -1139,10 +1355,19 @@ bind('#note-json-apply', 'click', () => {
 })
 document.querySelectorAll('.settings-tab').forEach(tab => tab.addEventListener('click', () => { settingsTab = tab.dataset.settingsTab; renderSite() }))
 document.addEventListener('click', event => {
-  if (event.target.closest('.kebab, .kebab-menu')) return
+  if (event.target.closest('.kebab')) return
   document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
 })
 document.addEventListener('keydown', event => {
+  const editor = $('#editor-drawer')
+  if (event.key === 'Tab' && editor && !editor.hidden) {
+    const focusable = [...editor.querySelectorAll('button, input:not([type="hidden"]), select, textarea')].filter(node => !node.hidden && !node.disabled && node.offsetParent)
+    const [first] = focusable
+    const last = focusable.at(-1)
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+    return
+  }
   if (event.key !== 'Escape') return
   document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
   if ($('#modal') && !$('#modal').hidden) { $('#modal-cancel')?.click(); return }
@@ -1256,6 +1481,30 @@ bind('#library-form', 'submit', async event => {
     })
   } catch (error) { toastError(error.message) }
 })
+bind('#ai-resource-form', 'submit', async event => {
+  event.preventDefault()
+  const form = new FormData(event.target)
+  const data = Object.fromEntries(form)
+  const originalId = data.originalId
+  delete data.originalId
+  data.name = String(data.name || '').trim()
+  data.description = String(data.description || '').trim()
+  data.content = String(data.content || '').trim()
+  data.url = String(data.url || '').trim()
+  data.tags = String(data.tags || '').split(',').map(value => value.trim()).filter(Boolean)
+  data.order = Number(data.order)
+  data.enabled = form.has('enabled')
+  data.updated = data.updated || new Date().toISOString().slice(0, 10)
+  if (!data.content && !data.url) return toastError(i18n.t('aiResources.needAction'))
+  try {
+    await withBusy(event.target, async () => {
+      await request(originalId ? `ai-resources/${originalId}` : 'ai-resources', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
+      event.target.reset()
+      closeEditorDrawer()
+      await reload(originalId ? i18n.t('msg.savedAIResource') : i18n.t('msg.addedAIResource'))
+    })
+  } catch (error) { toastError(error.message) }
+})
 document.addEventListener('click', async event => {
   const element = event.target.closest('button')
   if (!element) return
@@ -1264,6 +1513,13 @@ document.addEventListener('click', async event => {
   if (element.dataset.md) { insertMarkdown(element.dataset.md); return }
   try {
     if (element.dataset.tagPage) { tagsView.page = Number(element.dataset.tagPage) || 1; renderTags(); return }
+    if (element.dataset.addTag) {
+      const name = await openPromptModal({ title: i18n.t('tags.addTitle'), label: i18n.t('tags.addLabel'), value: '' })
+      if (!name) return
+      await request('tags', { method: 'POST', body: JSON.stringify({ name }) })
+      await reload(i18n.t('msg.tagAdded'))
+      return
+    }
     if (element.dataset.viewTag) { openTagDrawer(element.dataset.viewTag); return }
     if (element.dataset.renameTag) {
       const from = element.dataset.renameTag
@@ -1277,7 +1533,7 @@ document.addEventListener('click', async event => {
     if (element.dataset.deleteTag) {
       const name = element.dataset.deleteTag
       const item = state.tags.find(entry => entry.name === name)
-      const body = i18n.t('tags.deleteBody', { name, tools: String(item?.toolCount || 0), sites: String(item?.navigationCount || 0) })
+      const body = i18n.t('tags.deleteBody', { name, tools: String(item?.toolCount || 0), sites: String(item?.navigationCount || 0), ai: String(item?.aiResourceCount || 0) })
       if (!await openModal({ title: i18n.t('modal.deleteTitle'), body, confirm: true })) return
       const result = await request(`tags/${encodeURIComponent(name)}`, { method: 'DELETE' })
       $('#tag-drawer').hidden = true
@@ -1286,10 +1542,12 @@ document.addEventListener('click', async event => {
     }
     if (element.dataset.addWebsite) { openWebsiteDrawer(); return }
     if (element.dataset.addLibrary) { openLibraryDrawer(); return }
+    if (element.dataset.addAiResource) { openAIResourceDrawer(); return }
     if (element.dataset.addNote) { openNoteStudio(); return }
     if (element.dataset.addCategory) { openCategoryDrawer(); return }
     if (element.dataset.edit) { openWebsiteDrawer(state.navigation.find(item => item.id === element.dataset.edit)); return }
     if (element.dataset.editLibrary) { openLibraryDrawer(state.library.find(item => item.id === element.dataset.editLibrary)); return }
+    if (element.dataset.editAiResource) { openAIResourceDrawer(state.aiResources.find(item => item.id === element.dataset.editAiResource)); return }
     if (element.dataset.editNote) { openNoteStudio(state.notes.find(item => item.id === element.dataset.editNote)); return }
     if (element.dataset.editCategory) { openCategoryDrawer(state.categories.find(item => item.id === element.dataset.editCategory)); return }
     if (element.dataset.inspect) {
@@ -1328,6 +1586,11 @@ document.addEventListener('click', async event => {
       await request(`library/${item.id}`, { method: 'PUT', body: JSON.stringify({ enabled: !item.enabled }) })
       await reload(i18n.t('msg.toggled'))
     }
+    if (element.dataset.toggleAiResource) {
+      const item = state.aiResources.find(entry => entry.id === element.dataset.toggleAiResource)
+      await request(`ai-resources/${item.id}`, { method: 'PUT', body: JSON.stringify({ enabled: !item.enabled }) })
+      await reload(i18n.t('msg.toggled'))
+    }
     if (element.dataset.toggleNote) {
       const item = state.notes.find(entry => entry.id === element.dataset.toggleNote)
       await request(`notes/${item.id}`, { method: 'PUT', body: JSON.stringify({ enabled: !item.enabled }) })
@@ -1337,6 +1600,11 @@ document.addEventListener('click', async event => {
       if (!await openModal({ title: i18n.t('modal.deleteTitle'), body: element.dataset.deleteLibrary, confirm: true })) return
       await request(`library/${element.dataset.deleteLibrary}`, { method: 'DELETE' })
       await reload(i18n.t('msg.deletedLibrary'))
+    }
+    if (element.dataset.deleteAiResource) {
+      if (!await openModal({ title: i18n.t('modal.deleteTitle'), body: element.dataset.deleteAiResource, confirm: true })) return
+      await request(`ai-resources/${element.dataset.deleteAiResource}`, { method: 'DELETE' })
+      await reload(i18n.t('msg.deletedAIResource'))
     }
     if (element.dataset.deleteNote) {
       if (!await openModal({ title: i18n.t('modal.deleteTitle'), body: element.dataset.deleteNote, confirm: true })) return
@@ -1351,10 +1619,10 @@ document.addEventListener('click', async event => {
   } catch (error) { toastError(error.message) }
 })
 
-reload('', false).then(() => request('system').then(info => {
-  if ($('#app-version')) $('#app-version').textContent = `v${info.version}`
-  if ($('#sidebar-version')) $('#sidebar-version').textContent = `v${info.version}`
-}).catch(() => {})).catch(error => toastError(error.message))
+reload('', false).then(() => {
+  if ($('#app-version') && state.system?.version) $('#app-version').textContent = `v${state.system.version}`
+  if ($('#sidebar-version') && state.system?.version) $('#sidebar-version').textContent = `v${state.system.version}`
+}).catch(error => toastError(error.message))
 
 const carbon = $('.carbon-fx')
 carbon?.addEventListener('pointermove', event => {

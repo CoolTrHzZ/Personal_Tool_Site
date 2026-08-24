@@ -1,0 +1,134 @@
+[
+  {
+    "id": "code-review-skill",
+    "kind": "skill",
+    "name": "Code Review",
+    "description": "检查正确性、安全性与可维护性，输出可执行的修改建议。",
+    "content": "Review the current diff. Prioritize bugs, security risks, and missing tests.",
+    "url": "",
+    "tags": [
+      "coding",
+      "quality"
+    ],
+    "enabled": true,
+    "order": 10,
+    "updated": "2026-08-22"
+  },
+  {
+    "id": "research-skill",
+    "kind": "skill",
+    "name": "Deep Research",
+    "description": "围绕问题收集来源、核对事实并整理结论。",
+    "content": "Research the topic, compare primary sources, and cite every time-sensitive claim.",
+    "url": "",
+    "tags": [
+      "research"
+    ],
+    "enabled": true,
+    "order": 20,
+    "updated": "2026-08-22"
+  },
+  {
+    "id": "frontend-agent",
+    "kind": "agent",
+    "name": "Frontend Builder",
+    "description": "负责 React 界面实现、无障碍与浏览器验收。",
+    "content": "Own frontend implementation and validate the critical journey in a real browser.",
+    "url": "",
+    "tags": [
+      "react",
+      "frontend"
+    ],
+    "enabled": true,
+    "order": 30,
+    "updated": "2026-08-22"
+  },
+  {
+    "id": "release-agent",
+    "kind": "agent",
+    "name": "Release Reviewer",
+    "description": "在交付前独立检查需求覆盖和回归风险。",
+    "content": "Review the delivery against requirements and report only actionable findings.",
+    "url": "",
+    "tags": [
+      "release",
+      "quality"
+    ],
+    "enabled": true,
+    "order": 40,
+    "updated": "2026-08-22"
+  },
+  {
+    "id": "explain-prompt",
+    "kind": "prompt",
+    "name": "Explain Simply",
+    "description": "把复杂技术主题改写成清晰、可执行的说明。",
+    "content": "Explain {{topic}} in plain language. Include one concrete example and the main trade-off.",
+    "url": "",
+    "tags": [
+      "writing"
+    ],
+    "enabled": true,
+    "order": 50,
+    "updated": "2026-08-22"
+  },
+  {
+    "id": "meeting-prompt",
+    "kind": "prompt",
+    "name": "Meeting Summary",
+    "description": "从会议记录提取决定、负责人和后续行动。",
+    "content": "Summarize the transcript into decisions, owners, deadlines, and unresolved questions.",
+    "url": "",
+    "tags": [
+      "productivity"
+    ],
+    "enabled": true,
+    "order": 60,
+    "updated": "2026-08-22"
+  },
+  {
+    "id": "gpt-model",
+    "kind": "model",
+    "name": "GPT",
+    "description": "通用推理、编码与多模态任务的模型配置。",
+    "content": "openai/gpt",
+    "url": "https://platform.openai.com/docs/models",
+    "tags": [
+      "general",
+      "multimodal"
+    ],
+    "enabled": true,
+    "order": 70,
+    "updated": "2026-08-22"
+  },
+  {
+    "id": "local-model",
+    "kind": "model",
+    "name": "Local Model",
+    "description": "适合离线、隐私敏感或低成本任务的本地模型配置。",
+    "content": "ollama/model-name",
+    "url": "https://ollama.com/library",
+    "tags": [
+      "local",
+      "private"
+    ],
+    "enabled": true,
+    "order": 80,
+    "updated": "2026-08-22"
+  },
+  {
+    "id": "codex-app",
+    "kind": "app",
+    "name": "OpenAI Codex",
+    "description": "用于软件开发、代码理解与工程交付的 AI 应用。",
+    "content": "",
+    "url": "https://openai.com/codex/",
+    "tags": [
+      "coding",
+      "product"
+    ],
+    "enabled": true,
+    "order": 90,
+    "updated": "2026-08-22"
+  }
+]

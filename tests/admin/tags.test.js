@@ -35,6 +35,12 @@ describe('collectTagItems 聚合', () => {
   it('默认按使用次数降序、同次数按名称排序', () => {
     expect(items.map(item => item.name)).toEqual(['ai', 'assistant', 'cs2', 'dev'])
   })
+
+  it('保留目录中的未使用标签并统计 AI 资源来源', () => {
+    const result = collectTagItems({ tags: ['unused'], aiResources: [{ id: 'agent', name: 'Agent', tags: ['ai'] }] })
+    expect(result.find(item => item.name === 'unused')).toMatchObject({ total: 0, catalog: true })
+    expect(result.find(item => item.name === 'ai')).toMatchObject({ total: 1, aiResourceCount: 1 })
+  })
 })
 
 describe('filterTagItems 搜索 / 来源筛选 / 排序', () => {
@@ -46,6 +52,12 @@ describe('filterTagItems 搜索 / 来源筛选 / 排序', () => {
   it('按来源筛选：navigation / tools', () => {
     expect(filterTagItems(items, { source: 'navigation' }).map(item => item.name)).toEqual(['ai', 'assistant'])
     expect(filterTagItems(items, { source: 'tools' }).map(item => item.name)).toEqual(['ai', 'cs2', 'dev'])
+  })
+
+  it('支持 AI 与目录来源筛选', () => {
+    const sourceItems = collectTagItems({ tags: ['unused'], aiResources: [{ id: 'agent', name: 'Agent', tags: ['ai'] }] })
+    expect(filterTagItems(sourceItems, { source: 'ai-resources' }).map(item => item.name)).toEqual(['ai'])
+    expect(filterTagItems(sourceItems, { source: 'catalog' }).map(item => item.name)).toEqual(['unused'])
   })
 
   it('按名称排序', () => {

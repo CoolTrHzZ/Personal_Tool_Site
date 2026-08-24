@@ -12,6 +12,11 @@ export type NoteItem = {
   id: string; title: string; summary: string; tags: string[]
   enabled: boolean; order: number; updated: string; body: string
 }
+export type AIResourceKind = 'skill' | 'agent' | 'prompt' | 'model' | 'app'
+export type AIResource = {
+  id: string; kind: AIResourceKind; name: string; description: string
+  content: string; url: string; tags: string[]; enabled: boolean; order: number; updated: string
+}
 export type SiteConfig = {
   name: string
   tagline: string

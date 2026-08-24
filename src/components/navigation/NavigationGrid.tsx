@@ -1,8 +1,8 @@
-import { Bot, Code2, Globe2, Palette, Server } from 'lucide-react'
+import { Bot, Code2, Globe2, Palette, Server, Wrench } from 'lucide-react'
 import type { Category, NavigationItem } from '../../types'
 import NavigationCard from './NavigationCard'
 
-const iconMap = { Code2, Bot, Palette, Server }
+const iconMap = { Code2, Bot, Palette, Server, Globe2, Wrench }
 function CategoryIcon({ name }: { name: string }) { const Icon = iconMap[name as keyof typeof iconMap] || Globe2; return <Icon size={17} /> }
 
 export default function NavigationGrid({ groups }: { groups: { category: Category; items: NavigationItem[] }[] }) {

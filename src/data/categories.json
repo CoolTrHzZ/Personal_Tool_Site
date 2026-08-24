@@ -1,6 +1,26 @@
 [
-  { "id": "development", "name": "开发", "icon": "Code2", "order": 10 },
-  { "id": "ai", "name": "AI", "icon": "Bot", "order": 20 },
-  { "id": "design", "name": "设计", "icon": "Palette", "order": 30 },
-  { "id": "ops", "name": "运维", "icon": "Server", "order": 40 }
+  {
+    "id": "development",
+    "name": "开发",
+    "icon": "Code2",
+    "order": 10
+  },
+  {
+    "id": "ai",
+    "name": "AI",
+    "icon": "Bot",
+    "order": 20
+  },
+  {
+    "id": "design",
+    "name": "设计",
+    "icon": "Palette",
+    "order": 30
+  },
+  {
+    "id": "ops",
+    "name": "运维",
+    "icon": "Server",
+    "order": 40
+  }
 ]

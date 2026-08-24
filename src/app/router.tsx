@@ -9,6 +9,7 @@ import NavPage from '../pages/NavPage'
 import LibraryPage from '../pages/LibraryPage'
 import NotesPage from '../pages/NotesPage'
 import NotePage from '../pages/NotePage'
+import AIHubPage from '../pages/AIHubPage'
 import NotFound from '../pages/NotFound'
 import StaticToolPage from '../tools/runtime/StaticToolPage'
 
@@ -35,5 +36,5 @@ function ToolRoute() {
 }
 
 export default function Router() {
-  return <Routes><Route path="/" element={<HomePage />} /><Route path="/tools" element={<ToolsPage />} /><Route path="/nav" element={<NavPage />} /><Route path="/library" element={<LibraryPage />} /><Route path="/notes" element={<NotesPage />} /><Route path="/notes/:id" element={<NotePage />} /><Route path="/tools/*" element={<ToolRoute />} /><Route path="*" element={<NotFound />} /></Routes>
+  return <Routes><Route path="/" element={<HomePage />} /><Route path="/ai" element={<AIHubPage />} /><Route path="/tools" element={<ToolsPage />} /><Route path="/nav" element={<NavPage />} /><Route path="/library" element={<LibraryPage />} /><Route path="/notes" element={<NotesPage />} /><Route path="/notes/:id" element={<NotePage />} /><Route path="/tools/*" element={<ToolRoute />} /><Route path="*" element={<NotFound />} /></Routes>
 }

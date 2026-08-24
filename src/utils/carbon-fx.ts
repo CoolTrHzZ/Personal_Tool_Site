@@ -10,6 +10,7 @@ export function onCarbonPointer(event: { currentTarget: EventTarget & HTMLElemen
 export function sceneFromPath(path: string) {
   if (path.startsWith('/tools/') && path !== '/tools/') return 'runtime'
   if (path.startsWith('/tools')) return 'tools'
+  if (path.startsWith('/ai')) return 'tools'
   if (path.startsWith('/nav') || path.startsWith('/library')) return 'nav'
   if (path.startsWith('/notes')) return 'cms'
   return 'home'

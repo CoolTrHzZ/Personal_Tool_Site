@@ -43,6 +43,7 @@ export default function Header() {
       <nav className="top-nav" ref={navRef} aria-label="主导航">
         <span className="nav-indicator" ref={pillRef} aria-hidden="true" />
         <Link className={location.pathname === '/' ? 'active' : ''} to="/">首页</Link>
+        <Link className={location.pathname.startsWith('/ai') ? 'active' : ''} to="/ai">AI Hub</Link>
         <Link className={location.pathname.startsWith('/tools') ? 'active' : ''} to="/tools">工具</Link>
         <Link className={location.pathname === '/nav' ? 'active' : ''} to="/nav">导航</Link>
         <Link className={location.pathname.startsWith('/library') ? 'active' : ''} to="/library">收藏</Link>

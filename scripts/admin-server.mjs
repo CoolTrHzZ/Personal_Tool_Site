@@ -24,23 +24,46 @@ const stagingDir = resolve(root, '.tool-staging')
 const legacyStagingDir = join(toolsDir, '.staging')
 const coreManifestPath = resolve(root, 'src/tools/manifests/core.json')
 const indexManifestPath = join(publicDir, 'tools-manifests.json')
-const files = { navigation: 'navigation.json', categories: 'categories.json', site: 'site.json', library: 'library.json', notes: 'notes.json' }
+const files = { navigation: 'navigation.json', categories: 'categories.json', site: 'site.json', library: 'library.json', 'ai-resources': 'ai-resources.json', notes: 'notes.json', tags: 'tags.json' }
 const MAX_BODY_SIZE = 1024 * 1024
 const MAX_TOOL_BODY_SIZE = 25 * 1024 * 1024
 const execFileAsync = promisify(execFile)
 const json = async key => JSON.parse(await readFile(resolve(dataDir, files[key]), 'utf8'))
+const isISODate = value => {
+  const time = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? Date.parse(`${value}T00:00:00Z`) : NaN
+  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value
+}
 // Buffer（静态文件，含 .json）原样输出；仅 JSON API 响应走 JSON.stringify（避免 manifest.json 被二次序列化）
 const send = (res, status, value, type = 'application/json') => { res.writeHead(status, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store' }); res.end(Buffer.isBuffer(value) ? value : type === 'application/json' ? JSON.stringify(value) : String(value)) }
 const body = (req, limit = MAX_BODY_SIZE) => new Promise((resolveBody, reject) => { let value = ''; let size = 0; req.on('data', chunk => { size += chunk.length; if (size > limit) { reject(new Error(`请求体不能超过 ${Math.round(limit / 1024 / 1024)}MB`)); req.destroy(); return } value += chunk }); req.on('end', () => { try { resolveBody(value ? JSON.parse(value) : {}) } catch { reject(new Error('请求 JSON 无效')) } }); req.on('error', reject) })
 let navigationCache = [], categoryCache = []
+const normalizeTag = value => String(value ?? '').trim()
+const hasUnsafeTagChar = value => [...value].some(char => { const code = char.charCodeAt(0); return code < 32 || code === 127 })
+const assertTagName = value => {
+  const name = normalizeTag(value)
+  if (!name || name.length > 64 || name.includes(',') || hasUnsafeTagChar(name)) throw new Error('标签名无效')
+  return name
+}
+const CATEGORY_ICONS = new Set(['Code2', 'Bot', 'Palette', 'Server', 'Globe2', 'Wrench'])
+const WEBSITE_ICONS = new Set(['auto', 'letter'])
+const assertTags = tags => {
+  if (!Array.isArray(tags)) throw new Error('标签必须是数组')
+  for (const tag of tags) assertTagName(tag)
+}
 function validate(key, value) {
   if (key === 'site') { for (const field of ['name', 'title', 'description', 'github', 'footer', 'logo']) if (typeof value[field] !== 'string') throw new Error(`${field} 必须是字符串`); return }
   if (!Array.isArray(value)) throw new Error('数据必须是数组')
+  if (key === 'tags') {
+    const names = value.map(assertTagName)
+    if (new Set(names).size !== names.length) throw new Error('标签不能重复')
+    return
+  }
   const ids = new Set(value.map(item => item.id)); if (ids.size !== value.length || value.some(item => !item.id)) throw new Error('id 不能为空且不能重复')
-  if (key === 'categories') { if (value.some(item => typeof item.name !== 'string' || typeof item.order !== 'number')) throw new Error('分类字段无效'); return }
+  if (key === 'categories') { if (value.some(item => typeof item.name !== 'string' || typeof item.order !== 'number' || !CATEGORY_ICONS.has(item.icon))) throw new Error('分类字段无效'); return }
   if (key === 'notes') {
     for (const item of value) {
-      if (typeof item.title !== 'string' || typeof item.body !== 'string' || typeof item.order !== 'number' || typeof item.enabled !== 'boolean' || !Array.isArray(item.tags)) throw new Error(`字段无效: ${item.id}`)
+      if (typeof item.title !== 'string' || typeof item.body !== 'string' || typeof item.order !== 'number' || typeof item.enabled !== 'boolean') throw new Error(`字段无效: ${item.id}`)
+      assertTags(item.tags)
     }
     return
   }
@@ -48,12 +71,23 @@ function validate(key, value) {
     for (const item of value) {
       if (item.kind !== 'repo' && item.kind !== 'skill') throw new Error(`kind 无效: ${item.id}`)
       if (!/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`URL 无效: ${item.url}`)
-      if (typeof item.name !== 'string' || typeof item.order !== 'number' || typeof item.enabled !== 'boolean' || !Array.isArray(item.tags)) throw new Error(`字段无效: ${item.id}`)
+      if (typeof item.name !== 'string' || typeof item.order !== 'number' || typeof item.enabled !== 'boolean') throw new Error(`字段无效: ${item.id}`)
+      assertTags(item.tags)
+    }
+    return
+  }
+  if (key === 'ai-resources') {
+    for (const item of value) {
+      if (typeof item.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(item.id)) throw new Error(`id 无效: ${item.id}`)
+      if (!['skill', 'agent', 'prompt', 'model', 'app'].includes(item.kind)) throw new Error(`kind 无效: ${item.id}`)
+      if (item.url && !/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`URL 无效: ${item.url}`)
+      if (typeof item.name !== 'string' || !item.name.trim() || typeof item.description !== 'string' || typeof item.content !== 'string' || typeof item.url !== 'string' || (!item.content.trim() && !item.url) || !isISODate(item.updated) || !Number.isFinite(item.order) || typeof item.enabled !== 'boolean') throw new Error(`字段无效: ${item.id}`)
+      assertTags(item.tags)
     }
     return
   }
   const categoryIds = new Set(categoryCache.map(item => item.id))
-  for (const item of value) { if (!/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`URL 无效: ${item.url}`); if (!categoryIds.has(item.category)) throw new Error(`分类不存在: ${item.category}`); if (typeof item.order !== 'number' || typeof item.enabled !== 'boolean' || !Array.isArray(item.tags)) throw new Error(`字段无效: ${item.id}`) }
+  for (const item of value) { if (!/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`URL 无效: ${item.url}`); if (!categoryIds.has(item.category)) throw new Error(`分类不存在: ${item.category}`); if (typeof item.order !== 'number' || typeof item.enabled !== 'boolean' || !WEBSITE_ICONS.has(item.icon)) throw new Error(`字段无效: ${item.id}`); assertTags(item.tags) }
 }
 async function refresh() { [navigationCache, categoryCache] = await Promise.all([json('navigation'), json('categories')]) }
 async function save(key, value) { validate(key, value); const target = resolve(dataDir, files[key]); const temp = `${target}.tmp`; if (existsSync(target)) await copyFile(target, `${target}.bak`); await writeFile(temp, JSON.stringify(value, null, 2) + '\n'); await rename(temp, target); await refresh() }
@@ -101,7 +135,9 @@ async function runValidation() {
   try { validate('categories', categoryCache) } catch (error) { issues.push(error.message) }
   try { validate('navigation', navigationCache) } catch (error) { issues.push(error.message) }
   try { validate('library', await json('library')) } catch (error) { issues.push(error.message) }
+  try { validate('ai-resources', await json('ai-resources')) } catch (error) { issues.push(error.message) }
   try { validate('notes', await json('notes')) } catch (error) { issues.push(error.message) }
+  try { validate('tags', await json('tags')) } catch (error) { issues.push(error.message) }
   for (const manifest of await tools()) {
     const hasEntry = manifest.runtime === 'static' ? existsSync(join(toolsDir, manifest.id, manifest.entry)) : undefined
     const report = inspectTool(manifest, { hasEntry })
@@ -435,45 +471,57 @@ async function exportTool(id) {
 // ---------------- Tag Domain API（Source of Truth = navigation + core manifests + static manifests）----------------
 
 async function collectTagUsage() {
-  const [navigation, core] = await Promise.all([json('navigation'), readJsonFile(coreManifestPath, [])])
+  const [navigation, core, catalog, aiResources] = await Promise.all([json('navigation'), readJsonFile(coreManifestPath, []), json('tags'), json('ai-resources')])
   const statics = await staticToolManifests()
   const map = new Map()
   const add = (name, source) => {
-    if (!name) return
-    const item = map.get(name) || { name, total: 0, navigationCount: 0, toolCount: 0, sources: [] }
-    item.total += 1
+    const tag = normalizeTag(name)
+    if (!tag) return
+    const item = map.get(tag) || { name: tag, total: 0, navigationCount: 0, toolCount: 0, aiResourceCount: 0, catalog: false, sources: [] }
+    if (source.type === 'catalog') item.catalog = true
+    else item.total += 1
     if (source.type === 'navigation') item.navigationCount += 1
-    else item.toolCount += 1
+    else if (source.type === 'tool') item.toolCount += 1
+    else if (source.type === 'ai-resource') item.aiResourceCount += 1
     item.sources.push(source)
-    map.set(name, item)
+    map.set(tag, item)
   }
+  for (const tag of catalog) add(tag, { type: 'catalog', id: tag, name: tag })
   for (const item of navigation) for (const tag of item.tags || []) add(tag, { type: 'navigation', id: item.id, name: item.name })
   for (const manifest of [...core, ...statics]) {
     const tags = (manifest.tags || []).length ? manifest.tags : (manifest.keywords || [])
     for (const tag of tags) add(tag, { type: 'tool', id: manifest.id, name: manifest.name })
   }
+  for (const item of aiResources) for (const tag of item.tags || []) add(tag, { type: 'ai-resource', id: item.id, name: item.name })
   const items = [...map.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
   return {
     items,
     navigationTagCount: items.filter(item => item.navigationCount > 0).length,
     toolTagCount: items.filter(item => item.toolCount > 0).length,
+    aiResourceTagCount: items.filter(item => item.aiResourceCount > 0).length,
+    catalogCount: catalog.length,
   }
 }
 
 // to 传空字符串 = 删除该标签；写回三个数据源并重建索引
 async function rewriteTagEverywhere(from, to) {
-  const rewrite = list => [...new Set((list || []).map(tag => (tag === from ? to : tag)).filter(Boolean))]
+  const source = assertTagName(from)
+  const target = to ? assertTagName(to) : ''
+  const rewrite = list => [...new Set((list || []).map(tag => (tag === source ? target : tag)).filter(Boolean))]
+  const catalog = await json('tags')
+  const nextCatalog = [...new Set(catalog.map(tag => tag === source ? target : tag).filter(Boolean))]
+  if (nextCatalog.length !== catalog.length || nextCatalog.some((tag, index) => tag !== catalog[index])) await save('tags', nextCatalog)
   const navigation = await json('navigation')
   let navigationAffected = 0
   for (const item of navigation) {
-    if ((item.tags || []).includes(from)) { item.tags = rewrite(item.tags); navigationAffected += 1 }
+    if ((item.tags || []).includes(source)) { item.tags = rewrite(item.tags); navigationAffected += 1 }
   }
   if (navigationAffected) await save('navigation', navigation)
 
   let toolsAffected = 0
   const core = await readJsonFile(coreManifestPath, [])
   for (const manifest of core) {
-    if ((manifest.tags || []).includes(from) || (manifest.keywords || []).includes(from)) {
+    if ((manifest.tags || []).includes(source) || (manifest.keywords || []).includes(source)) {
       manifest.tags = rewrite(manifest.tags)
       manifest.keywords = rewrite(manifest.keywords)
       toolsAffected += 1
@@ -486,7 +534,7 @@ async function rewriteTagEverywhere(from, to) {
       if (name.startsWith('.')) continue
       const manifestPath = join(toolsDir, name, 'manifest.json')
       const manifest = await readJsonFile(manifestPath, null)
-      if (manifest && ((manifest.tags || []).includes(from) || (manifest.keywords || []).includes(from))) {
+      if (manifest && ((manifest.tags || []).includes(source) || (manifest.keywords || []).includes(source))) {
         manifest.tags = rewrite(manifest.tags)
         manifest.keywords = rewrite(manifest.keywords)
         await writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
@@ -494,23 +542,35 @@ async function rewriteTagEverywhere(from, to) {
       }
     }
   }
+  const aiResources = await json('ai-resources')
+  let aiResourcesAffected = 0
+  for (const item of aiResources) {
+    if ((item.tags || []).includes(source)) { item.tags = rewrite(item.tags); aiResourcesAffected += 1 }
+  }
+  if (aiResourcesAffected) await save('ai-resources', aiResources)
   await rebuildToolIndex()
-  return { ok: true, affected: navigationAffected + toolsAffected, navigation: navigationAffected, tools: toolsAffected }
+  return { ok: true, affected: navigationAffected + toolsAffected + aiResourcesAffected, navigation: navigationAffected, tools: toolsAffected, aiResources: aiResourcesAffected }
 }
 
 async function renameTag(payload) {
-  const from = String(payload.from || '').trim()
-  const to = String(payload.to || '').trim()
-  if (!from) throw new Error('缺少原标签')
-  if (!to) throw new Error('缺少新标签')
+  const from = assertTagName(payload.from)
+  const to = assertTagName(payload.to)
   if (from === to) throw new Error('新旧标签相同')
   return rewriteTagEverywhere(from, to)
 }
 
 async function deleteTag(name) {
-  const from = String(name || '').trim()
-  if (!from) throw new Error('缺少标签名')
+  const from = assertTagName(name)
   return rewriteTagEverywhere(from, '')
+}
+
+async function addTag(payload) {
+  const name = assertTagName(payload?.name)
+  const catalog = await json('tags')
+  if (catalog.includes(name)) throw new Error('标签已存在')
+  catalog.push(name)
+  await save('tags', catalog)
+  return { ok: true, name }
 }
 
 // ---------------- 静态工具文件服务（供 Admin 预览）----------------
@@ -552,6 +612,7 @@ const server = createServer(async (req, res) => {
         return send(res, 200, { version: pkg.version, admin: 'running', runtime: 'ready', index: 'synced' })
       }
       if (url.pathname === '/api/tags' && req.method === 'GET') return send(res, 200, await collectTagUsage())
+      if (url.pathname === '/api/tags' && req.method === 'POST') return send(res, 201, await addTag(await body(req)))
       if (url.pathname === '/api/tags/rename' && req.method === 'POST') return send(res, 200, await renameTag(await body(req)))
       const tagDeleteMatch = url.pathname.match(/^\/api\/tags\/(.+)$/)
       if (tagDeleteMatch && req.method === 'DELETE') return send(res, 200, await deleteTag(decodeURIComponent(tagDeleteMatch[1])))
@@ -572,7 +633,7 @@ const server = createServer(async (req, res) => {
         return send(res, 405, { error: 'Method not allowed' })
       }
       if (url.pathname === '/api/validate' && req.method === 'GET') return send(res, 200, await runValidation())
-      const match = url.pathname.match(/^\/api\/(navigation|categories|site|library|notes)(?:\/([^/]+))?$/); if (!match) return send(res, 404, { error: 'Not found' })
+      const match = url.pathname.match(/^\/api\/(navigation|categories|site|library|ai-resources|notes)(?:\/([^/]+))?$/); if (!match) return send(res, 404, { error: 'Not found' })
       const key = match[1], id = match[2]; let value = await json(key)
       if (req.method === 'GET') return send(res, 200, value)
       if (key === 'site' && req.method === 'PUT') { await save(key, await body(req)); return send(res, 200, await json(key)) }

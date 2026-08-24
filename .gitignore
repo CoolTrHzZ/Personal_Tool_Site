@@ -42,3 +42,6 @@ scripts/*.bak
 /scripts/*.bak
 # ADCP-CAPSULE:END
 .adcp-local/
+.agents/skills/.adcp-managed/
+.agent/skills/imported/*
+!.agent/skills/imported/.gitkeep

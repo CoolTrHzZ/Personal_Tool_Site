@@ -24,7 +24,8 @@
     ],
     "status": "active",
     "readme": "格式化与校验 JSON。",
-    "license": "MIT"
+    "license": "MIT",
+    "display": {}
   },
   {
     "id": "timestamp",
@@ -51,7 +52,8 @@
     ],
     "status": "active",
     "readme": "Unix 时间戳与日期互转。",
-    "license": "MIT"
+    "license": "MIT",
+    "display": {}
   },
   {
     "id": "base64",

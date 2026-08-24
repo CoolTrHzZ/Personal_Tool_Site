@@ -25,12 +25,12 @@
     "status": "active",
     "readme": "格式化与校验 JSON。",
     "license": "MIT",
-    "runtime": "react",
-    "format": "react-package",
     "display": {
       "mode": "embedded",
       "height": "auto"
     },
+    "runtime": "react",
+    "format": "react-package",
     "permissions": {
       "clipboard": true,
       "storage": true,
@@ -69,12 +69,12 @@
     "status": "active",
     "readme": "Unix 时间戳与日期互转。",
     "license": "MIT",
-    "runtime": "react",
-    "format": "react-package",
     "display": {
       "mode": "embedded",
       "height": "auto"
     },
+    "runtime": "react",
+    "format": "react-package",
     "permissions": {
       "clipboard": true,
       "storage": true,

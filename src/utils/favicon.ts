@@ -1,4 +1,5 @@
 export function getFaviconUrl(url: string, customIcon = 'auto') {
+  if (customIcon === 'letter') return []
   if (customIcon && customIcon !== 'auto') return [customIcon]
   try {
     const site = new URL(url)

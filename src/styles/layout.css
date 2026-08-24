@@ -25,7 +25,8 @@ footer { padding: 23px; border-top: 1px solid var(--border-subtle); color: var(-
 @media (max-width: 479px) { .nav-grid { grid-template-columns: 1fr; } }
 @media (max-width: 767px) {
   .topbar { display: flex; flex-wrap: wrap; height: auto; min-height: 62px; gap: 12px; padding: 10px 16px; }
-  .top-nav { order: 3; width: 100%; justify-content: space-between; }
+  .top-nav { order: 3; width: 100%; justify-content: space-between; overflow-x: auto; }
+  .top-nav a { flex: 0 0 auto; }
   .nav-indicator { display: none; }
   .top-nav a.active { background: var(--accent-soft); }
   .page { width: min(100% - 30px, var(--layout-page)); padding-top: 35px; }

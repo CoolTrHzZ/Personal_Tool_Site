@@ -28,6 +28,7 @@
         <button class="nav-item active" data-view="dashboard" data-i18n="nav.dashboard">仪表盘</button>
         <button class="nav-item" data-view="websites" data-i18n="nav.websites">网站管理</button>
         <button class="nav-item" data-view="library" data-i18n="nav.library">收藏仓库</button>
+        <button class="nav-item" data-view="ai-resources" data-i18n="nav.aiResources">AI Hub 资源</button>
         <button class="nav-item" data-view="notes" data-i18n="nav.notes">笔记文章</button>
         <button class="nav-item" data-view="tools" data-i18n="nav.tools">工具管理</button>
         <button class="nav-item" data-view="marketplace" data-i18n="nav.marketplace">工具市场</button>
@@ -55,37 +56,67 @@
       </header>
 
       <section class="view active content-wide" data-view-panel="dashboard">
-        <div class="dash-telemetry stats-grid">
-          <article class="dash-meter"><small data-i18n="dash.tools">工具</small><strong id="stat-tools">—</strong><span class="dash-flow" data-fill="tools"></span></article>
-          <article class="dash-meter"><small data-i18n="dash.websites">网站</small><strong id="stat-websites">—</strong><span class="dash-flow" data-fill="websites"></span></article>
-          <article class="dash-meter"><small data-i18n="dash.categories">分类</small><strong id="stat-categories">—</strong><span class="dash-flow" data-fill="categories"></span></article>
-          <article class="dash-meter"><small data-i18n="dash.tags">标签</small><strong id="stat-tags">—</strong><span class="dash-flow" data-fill="tags"></span></article>
+        <section class="ui-card dashboard-hero dash-module">
+          <div>
+            <p class="edit-kicker" data-i18n="dash.overview">PROJECT OVERVIEW</p>
+            <h2 id="dashboard-site-name">DevOS</h2>
+            <p id="dashboard-site-description" class="muted"></p>
+          </div>
+          <button type="button" id="dashboard-health" class="dashboard-health" data-view="validate">
+            <span class="dashboard-health-dot" aria-hidden="true"></span>
+            <div><strong id="dashboard-health-title">—</strong><small id="dashboard-health-detail">—</small></div>
+          </button>
+        </section>
+
+        <div class="dashboard-kpis stats-grid">
+          <button type="button" class="dash-meter dash-kpi" data-view="websites"><small data-i18n="dash.websites">网站</small><strong id="stat-websites">—</strong><span id="stat-websites-meta" class="dash-kpi-meta">—</span><span class="dash-flow" data-fill="websites"></span></button>
+          <button type="button" class="dash-meter dash-kpi" data-view="library"><small data-i18n="dash.library">收藏</small><strong id="stat-library">—</strong><span id="stat-library-meta" class="dash-kpi-meta">—</span><span class="dash-flow" data-fill="library"></span></button>
+          <button type="button" class="dash-meter dash-kpi" data-view="ai-resources"><small data-i18n="dash.aiResources">AI 资源</small><strong id="stat-ai-resources">—</strong><span id="stat-ai-resources-meta" class="dash-kpi-meta">—</span><span class="dash-flow" data-fill="aiResources"></span></button>
+          <button type="button" class="dash-meter dash-kpi" data-view="notes"><small data-i18n="dash.notes">笔记</small><strong id="stat-notes">—</strong><span id="stat-notes-meta" class="dash-kpi-meta">—</span><span class="dash-flow" data-fill="notes"></span></button>
+          <button type="button" class="dash-meter dash-kpi" data-view="tools"><small data-i18n="dash.tools">工具</small><strong id="stat-tools">—</strong><span id="stat-tools-meta" class="dash-kpi-meta">—</span><span class="dash-flow" data-fill="tools"></span></button>
+          <button type="button" class="dash-meter dash-kpi" data-view="categories"><small data-i18n="dash.categories">分类</small><strong id="stat-categories">—</strong><span id="stat-categories-meta" class="dash-kpi-meta">—</span><span class="dash-flow" data-fill="categories"></span></button>
+          <button type="button" class="dash-meter dash-kpi" data-view="tags"><small data-i18n="dash.tags">标签</small><strong id="stat-tags">—</strong><span id="stat-tags-meta" class="dash-kpi-meta">—</span><span class="dash-flow" data-fill="tags"></span></button>
         </div>
-        <div class="status-grid">
-          <article class="ui-card status-card dash-module">
-            <small data-i18n="dash.system">系统状态</small>
-            <ul class="status-lines">
-              <li><span data-i18n="dash.data">数据状态</span> <strong id="status-data">● 正常</strong></li>
-              <li><span data-i18n="dash.index">工具索引</span> <strong id="status-index">● 已同步</strong></li>
-              <li><span data-i18n="dash.admin">本地 Admin</span> <strong id="status-admin">● 运行中</strong></li>
-              <li><span>Static Runtime</span> <strong id="status-runtime">● Ready</strong></li>
-            </ul>
-          </article>
+
+        <div class="dashboard-grid">
+          <section class="ui-card panel dash-module dashboard-inventory-panel">
+            <div class="dashboard-section-head"><div><h2 data-i18n="dash.configuration">项目配置</h2><p class="muted" data-i18n="dash.configurationHint">当前项目实际包含的内容与资源</p></div><span data-i18n="dash.openHint">点击卡片进入管理</span></div>
+            <div id="dashboard-inventory" class="dashboard-inventory"></div>
+          </section>
+
+          <aside class="dashboard-monitor">
+            <section class="ui-card panel dash-module">
+              <h2 data-i18n="dash.system">系统状态</h2>
+              <ul class="status-lines dashboard-status-lines">
+                <li><span data-i18n="dash.data">数据状态</span> <strong id="status-data">—</strong></li>
+                <li><span data-i18n="dash.index">工具索引</span> <strong id="status-index">—</strong></li>
+                <li><span data-i18n="dash.admin">本地 Admin</span> <strong id="status-admin">—</strong></li>
+                <li><span data-i18n="dash.runtime">运行时</span> <strong id="status-runtime">—</strong></li>
+              </ul>
+              <div id="dashboard-runtime-mix" class="dashboard-runtime-mix"></div>
+            </section>
+            <section class="ui-card panel dash-module">
+              <h2 data-i18n="dash.publishing">站点与发布</h2>
+              <dl id="dashboard-site-config" class="dashboard-site-config"></dl>
+            </section>
+          </aside>
         </div>
-        <div class="dashboard-split">
+
+        <div class="dashboard-bottom">
           <section class="ui-card panel dash-module">
-            <h2 data-i18n="dash.recent">活动日志</h2>
+            <div class="dashboard-section-head"><h2 data-i18n="dash.recent">最近变更</h2><small data-i18n="dash.recentLimit">最近 6 条</small></div>
             <ol id="activity-list" class="activity-log"></ol>
           </section>
           <section class="ui-card panel dash-module">
-            <h2 data-i18n="dash.shortcuts">快捷入口</h2>
+            <h2 data-i18n="dash.shortcuts">维护入口</h2>
             <div class="shortcut-grid">
-              <button type="button" class="ui-button ui-button-ghost" data-view="websites" data-i18n="nav.websites">网站导航</button>
+              <button type="button" class="ui-button ui-button-ghost" data-view="websites" data-i18n="nav.websites">网站管理</button>
+              <button type="button" class="ui-button ui-button-ghost" data-view="ai-resources" data-i18n="nav.aiResources">AI Hub 资源</button>
               <button type="button" class="ui-button ui-button-ghost" data-view="tools" data-i18n="nav.tools">工具管理</button>
-              <button type="button" class="ui-button ui-button-ghost" data-view="marketplace" data-i18n="nav.marketplace">工具市场</button>
+              <button type="button" class="ui-button ui-button-ghost" data-view="settings" data-i18n="nav.settings">系统设置</button>
               <button type="button" class="ui-button ui-button-ghost" data-view="validate" data-i18n="nav.validate">数据校验</button>
+              <button type="button" class="ui-button ui-button-ghost" data-view="import" data-i18n="nav.import">导入向导</button>
             </div>
-            <p class="muted" data-i18n="dash.workspaceHint">管理导航、工具包、分类和站点配置。</p>
           </section>
         </div>
       </section>
@@ -115,8 +146,19 @@
             <h2 data-i18n="nav.library">收藏仓库</h2>
             <button type="button" class="ui-button ui-button-primary" data-add-library="1" data-i18n="form.addLibrary">添加收藏</button>
           </div>
-          <p class="muted" data-i18n="library.listHint">GitHub 仓库或 Skill 外链。编辑走侧栏表单，与笔记工作室分开。</p>
+          <p class="muted" data-i18n="library.listHint">GitHub 仓库或 Skill 外链。编辑使用弹出式表单，与笔记工作室分开。</p>
           <div class="ui-table-wrap"><table class="ui-table table-sites"><colgroup><col class="col-name"><col class="col-url"><col class="col-cat"><col class="col-tags"><col class="col-status"><col class="col-actions"></colgroup><thead><tr><th>名称</th><th>URL</th><th>类型</th><th>标签</th><th>状态</th><th>操作</th></tr></thead><tbody id="library"></tbody></table></div>
+        </section>
+      </section>
+
+      <section class="view content-medium" data-view-panel="ai-resources">
+        <section class="ui-card panel">
+          <div class="panel-toolbar">
+            <h2 data-i18n="nav.aiResources">AI Hub 资源</h2>
+            <button type="button" class="ui-button ui-button-primary" data-add-ai-resource="1" data-i18n="form.addAIResource">添加资源</button>
+          </div>
+          <p class="muted" data-i18n="aiResources.listHint">这里维护发布到前台 AI Hub 的资源；前台只展示、复制配置或打开链接。</p>
+          <div class="ui-table-wrap"><table class="ui-table table-sites"><colgroup><col class="col-name"><col class="col-cat"><col class="col-url"><col class="col-tags"><col class="col-status"><col class="col-actions"></colgroup><thead><tr><th>名称</th><th>类型</th><th>配置 / URL</th><th>标签</th><th>状态</th><th>操作</th></tr></thead><tbody id="ai-resources"></tbody></table></div>
         </section>
       </section>
 
@@ -126,7 +168,7 @@
             <h2 data-i18n="nav.notes">笔记文章</h2>
             <button type="button" class="ui-button ui-button-primary" data-add-note="1" data-i18n="form.addNote">添加笔记</button>
           </div>
-          <p class="muted" data-i18n="notes.listHint">添加或编辑会打开独立的 Markdown 工作室（撰写、预览、原始 JSON），与收藏仓库抽屉分开。</p>
+          <p class="muted" data-i18n="notes.listHint">添加或编辑会打开独立的 Markdown 工作室（撰写、预览、原始 JSON），与收藏编辑器分开。</p>
           <div class="ui-table-wrap"><table class="ui-table table-notes"><colgroup><col class="col-note-title"><col class="col-note-summary"><col class="col-note-updated"><col class="col-note-status"><col class="col-note-actions"></colgroup><thead><tr><th>标题</th><th>摘要</th><th>更新</th><th>状态</th><th>操作</th></tr></thead><tbody id="notes"></tbody></table></div>
         </section>
       </section>
@@ -242,14 +284,14 @@
             <h2 data-i18n="nav.categories">分类管理</h2>
             <button type="button" class="ui-button ui-button-primary" data-add-category="1" data-i18n="form.addCategory">新建分类</button>
           </div>
-          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>分类名称</th><th>标识符</th><th>关联网站</th><th>关联工具</th><th>操作</th></tr></thead><tbody id="categories"></tbody></table></div>
+          <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>分类名称</th><th>标识符</th><th>图标</th><th>关联网站</th><th>关联工具</th><th>操作</th></tr></thead><tbody id="categories"></tbody></table></div>
         </section>
       </section>
 
       <section class="view" data-view-panel="tags">
         <section class="ui-card panel">
-          <h2 data-i18n="nav.tags">标签管理</h2>
-          <p class="muted" data-i18n="tags.hint">标签来自网站导航与工具 manifest（三源统一）。</p>
+          <div class="panel-toolbar"><h2 data-i18n="nav.tags">标签管理</h2><button type="button" class="ui-button ui-button-primary" data-add-tag="1" data-i18n="tags.add">新建标签</button></div>
+          <p class="muted" data-i18n="tags.hint">标签来自目录、网站导航、工具与 AI Hub 资源。</p>
           <p id="tag-summary" class="tag-summary">—</p>
           <div class="tag-toolbar">
             <input id="tag-query" class="ui-input" data-i18n-placeholder="tags.query" placeholder="搜索标签…">
@@ -257,6 +299,8 @@
               <option value="all" data-i18n="tags.sourceAll">来源：全部</option>
               <option value="navigation" data-i18n="tags.sourceNavigation">来源：网站</option>
               <option value="tools" data-i18n="tags.sourceTools">来源：工具</option>
+              <option value="ai-resources" data-i18n="tags.sourceAI">来源：AI 资源</option>
+              <option value="catalog" data-i18n="tags.sourceCatalog">来源：目录</option>
             </select>
             <select id="tag-sort" class="ui-input">
               <option value="usage" data-i18n="tags.sortUsage">排序：使用次数</option>
@@ -351,24 +395,25 @@
     </div>
   </div>
 
-  <aside id="editor-drawer" class="ui-drawer" hidden>
-    <div class="ui-drawer-head">
+  <div id="editor-drawer" class="ui-modal-backdrop" hidden>
+    <div class="ui-modal ui-card editor-modal" role="dialog" aria-modal="true" aria-labelledby="editor-drawer-title">
+    <div class="ui-modal-head">
       <h2 id="editor-drawer-title">编辑</h2>
       <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="editor-drawer-close" data-i18n="wizard.close">关闭</button>
     </div>
-    <div class="ui-drawer-body">
+    <div class="ui-modal-body" id="editor-drawer-body">
     <form id="nav-form" class="drawer-form" hidden>
       <input type="hidden" name="originalId">
       <label class="ui-field"><span class="ui-field-label">网站名称</span><input class="ui-input" name="name" required></label>
       <label class="ui-field"><span class="ui-field-label">URL</span><input class="ui-input" name="url" type="url" required></label>
       <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="4"></textarea></label>
       <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
-      <label class="ui-field"><span class="ui-field-label">分类</span><input class="ui-input" name="category" required></label>
-      <label class="ui-field"><span class="ui-field-label">标签</span><input class="ui-input" name="tags"></label>
-      <label class="ui-field"><span class="ui-field-label">图标</span><input class="ui-input" name="icon" value="auto"></label>
+      <div class="ui-field visual-picker-field"><span class="ui-field-label">分类</span><input type="hidden" name="category" required><div id="nav-category-picker" class="category-picker" role="group" aria-label="分类"></div><button type="button" class="ui-button ui-button-ghost ui-button-sm picker-manage" data-view="categories">管理分类</button></div>
+      <div class="ui-field visual-picker-field"><span class="ui-field-label">标签</span><input type="hidden" name="tags"><div id="nav-tags-picker" class="tags-picker"></div><button type="button" class="ui-button ui-button-ghost ui-button-sm picker-manage" data-view="tags">管理标签</button></div>
+      <div class="ui-field visual-picker-field"><span class="ui-field-label">图标</span><input type="hidden" name="icon" value="auto"><div id="nav-icon-picker" class="icon-picker" role="group" aria-label="网站图标"></div></div>
       <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
-      <div class="ui-drawer-foot"><button type="button" class="ui-button ui-button-ghost" id="nav-cancel">取消</button><button class="ui-button ui-button-primary" data-i18n="form.saveWebsite">保存更改</button></div>
+      <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="nav-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveWebsite">保存更改</button></div>
     </form>
     <form id="library-form" class="drawer-form" hidden>
       <p class="muted">收藏 GitHub 仓库或 Skill 链接，保存到 library.json。</p>
@@ -382,18 +427,34 @@
       <label class="ui-field"><span class="ui-field-label">标签</span><input class="ui-input" name="tags"></label>
       <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
-      <div class="ui-drawer-foot"><button type="button" class="ui-button ui-button-ghost" id="library-cancel">取消</button><button class="ui-button ui-button-primary" data-i18n="form.saveLibrary">保存收藏</button></div>
+      <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="library-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveLibrary">保存收藏</button></div>
+    </form>
+    <form id="ai-resource-form" class="drawer-form" hidden>
+      <p class="muted" data-i18n="aiResources.formHint">保存到 ai-resources.json；启用后随静态站发布。</p>
+      <input type="hidden" name="originalId">
+      <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required></label>
+      <label class="ui-field"><span class="ui-field-label">类型</span><select class="ui-input" name="kind"><option value="skill">Skill</option><option value="agent">Agent</option><option value="prompt">Prompt</option><option value="model">模型</option><option value="app">应用 / 产品</option></select></label>
+      <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="3"></textarea></label>
+      <label class="ui-field"><span class="ui-field-label">配置内容</span><textarea class="ui-input" name="content" rows="6" placeholder="Skill、Agent、Prompt 或模型配置，可一键复制"></textarea></label>
+      <label class="ui-field"><span class="ui-field-label">产品 URL</span><input class="ui-input" name="url" type="url" placeholder="https://..."></label>
+      <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" pattern="[a-z0-9][a-z0-9-]*" required></label>
+      <div class="ui-field visual-picker-field"><span class="ui-field-label">标签</span><input type="hidden" name="tags"><div id="ai-tags-picker" class="tags-picker"></div><button type="button" class="ui-button ui-button-ghost ui-button-sm picker-manage" data-view="tags">管理标签</button></div>
+      <label class="ui-field"><span class="ui-field-label">更新日期</span><input class="ui-input" name="updated" type="date"></label>
+      <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
+      <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
+      <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="ai-resource-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveAIResource">保存资源</button></div>
     </form>
     <form id="category-form" class="drawer-form" hidden>
       <input type="hidden" name="originalId">
       <label class="ui-field"><span class="ui-field-label">分类名称</span><input class="ui-input" name="name" required></label>
       <label class="ui-field"><span class="ui-field-label">标识符</span><input class="ui-input" name="id" required></label>
-      <label class="ui-field"><span class="ui-field-label">图标</span><input class="ui-input" name="icon" value="Code2"></label>
+      <div class="ui-field visual-picker-field"><span class="ui-field-label">图标</span><input type="hidden" name="icon" value="Code2"><div id="category-icon-picker" class="icon-picker" role="group" aria-label="分类图标"></div></div>
       <label class="ui-field"><span class="ui-field-label">排序权重</span><input class="ui-input" name="order" type="number" value="10"></label>
-      <div class="ui-drawer-foot"><button type="button" class="ui-button ui-button-ghost" id="category-cancel">取消</button><button class="ui-button ui-button-primary" data-i18n="form.saveCategory">保存分类</button></div>
+      <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="category-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveCategory">保存分类</button></div>
     </form>
     </div>
-  </aside>
+    </div>
+  </div>
 
   <aside id="tag-drawer" class="ui-drawer" hidden>
     <div class="ui-drawer-head">
