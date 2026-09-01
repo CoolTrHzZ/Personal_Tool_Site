@@ -9,7 +9,8 @@ export default function NotesPage() {
   return (
     <main className="page notes-page">
       <section className="page-heading">
-        <h1>笔记 ({items.length})</h1>
+        <p className="atlas-kicker">工作手册 · 06</p>
+        <h1>笔记 <small>({items.length})</small></h1>
         <p>本地 Markdown 说明，在 Admin 里编辑后随站点发布。</p>
       </section>
       {items.length ? (

@@ -50,7 +50,7 @@ test('编辑器管理分类和标签按钮可导航到对应面板', async ({ pa
 
 test('Admin 管理 AI Hub 资源并校验数据', async ({ page, request, context }) => {
   await request.delete(`/api/ai-resources/${AI_RESOURCE_ID}`).catch(() => {})
-  const valid = { id: AI_RESOURCE_ID, kind: 'app', name: 'E2E', description: '', content: '', url: 'https://example.com', tags: [], enabled: true, order: 1, updated: '2026-08-23' }
+  const valid = { id: AI_RESOURCE_ID, kind: 'app', name: 'E2E', description: '', install: '', content: '', url: 'https://example.com', tags: [], enabled: true, order: 1, updated: '2026-08-23' }
   for (const invalid of [
     { ...valid, kind: 'broken' },
     { ...valid, id: 'unsafe/id' },
@@ -95,8 +95,12 @@ test('Admin 管理 AI Hub 资源并校验数据', async ({ page, request, contex
     await expect(updatedRow).toContainText('禁用')
     await expect.poll(async () => (await (await request.get('/api/ai-resources')).json()).find(item => item.id === AI_RESOURCE_ID)?.enabled).toBe(false)
     const workspace = await context.newPage()
-    await workspace.goto('http://127.0.0.1:5173/#/ai')
-    await expect(workspace.getByRole('heading', { name: 'E2E AI Product Updated' })).toHaveCount(0)
+    await workspace.goto('http://127.0.0.1:5173/#/ai', { waitUntil: 'networkidle' })
+    await expect.poll(async () => {
+      await workspace.reload({ waitUntil: 'networkidle' })
+      await expect(workspace.getByRole('heading', { name: 'AI Hub' })).toBeVisible()
+      return await workspace.getByRole('heading', { name: 'E2E AI Product Updated' }).count()
+    }, { timeout: 20_000, intervals: [1_000, 2_000, 3_000] }).toBe(0)
     await workspace.close()
 
     await updatedRow.locator('.kebab-toggle').click()

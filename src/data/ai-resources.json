@@ -4,6 +4,7 @@
     "kind": "skill",
     "name": "Code Review",
     "description": "检查正确性、安全性与可维护性，输出可执行的修改建议。",
+    "install": "Review the current diff. Prioritize bugs, security risks, and missing tests.",
     "content": "Review the current diff. Prioritize bugs, security risks, and missing tests.",
     "url": "",
     "tags": [
@@ -19,6 +20,7 @@
     "kind": "skill",
     "name": "Deep Research",
     "description": "围绕问题收集来源、核对事实并整理结论。",
+    "install": "Research the topic, compare primary sources, and cite every time-sensitive claim.",
     "content": "Research the topic, compare primary sources, and cite every time-sensitive claim.",
     "url": "",
     "tags": [
@@ -33,6 +35,7 @@
     "kind": "agent",
     "name": "Frontend Builder",
     "description": "负责 React 界面实现、无障碍与浏览器验收。",
+    "install": "Own frontend implementation and validate the critical journey in a real browser.",
     "content": "Own frontend implementation and validate the critical journey in a real browser.",
     "url": "",
     "tags": [
@@ -48,6 +51,7 @@
     "kind": "agent",
     "name": "Release Reviewer",
     "description": "在交付前独立检查需求覆盖和回归风险。",
+    "install": "Review the delivery against requirements and report only actionable findings.",
     "content": "Review the delivery against requirements and report only actionable findings.",
     "url": "",
     "tags": [
@@ -63,6 +67,7 @@
     "kind": "prompt",
     "name": "Explain Simply",
     "description": "把复杂技术主题改写成清晰、可执行的说明。",
+    "install": "Explain {{topic}} in plain language. Include one concrete example and the main trade-off.",
     "content": "Explain {{topic}} in plain language. Include one concrete example and the main trade-off.",
     "url": "",
     "tags": [
@@ -77,6 +82,7 @@
     "kind": "prompt",
     "name": "Meeting Summary",
     "description": "从会议记录提取决定、负责人和后续行动。",
+    "install": "Summarize the transcript into decisions, owners, deadlines, and unresolved questions.",
     "content": "Summarize the transcript into decisions, owners, deadlines, and unresolved questions.",
     "url": "",
     "tags": [
@@ -91,6 +97,7 @@
     "kind": "model",
     "name": "GPT",
     "description": "通用推理、编码与多模态任务的模型配置。",
+    "install": "openai/gpt",
     "content": "openai/gpt",
     "url": "https://platform.openai.com/docs/models",
     "tags": [
@@ -106,6 +113,7 @@
     "kind": "model",
     "name": "Local Model",
     "description": "适合离线、隐私敏感或低成本任务的本地模型配置。",
+    "install": "ollama/model-name",
     "content": "ollama/model-name",
     "url": "https://ollama.com/library",
     "tags": [
@@ -121,6 +129,7 @@
     "kind": "app",
     "name": "OpenAI Codex",
     "description": "用于软件开发、代码理解与工程交付的 AI 应用。",
+    "install": "",
     "content": "",
     "url": "https://openai.com/codex/",
     "tags": [

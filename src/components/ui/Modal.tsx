@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import Button from './Button'
 
 export default function Modal({ open, title, onClose, children, className = '', hideActions = false }: { open: boolean; title: string; onClose: () => void; children: ReactNode; className?: string; hideActions?: boolean }) {
@@ -25,13 +26,14 @@ export default function Modal({ open, title, onClose, children, className = '', 
     return () => { window.removeEventListener('keydown', onKey); previous.current?.focus() }
   }, [open, onClose])
   if (!open) return null
-  return (
+  return createPortal(
     <div className="ui-modal-backdrop" onClick={onClose} role="presentation">
       <div ref={dialogRef} className={`ui-modal ui-card ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby="ui-modal-title" onClick={event => event.stopPropagation()}>
         <h2 id="ui-modal-title">{title}</h2>
         <div>{children}</div>
         {!hideActions && <div className="ui-modal-actions"><Button onClick={onClose}>关闭</Button></div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

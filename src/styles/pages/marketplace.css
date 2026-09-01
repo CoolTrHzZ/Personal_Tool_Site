@@ -1,24 +1,39 @@
-.tool-grid, .marketplace-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.tool-grid, .marketplace-grid { display: grid; gap: 0; }
 .tool-grid-large { margin-top: 28px; }
-.tool-card { position: relative; display: flex; min-height: 148px; padding: 16px; padding-right: 40px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-card); transition: transform var(--duration) var(--ease), border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease); }
-.tool-card:hover { transform: translateY(-2px); border-color: var(--border-hover); box-shadow: var(--shadow-md); }
-.tool-card:hover .tool-icon { background: var(--accent-soft); color: var(--accent); }
-.tool-card-link { display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0; }
-.tool-card-copy { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.tool-card-copy small { display: -webkit-box; overflow: hidden; color: var(--text-secondary); font-size: 12px; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tool-card { position: relative; display: flex; min-height: 72px; padding: 12px 40px 12px 0; border: 0; border-bottom: 1px solid var(--border-subtle); background: transparent; }
+.tool-card:hover { background: var(--accent-soft); }
+.tool-card-link { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.tool-card-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tool-card-copy small { overflow: hidden; color: var(--text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .tool-meta-line { color: var(--text-faint); font-size: 11px; }
-.tool-open { color: var(--accent); font-size: 12px; font-weight: 700; }
-.tool-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--text-secondary); }
+.tool-open { width: fit-content; flex: 0 0 auto; color: var(--accent); font-size: 12px; font-weight: 700; }
+.tool-icon { color: var(--text-secondary); }
 .tool-badges { display: flex; flex-wrap: wrap; gap: 5px; }
-.favorite-button { position: absolute; top: 10px; right: 10px; z-index: 2; min-width: 28px; color: var(--accent); }
-.tool-filters { display: grid; gap: 14px; margin-top: 28px; }
+.favorite-button { position: absolute; top: 10px; right: 0; z-index: 2; width: 32px; min-width: 32px; height: 32px; padding: 0; border-radius: var(--radius-sm); color: var(--marker); }
+.favorite-button[aria-pressed="true"] { color: var(--accent); }
+.tool-filters { display: grid; gap: 14px; margin-top: 24px; }
 .market-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .market-toolbar .ui-field { min-width: 160px; }
 .tool-filters > .ui-input { width: min(480px, 100%); min-height: 42px; }
-.tool-filters > div { display: flex; flex-wrap: wrap; gap: 7px; }
 .empty, .not-found { padding: 90px 0; color: var(--text-secondary); text-align: center; }
 .empty h2, .not-found h1 { margin-top: 16px; color: var(--text-primary); font-size: 24px; }
-
-@media (max-width: 767px) { .tool-grid, .marketplace-grid { grid-template-columns: 1fr; } }
-@media (min-width: 768px) and (max-width: 1199px) { .tool-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1200px) { .tool-grid { grid-template-columns: repeat(4, 1fr); } }
+.page-heading h1 small { color: var(--text-faint); font: 14px var(--font-mono); }
+.category-route { display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid var(--border-default); border-bottom: 1px solid var(--border-default); }
+.category-route button { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border: 0; border-right: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); cursor: pointer; transition: color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease); }
+.category-route button:hover { transform: translateY(-1px); }
+.category-route button:active { transform: scale(.98); }
+.category-route button:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); }
+.category-route button:hover, .category-route button.active { color: var(--text-primary); background: var(--accent-soft); }
+.category-route span { color: var(--text-faint); font: 10px var(--font-mono); }
+.directory { margin-top: 28px; border-top: 2px solid var(--text-primary); }
+.directory .directory-row { min-height: 76px; }
+.directory .tool-card-link { align-items: center; }
+.directory .tool-card-copy { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(180px, 2fr) auto auto; align-items: center; gap: 14px; width: 100%; }
+.directory .tool-card-copy small { grid-column: 2; grid-row: 1; }
+.directory .tool-meta-line { grid-column: 3; grid-row: 1; }
+.directory .tool-open { grid-column: 4; grid-row: 1; }
+@media (max-width: 767px) {
+  .category-route { overflow-x: auto; flex-wrap: nowrap; }
+  .directory .tool-card-copy { display: flex; flex-wrap: wrap; gap: 5px 10px; }
+  .directory .tool-card-copy small { flex-basis: 100%; }
+}

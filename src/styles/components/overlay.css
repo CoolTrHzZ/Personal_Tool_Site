@@ -7,6 +7,8 @@
   animation: bubble-in .18s var(--ease);
   transform: translateX(-50%);
 }
+.command-item { transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease); }
+.command-item:hover, .command-item[aria-selected="true"] { transform: translateX(2px); }
 .ui-toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 95; display: grid; gap: 8px; }
 .ui-toast, .tool-toast { max-width: 320px; padding: 11px 14px; border: 1px solid var(--border-hover); border-radius: var(--radius-sm); background: var(--surface-overlay); color: var(--text-primary); font-size: 13px; box-shadow: var(--shadow-md); animation: toast-in .28s var(--ease); }
 .tool-toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 95; display: grid; gap: 8px; }

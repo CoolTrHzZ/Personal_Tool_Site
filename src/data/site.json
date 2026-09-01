@@ -8,5 +8,6 @@
   "logo": "D",
   "adminUrl": "http://127.0.0.1:4174/admin/",
   "publicUrl": "https://github.supercool.top",
-  "basePath": "./"
+  "basePath": "./",
+  "todayContinueLimit": 3
 }

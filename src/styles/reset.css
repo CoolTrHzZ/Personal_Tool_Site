@@ -1,6 +1,6 @@
 * { box-sizing: border-box; }
-html { background: var(--surface-page); }
-body { margin: 0; min-width: 320px; background: var(--surface-page); color: var(--text-primary); }
+html { background: var(--surface-page); scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; background: var(--surface-page); color: var(--text-primary); font-family: var(--font-sans); }
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }

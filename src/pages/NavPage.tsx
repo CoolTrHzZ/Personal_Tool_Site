@@ -13,7 +13,8 @@ export default function NavPage() {
   return (
     <main className="page nav-page">
       <section className="page-heading">
-        <h1>网站导航 ({enabled.length})</h1>
+        <p className="atlas-kicker">工作手册 · 03</p>
+        <h1>网站导航 <small>({enabled.length})</small></h1>
       </section>
       {groups.length ? <NavigationGrid groups={groups} /> : <EmptyState title="暂无网站" />}
     </main>

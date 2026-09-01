@@ -27,12 +27,12 @@ export default defineConfig({
     {
       name: 'admin',
       use: { browserName: 'chromium', baseURL: 'http://127.0.0.1:4174' },
-      testIgnore: /workspace-motion|tool-display|ai-hub/,
+      testIgnore: /workspace-redesign|workspace-motion|tool-display|ai-hub|resource-atlas/,
     },
     {
       name: 'workspace',
       use: { browserName: 'chromium', baseURL: 'http://127.0.0.1:5173' },
-      testMatch: /workspace-motion|tool-display|ai-hub/,
+      testMatch: /workspace-redesign|workspace-motion|tool-display|ai-hub|resource-atlas/,
     },
   ],
 })
