@@ -47,9 +47,9 @@ const request = async (path, options) => {
 }
 const text = (tag, value) => { const element = document.createElement(tag); element.textContent = value ?? ''; return element }
 const el = (tag, className, value) => { const element = text(tag, value); if (className) element.className = className; return element }
-const button = (label, data = {}, className = 'ui-button ui-button-ghost ui-button-sm') => {
+const button = (label, data = {}, className = 'ui-button ui-button-ghost ui-button-sm', type = 'button') => {
   const element = document.createElement('button')
-  element.type = 'button'
+  element.type = type
   element.textContent = label
   element.className = className
   Object.assign(element.dataset, data)
@@ -160,6 +160,8 @@ function renderSite() {
   const labels = {
     name: i18n.t('form.siteName'), title: i18n.t('form.title'), description: i18n.t('form.description'), github: i18n.t('form.github'),
     footer: i18n.t('form.footer'), logo: i18n.t('form.logo'), tagline: i18n.t('form.tagline'), todayContinueLimit: i18n.t('form.todayContinueLimit'),
+    toolsDescription: i18n.t('form.toolsDescription'), navigationDescription: i18n.t('form.navigationDescription'), libraryDescription: i18n.t('form.libraryDescription'),
+    aiHubDescription: i18n.t('form.aiHubDescription'), notesDescription: i18n.t('form.notesDescription'),
     publicUrl: i18n.t('form.publicUrl'), basePath: i18n.t('form.basePath'), adminUrl: i18n.t('form.adminUrl'),
   }
   const form = $('#site')
@@ -169,7 +171,7 @@ function renderSite() {
   extra.replaceChildren()
   if (settingsTab === 'general') {
     form.hidden = false
-    for (const name of ['name', 'tagline', 'title', 'description', 'github']) form.append(input(name, state.site[name], labels[name]))
+    for (const name of ['name', 'tagline', 'title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github']) form.append(input(name, state.site[name], labels[name]))
     const limitField = input('todayContinueLimit', state.site.todayContinueLimit ?? 3, labels.todayContinueLimit)
     const limitInput = limitField.querySelector('input')
     limitInput.type = 'number'
@@ -177,20 +179,20 @@ function renderSite() {
     limitInput.max = '8'
     limitInput.step = '1'
     form.append(limitField)
-    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
+    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
     return
   }
   if (settingsTab === 'appearance') {
     form.hidden = false
     for (const name of ['logo', 'footer']) form.append(input(name, state.site[name], labels[name]))
-    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
+    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
     return
   }
   if (settingsTab === 'deploy') {
     form.hidden = false
     form.append(el('p', 'muted', i18n.t('form.deployHint')))
     for (const name of ['publicUrl', 'basePath', 'adminUrl']) form.append(input(name, state.site[name], labels[name], name !== 'publicUrl'))
-    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
+    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
     return
   }
   form.hidden = true
@@ -868,6 +870,7 @@ function insertMarkdown(kind) {
     h2: '## 标题\n',
     list: '- 列表项\n',
     link: '[文字](https://example.com)\n',
+    image: '![图片说明](/images/example.png)\n',
     code: '```\ncode\n```\n',
   }
   const insert = snippets[kind]

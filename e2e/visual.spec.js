@@ -12,6 +12,7 @@ test('Admin dashboard 一屏展示真实项目配置并可直达管理页', asyn
   await expect(page.locator('#app-version, #sidebar-version')).toHaveCount(0)
   await expect(page.locator('canvas.tech-field')).toBeVisible()
   await expect(page.locator('.tech-grid')).toHaveCSS('animation-name', 'tech-grid-drift')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(await page.evaluate(() => document.documentElement.clientWidth))
   const kpi = page.locator('.dash-kpi').first()
   const kpiTransform = await kpi.evaluate(element => window.getComputedStyle(element).transform)
   await kpi.hover()
@@ -51,6 +52,23 @@ test('Admin dashboard 一屏展示真实项目配置并可直达管理页', asyn
   await page.locator('.dashboard-config-card[data-view="ai-resources"]').click()
   await expect(page.locator('[data-view-panel="ai-resources"]')).toBeVisible()
   await page.locator('.sidebar').screenshot({ path: 'e2e/screenshots/admin-sidebar.png' })
+})
+
+test('Admin 可编辑各内容页说明', async ({ page }) => {
+  await page.goto('/admin/')
+  await page.click('.nav-item[data-view="settings"]')
+  const fields = ['toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription']
+  for (const name of fields) await expect(page.locator(`#site [name="${name}"]`)).toBeVisible()
+
+  let payload
+  await page.route('**/api/site', async route => {
+    if (route.request().method() !== 'PUT') return route.continue()
+    payload = route.request().postDataJSON()
+    await route.fulfill({ json: payload })
+  })
+  await page.locator('#site [name="navigationDescription"]').fill('E2E 页面说明')
+  await page.locator('#site button[type="submit"]').click()
+  await expect.poll(() => payload?.navigationDescription).toBe('E2E 页面说明')
 })
 
 test('Admin 减少动效时关闭视图和环境效果', async ({ page }) => {

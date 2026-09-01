@@ -89,6 +89,31 @@ test('首页资源行显示 32px 标识与 AI 类型图标', async ({ page }) =>
   await expect(favorite).toHaveCSS('color', 'rgb(41, 151, 255)')
 })
 
+test('内容页说明和资源网格使用站点配置', async ({ page }) => {
+  for (const [path, description] of [
+    ['/tools', '集中查找、筛选并打开日常开发工具。'],
+    ['/nav', '按开发场景整理常用网站与在线服务。'],
+    ['/library', 'GitHub 仓库与 Agent Skill，链接在 Admin 里配置。'],
+    ['/notes', '本地 Markdown 说明，在 Admin 里编辑后随站点发布。'],
+    ['/ai', '按用途标签和资源类型定位 Skill、Agent、Prompt、模型配置与产品。'],
+  ]) {
+    await page.goto(`/#${path}`)
+    await expect(page.getByText(description, { exact: true })).toBeVisible()
+  }
+
+  await page.goto('/#/nav')
+  const navCards = page.locator('.nav-grid .nav-card')
+  const first = await navCards.nth(0).boundingBox()
+  const second = await navCards.nth(1).boundingBox()
+  expect(Math.abs(first.y - second.y)).toBeLessThan(2)
+
+  await page.goto('/#/library')
+  const libraryCards = page.locator('.library-card')
+  const libraryFirst = await libraryCards.nth(0).boundingBox()
+  const librarySecond = await libraryCards.nth(1).boundingBox()
+  expect(Math.abs(libraryFirst.y - librarySecond.y)).toBeLessThan(2)
+})
+
 test('AI Hub 用类型章节展示资源', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.goto('/#/ai')

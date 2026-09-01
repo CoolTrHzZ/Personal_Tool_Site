@@ -61,7 +61,7 @@ export default function HomePage() {
             <p className="atlas-kicker">工作手册</p>
             <h1>开发者工作台</h1>
             <p>{siteConfig.tagline}</p>
-            <button type="button" className="atlas-search" onClick={openPalette} aria-label="打开命令面板"><Search size={18} /><span>搜索工具、网站、资源、笔记…</span><kbd>⌘ K</kbd></button>
+            <button type="button" className="atlas-search" onClick={openPalette} aria-label="打开命令面板"><Search size={18} /><span>搜索工具、网站、资源、笔记…</span></button>
           </section>
           <section id="today" className="manual-section" aria-label="今天继续">
             <div className="manual-heading"><span>01</span><h2>今天继续</h2><small>最近打开的工具</small></div>
@@ -88,11 +88,11 @@ export default function HomePage() {
             <div className="resource-list">{enabledNotes.slice(0, 4).map(item => <Link className="resource-row" key={item.id} to={`/notes/${item.id}`}><MarkTile name={item.title} /><b>{item.title}</b><span>{item.summary}</span><small>笔记</small></Link>)}</div>
           </section>
         </div>
-        <aside className="manual-notes" aria-label="快捷批注">
-          <span className="manual-note-label">快捷批注</span>
-          <button type="button" className="atlas-search" onClick={openPalette} aria-label="打开命令面板"><kbd>⌘ K</kbd><span>打开命令面板</span></button>
-          <Link to="/library">打开收藏</Link><Link to="/ai">打开 AI Hub</Link>
-          <p>{enabledTools.length} 个工具 · {enabledNav.length} 个网站<br />{enabledLibrary.length} 个收藏 · {enabledNotes.length} 篇笔记</p>
+        <aside className="manual-notes" aria-label="最近便笺">
+          <span className="manual-note-label">最近便笺</span>
+          {enabledNotes[0] && <Link className="manual-note-card" to={`/notes/${enabledNotes[0].id}`}><strong>{enabledNotes[0].title}</strong><span>{enabledNotes[0].summary}</span></Link>}
+          <nav className="manual-shortcuts" aria-label="快捷入口"><Link to="/library">收藏</Link><Link to="/ai">AI Hub</Link></nav>
+          <div className="manual-stats"><span><b>{enabledTools.length}</b>工具</span><span><b>{enabledNav.length}</b>网站</span><span><b>{enabledLibrary.length}</b>收藏</span><span><b>{enabledNotes.length}</b>笔记</span></div>
         </aside>
       </div>
     </main>

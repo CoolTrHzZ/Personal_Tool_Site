@@ -24,6 +24,12 @@ test('首屏载入后可切换菜单并开关命令面板', async ({ page }) => 
   await expect(page.locator('canvas.tech-field')).toBeVisible()
   expect(await page.locator('canvas.tech-field').evaluate(canvas => canvas.width)).toBeGreaterThan(100)
   await expect(page.locator('.tech-grid')).toHaveCSS('animation-name', 'tech-grid-drift')
+  await page.evaluate(async () => {
+    const rail = document.getAnimations().find(animation => animation.animationName === 'rail-scan-x')
+    if (rail) rail.currentTime = 4_900
+    await new Promise(requestAnimationFrame)
+  })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(await page.evaluate(() => document.documentElement.clientWidth))
   const effects = () => page.evaluate(() => {
     const shell = document.querySelector('.carbon-fx')
     const progress = window.getComputedStyle(shell, '::after')
@@ -48,6 +54,9 @@ test('首屏载入后可切换菜单并开关命令面板', async ({ page }) => 
   expect(rails.length).toBe(2)
   expect(rails.every(rail => rail.position === 'sticky')).toBeTruthy()
   expect(rails.every(rail => rail.y >= 0 && rail.y < 800)).toBeTruthy()
+  const toc = page.locator('.manual-toc-wrap')
+  await toc.getByRole('link', { name: /今天继续/ }).hover()
+  expect(await toc.evaluate(element => element.scrollWidth <= element.clientWidth)).toBeTruthy()
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await expect.poll(() => effects().then(result => result.progressTransform)).not.toBe(topEffects.progressTransform)
   const scrolledRails = await page.locator('.manual-toc-wrap, .manual-notes').evaluateAll(elements =>

@@ -44,7 +44,7 @@ export default function Header() {
         <Link className={location.pathname.startsWith('/notes') ? 'active' : ''} to="/notes">笔记</Link>
       </nav>
       <div className="topbar-end">
-        <button type="button" className="top-search-mini" onClick={openPalette} aria-label="打开命令面板">⌘K</button>
+        <button type="button" className="top-search-mini" onClick={openPalette} aria-label="打开命令面板">点击搜索</button>
         <label className="theme-control"><span className="sr-only">主题</span><select className="theme-select" value={theme} onChange={event => setTheme(event.target.value)} aria-label="选择主题"><option value="system">系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
       </div>
     </header>
