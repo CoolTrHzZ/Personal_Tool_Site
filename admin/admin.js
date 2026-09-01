@@ -6,7 +6,23 @@ import {
 } from './wizard-forms.js'
 import { TAG_PAGE_SIZES, collectTagItems, filterTagItems, paginateTagItems, tagSourceLabel } from './tags-core.js'
 import { ICON_NAMES, createIconSvg } from './icon-catalog.js'
+import { mountTechField } from '/shared/tech-field.js'
 
+function applyAdminTheme() {
+  const preference = localStorage.getItem('theme') || 'dark'
+  const dark = preference === 'dark' || (preference === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+  const theme = dark ? 'dark' : 'light'
+  document.documentElement.dataset.theme = theme
+  let themeColor = document.querySelector('meta[name="theme-color"]')
+  if (!themeColor) {
+    themeColor = document.createElement('meta')
+    themeColor.name = 'theme-color'
+    document.head.append(themeColor)
+  }
+  themeColor.content = dark ? '#000000' : '#F5F5F7'
+}
+
+applyAdminTheme()
 const i18n = await loadI18n()
 const $ = selector => document.querySelector(selector)
 // 防御性绑定（v3.0.1 错误边界精神）：单个元素缺失只降级该功能并在控制台明确告警，
@@ -143,7 +159,7 @@ let settingsTab = 'general'
 function renderSite() {
   const labels = {
     name: i18n.t('form.siteName'), title: i18n.t('form.title'), description: i18n.t('form.description'), github: i18n.t('form.github'),
-    footer: i18n.t('form.footer'), logo: i18n.t('form.logo'), tagline: i18n.t('form.tagline'),
+    footer: i18n.t('form.footer'), logo: i18n.t('form.logo'), tagline: i18n.t('form.tagline'), todayContinueLimit: i18n.t('form.todayContinueLimit'),
     publicUrl: i18n.t('form.publicUrl'), basePath: i18n.t('form.basePath'), adminUrl: i18n.t('form.adminUrl'),
   }
   const form = $('#site')
@@ -154,6 +170,13 @@ function renderSite() {
   if (settingsTab === 'general') {
     form.hidden = false
     for (const name of ['name', 'tagline', 'title', 'description', 'github']) form.append(input(name, state.site[name], labels[name]))
+    const limitField = input('todayContinueLimit', state.site.todayContinueLimit ?? 3, labels.todayContinueLimit)
+    const limitInput = limitField.querySelector('input')
+    limitInput.type = 'number'
+    limitInput.min = '1'
+    limitInput.max = '8'
+    limitInput.step = '1'
+    form.append(limitField)
     form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary'))
     return
   }
@@ -188,7 +211,7 @@ function renderSite() {
     })
     extra.append(exportBtn)
   }
-  if (settingsTab === 'about') extra.append(el('p', '', `${state.site.name || 'DevOS'}`), el('p', 'muted', state.site.tagline || ''), el('p', 'muted', state.site.publicUrl || i18n.t('form.publicUrlEmpty')), el('p', 'muted', `v${$('#app-version')?.textContent || ''}`))
+  if (settingsTab === 'about') extra.append(el('p', '', `${state.site.name || 'DevOS'}`), el('p', 'muted', state.site.tagline || ''), el('p', 'muted', state.site.description || ''), el('p', 'muted', state.site.publicUrl || i18n.t('form.publicUrlEmpty')))
 }
 function renderStats() {
   const enabled = item => item.enabled !== false && toolStatus(item) !== 'disabled'
@@ -263,7 +286,6 @@ function renderStats() {
     [i18n.t('dash.publicUrl'), state.site.publicUrl || i18n.t('dash.notConfigured')],
     ['basePath', state.site.basePath || './'],
     [i18n.t('dash.adminUrl'), state.site.adminUrl || 'http://127.0.0.1:4174/admin/'],
-    [i18n.t('dash.version'), state.system?.version ? `v${state.system.version}` : '—'],
   ]
   const siteConfig = $('#dashboard-site-config')
   siteConfig.replaceChildren()
@@ -1426,6 +1448,8 @@ const withBusy = async (form, fn) => {
 bind('#site', 'submit', async event => {
   event.preventDefault()
   const data = Object.fromEntries(new FormData(event.target))
+  if (data.todayContinueLimit === undefined || data.todayContinueLimit === '') delete data.todayContinueLimit
+  else data.todayContinueLimit = Number(data.todayContinueLimit)
   try { await withBusy(event.target, async () => { await request('site', { method: 'PUT', body: JSON.stringify({ ...state.site, ...data }) }); await reload(i18n.t('msg.savedSite')) }) } catch (error) { toastError(error.message) }
 })
 bind('#category-form', 'submit', async event => {
@@ -1489,13 +1513,14 @@ bind('#ai-resource-form', 'submit', async event => {
   delete data.originalId
   data.name = String(data.name || '').trim()
   data.description = String(data.description || '').trim()
+  data.install = String(data.install || '').trim()
   data.content = String(data.content || '').trim()
   data.url = String(data.url || '').trim()
   data.tags = String(data.tags || '').split(',').map(value => value.trim()).filter(Boolean)
   data.order = Number(data.order)
   data.enabled = form.has('enabled')
   data.updated = data.updated || new Date().toISOString().slice(0, 10)
-  if (!data.content && !data.url) return toastError(i18n.t('aiResources.needAction'))
+  if (!data.install && !data.content && !data.url) return toastError(i18n.t('aiResources.needAction'))
   try {
     await withBusy(event.target, async () => {
       await request(originalId ? `ai-resources/${originalId}` : 'ai-resources', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
@@ -1619,12 +1644,10 @@ document.addEventListener('click', async event => {
   } catch (error) { toastError(error.message) }
 })
 
-reload('', false).then(() => {
-  if ($('#app-version') && state.system?.version) $('#app-version').textContent = `v${state.system.version}`
-  if ($('#sidebar-version') && state.system?.version) $('#sidebar-version').textContent = `v${state.system.version}`
-}).catch(error => toastError(error.message))
+reload('', false).catch(error => toastError(error.message))
 
 const carbon = $('.carbon-fx')
+mountTechField(carbon)
 carbon?.addEventListener('pointermove', event => {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
   const box = carbon.getBoundingClientRect()

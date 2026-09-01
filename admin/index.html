@@ -11,17 +11,17 @@
   <link rel="stylesheet" href="/shared/atmosphere.css">
   <link rel="stylesheet" href="/shared/motion.css">
   <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="icon" href="/favicon.svg">
 </head>
 <body>
   <div class="admin-shell carbon-fx" data-scene="dash">
     <button type="button" class="admin-menu-btn ui-button ui-button-ghost ui-button-sm" id="admin-menu" aria-expanded="false">菜单</button>
     <aside class="sidebar">
       <div class="admin-brand">
-        <span class="admin-brand-mark">+</span>
+        <span class="admin-brand-mark"><img class="brand-symbol" src="/favicon.svg" alt=""></span>
         <div>
           <strong data-i18n="brand">DevOS Admin</strong>
           <small data-i18n="brandTagline">Personal Developer Workspace</small>
-          <small id="app-version">v4.0.0</small>
         </div>
       </div>
       <nav>
@@ -42,7 +42,6 @@
         <label class="locale-control"><span class="sr-only">Language</span><select id="locale-select" class="ui-input" aria-label="Language"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
         <a class="site-link" href="/" target="_blank" data-i18n="openSite">打开站点 ↗</a>
         <p class="sidebar-status"><span class="status-dot"></span><span data-i18n="statusReady">本地服务正常</span></p>
-        <p class="sidebar-version" id="sidebar-version">v4.0.0</p>
       </div>
     </aside>
     <main class="admin-content">
@@ -435,6 +434,7 @@
       <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required></label>
       <label class="ui-field"><span class="ui-field-label">类型</span><select class="ui-input" name="kind"><option value="skill">Skill</option><option value="agent">Agent</option><option value="prompt">Prompt</option><option value="model">模型</option><option value="app">应用 / 产品</option></select></label>
       <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="3"></textarea></label>
+      <label class="ui-field"><span class="ui-field-label" data-i18n="aiResources.install">安装方式</span><textarea class="ui-input" name="install" rows="4" placeholder="可复制的安装或配置方式"></textarea></label>
       <label class="ui-field"><span class="ui-field-label">配置内容</span><textarea class="ui-input" name="content" rows="6" placeholder="Skill、Agent、Prompt 或模型配置，可一键复制"></textarea></label>
       <label class="ui-field"><span class="ui-field-label">产品 URL</span><input class="ui-input" name="url" type="url" placeholder="https://..."></label>
       <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" pattern="[a-z0-9][a-z0-9-]*" required></label>

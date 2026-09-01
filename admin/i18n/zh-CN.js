@@ -71,7 +71,6 @@ export default {
     siteName: '站点名称',
     publicUrl: '公开地址',
     adminUrl: 'Admin 地址',
-    version: '版本',
     notConfigured: '未配置',
     deploy: '部署状态',
     deployValue: '静态站点',
@@ -108,6 +107,7 @@ export default {
     adminUrl: '本地 Admin 地址（不会随 Pages 发布）',
     deployHint: '保存后写入 src/data/site.json。构建时用 publicUrl 生成 dist/CNAME，用 basePath 作为 Vite base。Cloudflare 把自定义域名 CNAME 到 GitHub Pages 即可。',
     publicUrlEmpty: '尚未配置公开域名',
+    todayContinueLimit: '今天继续显示数量',
   },
   library: {
     listHint: 'GitHub 仓库或 Skill 外链。编辑使用弹出式表单，与笔记工作室分开。',
@@ -115,7 +115,8 @@ export default {
   aiResources: {
     listHint: '这里维护发布到前台 AI Hub 的资源；前台只展示、复制配置或打开链接。',
     formHint: '保存到 ai-resources.json；启用后随静态站发布。',
-    needAction: '配置内容和产品 URL 至少填写一项',
+    install: '安装方式',
+    needAction: '安装方式、配置内容和产品 URL 至少填写一项',
   },
   notes: {
     listHint: '添加或编辑会打开独立的 Markdown 工作室：配置字段、分栏预览、原始 JSON。',

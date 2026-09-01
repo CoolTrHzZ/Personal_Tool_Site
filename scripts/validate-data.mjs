@@ -29,6 +29,7 @@ if (site.publicUrl) {
 }
 if (site.basePath != null && !/^(\.\/|\/)/.test(String(site.basePath))) throw new Error(`invalid site.basePath: ${site.basePath}`)
 if (site.adminUrl && !/^https?:$/.test(new URL(site.adminUrl).protocol)) throw new Error(`invalid site.adminUrl: ${site.adminUrl}`)
+if (!Number.isFinite(site.todayContinueLimit) || !Number.isInteger(site.todayContinueLimit) || site.todayContinueLimit < 1 || site.todayContinueLimit > 8) throw new Error(`invalid site.todayContinueLimit: ${site.todayContinueLimit}`)
 const categoryIds = new Set(categories.map(item => item.id))
 if (categoryIds.size !== categories.length || categories.some(item => !item.id || !item.name || !Number.isFinite(item.order) || !categoryIcons.has(item.icon))) throw new Error('invalid categories')
 if (!Array.isArray(tags) || new Set(tags).size !== tags.length || !tags.every(validTag)) throw new Error('invalid tags catalog')
@@ -54,7 +55,7 @@ for (const item of aiResources) {
   aiResourceIds.add(item.id)
   if (!['skill', 'agent', 'prompt', 'model', 'app'].includes(item.kind)) throw new Error(`invalid AI resource kind: ${item.id}`)
   if (item.url && !/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`invalid AI resource URL: ${item.url}`)
-  if (typeof item.name !== 'string' || !item.name.trim() || typeof item.description !== 'string' || typeof item.content !== 'string' || typeof item.url !== 'string' || (!item.content.trim() && !item.url) || !Number.isFinite(item.order) || typeof item.enabled !== 'boolean' || !validTags(item.tags) || !isISODate(item.updated)) throw new Error(`invalid AI resource fields: ${item.id}`)
+  if (typeof item.name !== 'string' || !item.name.trim() || typeof item.description !== 'string' || (item.install !== undefined && typeof item.install !== 'string') || typeof item.content !== 'string' || typeof item.url !== 'string' || (!item.install?.trim() && !item.content.trim() && !item.url) || !Number.isFinite(item.order) || typeof item.enabled !== 'boolean' || !validTags(item.tags) || !isISODate(item.updated)) throw new Error(`invalid AI resource fields: ${item.id}`)
 }
 const noteIds = new Set()
 for (const item of notes) {

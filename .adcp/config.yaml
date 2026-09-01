@@ -1,0 +1,8 @@
+context:
+  index:
+    enabled: auto
+    provider: codebase-memory
+verification:
+  timeout: 600
+  allowed_commands: [python3]
+  allow_empty: false

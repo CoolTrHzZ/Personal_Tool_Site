@@ -24,5 +24,4 @@ export default defineConfig({
     },
   ],
   base: process.env.BASE_URL || site.basePath || './',
-  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '3.1.0') },
 })

@@ -4,6 +4,20 @@ test('Admin dashboard 一屏展示真实项目配置并可直达管理页', asyn
   await page.addInitScript(() => globalThis.localStorage.setItem('adminActivity', JSON.stringify(Array.from({ length: 10 }, (_, index) => ({ at: `2026-08-23T10:${String(index).padStart(2, '0')}:00.000Z`, message: `变更 ${index}` })))))
   const site = await (await request.get('/api/site')).json()
   await page.goto('/admin/')
+  await expect(page.locator('.view.active')).toHaveCSS('animation-name', 'motion-enter')
+  await expect(page.locator('.view.active')).toHaveCSS('animation-duration', '0.3s')
+  await expect(page.locator('.view.active')).toHaveCSS('animation-timing-function', 'cubic-bezier(0.2, 0, 0, 1)')
+  await expect(page.locator('.admin-brand-mark .brand-symbol')).toHaveAttribute('src', '/favicon.svg')
+  expect(await page.locator('.admin-brand-mark .brand-symbol').evaluate(image => image.naturalWidth)).toBeGreaterThan(0)
+  await expect(page.locator('#app-version, #sidebar-version')).toHaveCount(0)
+  await expect(page.locator('canvas.tech-field')).toBeVisible()
+  await expect(page.locator('.tech-grid')).toHaveCSS('animation-name', 'tech-grid-drift')
+  const kpi = page.locator('.dash-kpi').first()
+  const kpiTransform = await kpi.evaluate(element => window.getComputedStyle(element).transform)
+  await kpi.hover()
+  await expect.poll(() => kpi.evaluate(element => window.getComputedStyle(element).transform)).not.toBe(kpiTransform)
+  expect(await kpi.evaluate(element => window.getComputedStyle(element).transform)).not.toContain('matrix3d')
+  await expect(page.locator('.admin-brand-mark')).toHaveCSS('transform', 'none')
   await expect(page.locator('.sidebar')).toBeVisible()
   await expect(page.locator('.dashboard-hero')).toBeVisible()
   await expect(page.locator('.dashboard-kpis .dash-kpi')).toHaveCount(7)
@@ -27,7 +41,7 @@ test('Admin dashboard 一屏展示真实项目配置并可直达管理页', asyn
   await expect(page.locator('#status-runtime')).toContainText('Ready')
   await expect(page.locator('#dashboard-runtime-mix')).toContainText('react')
   await expect(page.locator('#dashboard-runtime-mix')).toContainText('static')
-  await expect(page.locator('#dashboard-site-config')).toContainText('v4.0.0')
+  await expect(page.locator('#dashboard-site-config')).not.toContainText('v4.0.0')
   await expect(page.locator('#dashboard-site-config')).toContainText(site.publicUrl || '未配置')
   await expect(page.locator('#dashboard-site-config')).toContainText(site.basePath || './')
   await expect(page.locator('#dashboard-site-config')).toContainText(site.adminUrl || 'http://127.0.0.1:4174/admin/')
@@ -37,6 +51,28 @@ test('Admin dashboard 一屏展示真实项目配置并可直达管理页', asyn
   await page.locator('.dashboard-config-card[data-view="ai-resources"]').click()
   await expect(page.locator('[data-view-panel="ai-resources"]')).toBeVisible()
   await page.locator('.sidebar').screenshot({ path: 'e2e/screenshots/admin-sidebar.png' })
+})
+
+test('Admin 减少动效时关闭视图和环境效果', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/admin/')
+  const reduced = await page.evaluate(() => {
+    const shell = document.querySelector('.admin-shell')
+    return {
+      viewAnimation: window.getComputedStyle(document.querySelector('.view.active')).animationName,
+      progressAnimation: window.getComputedStyle(shell, '::after').animationName,
+      progressOpacity: window.getComputedStyle(shell, '::after').opacity,
+      ambientOpacity: window.getComputedStyle(shell, '::before').opacity,
+      canvasVisible: Boolean(document.querySelector('canvas.tech-field') && window.getComputedStyle(document.querySelector('canvas.tech-field')).display !== 'none'),
+    }
+  })
+  expect(reduced).toEqual({ viewAnimation: 'none', progressAnimation: 'none', progressOpacity: '0', ambientOpacity: '0', canvasVisible: false })
+})
+
+test('Admin light theme 使用浅色品牌标记', async ({ page }) => {
+  await page.addInitScript(() => globalThis.localStorage.setItem('theme', 'light'))
+  await page.goto('/admin/')
+  await expect(page.locator('.admin-brand-mark .brand-symbol')).toHaveAttribute('src', '/favicon.svg')
 })
 
 test('Admin dashboard 明确显示运行时和配置接口异常', async ({ page }) => {

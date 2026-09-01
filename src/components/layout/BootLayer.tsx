@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react'
-import site from '../../data/site.json'
-import type { SiteConfig } from '../../types'
 
-const siteConfig = site as SiteConfig
 const KEY = 'devos-boot'
 
 export default function BootLayer() {
@@ -29,7 +26,7 @@ export default function BootLayer() {
   return (
     <div className={`boot-layer${leaving ? ' is-leaving' : ''}`} data-testid="boot-layer" role="status" aria-live="polite" aria-busy="true">
       <div className="boot-panel">
-        <span className="boot-mark">{siteConfig.logo}</span>
+        <span className="mark-tile mark-tile-brand boot-mark"><img className="brand-symbol" src="/favicon.svg" alt="" /></span>
         <div className="boot-ring" aria-hidden="true" />
         <p>载入工作区</p>
         <div className="boot-meter"><span /></div>

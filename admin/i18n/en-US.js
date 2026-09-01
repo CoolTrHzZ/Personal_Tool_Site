@@ -71,7 +71,6 @@ export default {
     siteName: 'Site name',
     publicUrl: 'Public URL',
     adminUrl: 'Admin URL',
-    version: 'Version',
     notConfigured: 'Not configured',
     deploy: 'Deployment',
     deployValue: 'Static',
@@ -108,6 +107,7 @@ export default {
     adminUrl: 'Local Admin URL (not published with Pages)',
     deployHint: 'Saved to src/data/site.json. Build writes dist/CNAME from publicUrl and uses basePath as Vite base. Point Cloudflare CNAME at GitHub Pages.',
     publicUrlEmpty: 'No public domain configured',
+    todayContinueLimit: 'Today continue item limit',
   },
   library: {
     listHint: 'GitHub repos or Skills. Edit in a popup form, separate from the note studio.',
@@ -115,7 +115,8 @@ export default {
   aiResources: {
     listHint: 'Manage resources published to the frontend AI Hub. The frontend only displays, copies, or opens them.',
     formHint: 'Saved to ai-resources.json and published when enabled.',
-    needAction: 'Enter configuration content or a product URL',
+    install: 'Install method',
+    needAction: 'Enter an install method, configuration content, or a product URL',
   },
   notes: {
     listHint: 'Add or edit opens a dedicated Markdown studio: fields, live preview, and raw JSON.',

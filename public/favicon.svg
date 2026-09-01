@@ -1,1 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#171717"/><path d="M18 19h28v8H27v6h15v8H27v4h19v8H18z" fill="#d6ff3f"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="edge" x1="8" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#65E7FF"/>
+      <stop offset=".5" stop-color="#2997FF"/>
+      <stop offset="1" stop-color="#665CFF"/>
+    </linearGradient>
+    <linearGradient id="core" x1="18" y1="18" x2="48" y2="47" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E7FCFF"/>
+      <stop offset=".45" stop-color="#65E7FF"/>
+      <stop offset="1" stop-color="#2997FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M14 3h31l16 16v27L46 61H14L3 50V14L14 3Z" fill="#050B14" stroke="url(#edge)" stroke-width="2"/>
+  <path d="M17 18h15c10.4 0 17 5.2 17 14S42.4 46 32 46H17V18Zm9 8v12h6c5.2 0 8-2.1 8-6s-2.8-6-8-6h-6Z" fill="url(#core)" fill-rule="evenodd"/>
+  <path d="M7 22h10M7 42h10M47 13v7M47 44v7" stroke="#65E7FF" stroke-width="1.5"/>
+  <circle cx="7" cy="22" r="2" fill="#65E7FF"/><circle cx="7" cy="42" r="2" fill="#2997FF"/><circle cx="47" cy="13" r="2" fill="#65E7FF"/><circle cx="47" cy="51" r="2" fill="#665CFF"/>
+</svg>

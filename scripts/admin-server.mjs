@@ -51,7 +51,11 @@ const assertTags = tags => {
   for (const tag of tags) assertTagName(tag)
 }
 function validate(key, value) {
-  if (key === 'site') { for (const field of ['name', 'title', 'description', 'github', 'footer', 'logo']) if (typeof value[field] !== 'string') throw new Error(`${field} 必须是字符串`); return }
+  if (key === 'site') {
+    for (const field of ['name', 'title', 'description', 'github', 'footer', 'logo']) if (typeof value[field] !== 'string') throw new Error(`${field} 必须是字符串`)
+    if (!Number.isFinite(value.todayContinueLimit) || !Number.isInteger(value.todayContinueLimit) || value.todayContinueLimit < 1 || value.todayContinueLimit > 8) throw new Error('todayContinueLimit 必须是 1-8 的整数')
+    return
+  }
   if (!Array.isArray(value)) throw new Error('数据必须是数组')
   if (key === 'tags') {
     const names = value.map(assertTagName)
@@ -81,7 +85,7 @@ function validate(key, value) {
       if (typeof item.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(item.id)) throw new Error(`id 无效: ${item.id}`)
       if (!['skill', 'agent', 'prompt', 'model', 'app'].includes(item.kind)) throw new Error(`kind 无效: ${item.id}`)
       if (item.url && !/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`URL 无效: ${item.url}`)
-      if (typeof item.name !== 'string' || !item.name.trim() || typeof item.description !== 'string' || typeof item.content !== 'string' || typeof item.url !== 'string' || (!item.content.trim() && !item.url) || !isISODate(item.updated) || !Number.isFinite(item.order) || typeof item.enabled !== 'boolean') throw new Error(`字段无效: ${item.id}`)
+      if (typeof item.name !== 'string' || !item.name.trim() || typeof item.description !== 'string' || (item.install !== undefined && typeof item.install !== 'string') || typeof item.content !== 'string' || typeof item.url !== 'string' || (!item.install?.trim() && !item.content.trim() && !item.url) || !isISODate(item.updated) || !Number.isFinite(item.order) || typeof item.enabled !== 'boolean') throw new Error(`字段无效: ${item.id}`)
       assertTags(item.tags)
     }
     return
@@ -90,7 +94,13 @@ function validate(key, value) {
   for (const item of value) { if (!/^https?:$/.test(new URL(item.url).protocol)) throw new Error(`URL 无效: ${item.url}`); if (!categoryIds.has(item.category)) throw new Error(`分类不存在: ${item.category}`); if (typeof item.order !== 'number' || typeof item.enabled !== 'boolean' || !WEBSITE_ICONS.has(item.icon)) throw new Error(`字段无效: ${item.id}`); assertTags(item.tags) }
 }
 async function refresh() { [navigationCache, categoryCache] = await Promise.all([json('navigation'), json('categories')]) }
-async function save(key, value) { validate(key, value); const target = resolve(dataDir, files[key]); const temp = `${target}.tmp`; if (existsSync(target)) await copyFile(target, `${target}.bak`); await writeFile(temp, JSON.stringify(value, null, 2) + '\n'); await rename(temp, target); await refresh() }
+async function save(key, value) {
+  if (key === 'ai-resources') value = value.map(item => ({ ...item, install: typeof item.install === 'string' ? item.install : '' }))
+  validate(key, value)
+  const target = resolve(dataDir, files[key]); const temp = `${target}.tmp`
+  if (existsSync(target)) await copyFile(target, `${target}.bak`)
+  await writeFile(temp, JSON.stringify(value, null, 2) + '\n'); await rename(temp, target); await refresh()
+}
 function safeAdminPath(requestUrl) { const path = decodeURIComponent(new URL(requestUrl, 'http://localhost').pathname); const file = path === '/admin' || path === '/admin/' ? '/index.html' : path.slice('/admin'.length); const target = resolve(adminDir, `.${file}`); return target.startsWith(adminDir) ? target : null }
 async function writeFileAtomic(target, content) { const temp = `${target}.tmp`; await writeFile(temp, content); await rename(temp, target) }
 
@@ -636,7 +646,7 @@ const server = createServer(async (req, res) => {
       const match = url.pathname.match(/^\/api\/(navigation|categories|site|library|ai-resources|notes)(?:\/([^/]+))?$/); if (!match) return send(res, 404, { error: 'Not found' })
       const key = match[1], id = match[2]; let value = await json(key)
       if (req.method === 'GET') return send(res, 200, value)
-      if (key === 'site' && req.method === 'PUT') { await save(key, await body(req)); return send(res, 200, await json(key)) }
+      if (key === 'site' && req.method === 'PUT') { await save(key, { ...(await json(key)), ...(await body(req)) }); return send(res, 200, await json(key)) }
       if (key !== 'site' && req.method === 'POST') { const item = await body(req); value.push(item); await save(key, value); return send(res, 201, item) }
       if (key !== 'site' && id && (req.method === 'PUT' || req.method === 'DELETE')) { const index = value.findIndex(item => item.id === id); if (index < 0) return send(res, 404, { error: 'Not found' }); if (req.method === 'DELETE') { if (key === 'categories' && navigationCache.some(item => item.category === id)) return send(res, 409, { error: '分类仍被网址使用' }); value.splice(index, 1) } else value[index] = { ...value[index], ...(await body(req)), id }; await save(key, value); return send(res, 200, value) }
       return send(res, 405, { error: 'Method not allowed' })
@@ -646,6 +656,7 @@ const server = createServer(async (req, res) => {
       if (!file.startsWith(join(root, 'shared'))) return send(res, 403, { error: 'Forbidden' })
       try { return send(res, 200, await readFile(file), MIME_TYPES[extname(file)] || 'application/octet-stream') } catch { return send(res, 404, { error: 'Not found' }) }
     }
+    if (url.pathname === '/favicon.svg') return send(res, 200, await readFile(join(publicDir, 'favicon.svg')), MIME_TYPES['.svg'])
     if (url.pathname.startsWith('/__tool_preview/')) return servePreviewAsset(req.url || '/', res)
     if (url.pathname === '/toolbox-bridge.js') return send(res, 200, await readFile(join(toolsDir, 'toolbox-bridge.js')), MIME_TYPES['.js'])
     if (url.pathname.startsWith('/tools/')) return serveToolAsset(req.url || '/', res)

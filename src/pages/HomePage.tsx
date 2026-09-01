@@ -1,99 +1,100 @@
 import { useContext, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search } from 'lucide-react'
-import categories from '../data/categories.json'
+import { Bot, Box, Cpu, MessageSquareText, Search, Sparkles } from 'lucide-react'
 import library from '../data/library.json'
 import navigation from '../data/navigation.json'
 import notes from '../data/notes.json'
+import resources from '../data/ai-resources.json'
 import site from '../data/site.json'
-import type { Category, LibraryItem, NavigationItem, NoteItem, SiteConfig } from '../types'
+import type { AIResource, LibraryItem, NavigationItem, NoteItem, SiteConfig } from '../types'
 import { useTools } from '../tools/runtime/ToolCatalog'
 import { SearchContext } from '../components/layout/Layout'
-import LibraryCard from '../components/library/LibraryCard'
-import NavigationGrid from '../components/navigation/NavigationGrid'
 import ToolCard from '../components/tools/ToolCard'
 import { favoriteTools, recentTools } from '../utils/user-state'
 import type { ToolDefinition } from '../tools/types'
 import EmptyState from '../components/ui/EmptyState'
+import MarkTile from '../components/ui/MarkTile'
 
 const navItems = navigation as NavigationItem[]
 const enabledLibrary = (library as LibraryItem[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
 const enabledNotes = (notes as NoteItem[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
-const categoryItems = categories as Category[]
 const siteConfig = site as SiteConfig
-const quota = 5 * 1024 * 1024
-
-type Telemetry = { bootMs: number; storage: number; heap: number; heapLimit: number; online: boolean }
-
-function readTelemetry(): Telemetry {
-  const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
-  let storage = 0
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i) || ''
-    storage += key.length + (localStorage.getItem(key)?.length || 0)
-  }
-  storage *= 2
-  const mem = 'memory' in performance ? (performance as Performance & { memory: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory : null
-  return {
-    bootMs: Math.round(nav?.duration || performance.now()),
-    storage,
-    heap: mem?.usedJSHeapSize || 0,
-    heapLimit: mem?.jsHeapSizeLimit || 0,
-    online: navigator.onLine,
-  }
-}
-
-function kb(bytes: number) { return bytes < 1024 ? `${bytes} B` : `${Math.round(bytes / 1024)} KB` }
+const aiItems = (resources as AIResource[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
+const chapters = [
+  { id: 'today', label: '今天继续' },
+  { id: 'tools', label: '工具' },
+  { id: 'sites', label: '网站' },
+  { id: 'ai', label: 'AI 资源' },
+  { id: 'library', label: '收藏' },
+  { id: 'notes', label: '笔记' },
+] as const
+const aiKindIcons = { skill: Sparkles, agent: Bot, prompt: MessageSquareText, model: Cpu, app: Box } as const
 
 export default function HomePage() {
   const { openPalette } = useContext(SearchContext)
   const tools = useTools()
+  useEffect(() => {
+    document.title = siteConfig.title
+  }, [])
   const [recentIds] = useState(recentTools)
   const [favoriteIds] = useState(favoriteTools)
-  const [telemetry, setTelemetry] = useState(readTelemetry)
-  const enabledNav = navItems.filter(item => item.enabled)
   const enabledTools = tools.filter(tool => tool.enabled)
-  const groups = categoryItems.map(category => ({ category, items: enabledNav.filter(item => item.category === category.id).sort((a, b) => a.order - b.order) })).filter(group => group.items.length)
   const starred = enabledTools.filter(tool => favoriteIds.includes(tool.id)).sort((a, b) => a.order - b.order)
   const recent = useMemo(() => recentIds.map(id => tools.find(tool => tool.id === id)).filter((tool): tool is ToolDefinition => Boolean(tool)), [recentIds, tools])
-  const quick = starred.length ? starred : enabledTools.slice().sort((a, b) => a.order - b.order).slice(0, 4)
-  useEffect(() => { document.title = siteConfig.title; setTelemetry(readTelemetry()) }, [])
-  const meters = [
-    { label: 'TOOLS', value: `${enabledTools.length}/${tools.length || enabledTools.length}`, fill: tools.length ? enabledTools.length / tools.length : 1 },
-    { label: 'SITES', value: String(enabledNav.length), fill: navItems.length ? enabledNav.length / navItems.length : 0 },
-    { label: 'STORAGE', value: kb(telemetry.storage), fill: Math.min(1, telemetry.storage / quota) },
-    telemetry.heap ? { label: 'HEAP', value: kb(telemetry.heap), fill: telemetry.heap / telemetry.heapLimit } : { label: 'BOOT', value: `${telemetry.bootMs} ms`, fill: Math.min(1, telemetry.bootMs / 800) },
-  ]
+  const configuredLimit = siteConfig.todayContinueLimit
+  const todayContinueLimit = Number.isFinite(configuredLimit) && configuredLimit > 0 ? Math.floor(configuredLimit) : 3
+  const pathTools = (recent.length ? recent : (starred.length ? starred : enabledTools.slice().sort((a, b) => a.order - b.order))).slice(0, todayContinueLimit)
+  const enabledNav = navItems.filter(item => item.enabled).sort((a, b) => a.order - b.order)
+  const toolsById = new Set(pathTools.map(tool => tool.id))
+
   return (
     <main className="page home-page">
-      <section className="hero dash-hero">
-        <p className="dash-kicker"><span className={`status-dot${telemetry.online ? '' : ' is-offline'}`} /> {telemetry.online ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE'} · LOCAL · {telemetry.bootMs} ms</p>
-        <h1>你的个人<br /><span>开发者工作台</span></h1>
-        <p>{siteConfig.tagline}</p>
-        <button type="button" className="hero-search" onClick={openPalette} aria-label="打开命令面板">
-          <Search size={20} /><span>搜索工具、网站、命令...</span><span className="hero-search-hint"><kbd>⌘ K</kbd></span>
-        </button>
-      </section>
-      <section className="dash-telemetry" aria-label="工作区遥测">
-        {meters.map(item => (
-          <article className="dash-meter" key={item.label}>
-            <small>{item.label}</small>
-            <strong>{item.value}</strong>
-            <span className="dash-flow" style={{ ['--fill' as string]: String(item.fill) }} />
-          </article>
-        ))}
-      </section>
-      {quick.length > 0 && (
-        <section className="dash-module quick-tools">
-          <div className="section-heading"><h2>快捷工具</h2><Link to="/tools">全部工具</Link></div>
-          <div className="tool-grid">{quick.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>
-        </section>
-      )}
-      {recent.length > 0 && <section className="dash-module recent-tools"><div className="section-heading"><h2>最近使用</h2></div><div className="tool-grid">{recent.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div></section>}
-      {groups.length > 0 && <section className="dash-module"><div className="section-heading"><h2>网站导航</h2><Link to="/nav">{enabledNav.length} 个网站</Link></div><NavigationGrid groups={groups} /></section>}
-      {enabledLibrary.length > 0 && <section className="dash-module"><div className="section-heading"><h2>收藏</h2><Link to="/library">{enabledLibrary.length} 项</Link></div><div className="nav-grid">{enabledLibrary.slice(0, 6).map(item => <LibraryCard key={item.id} item={item} />)}</div></section>}
-      {enabledNotes.length > 0 && <section className="dash-module"><div className="section-heading"><h2>笔记</h2><Link to="/notes">全部笔记</Link></div><div className="note-list">{enabledNotes.slice(0, 4).map(item => <Link className="note-card" key={item.id} to={`/notes/${item.id}`}><strong>{item.title}</strong><small>{item.summary}</small></Link>)}</div></section>}
-      {!groups.length && !enabledTools.length && !enabledLibrary.length && !enabledNotes.length && <EmptyState title="没有找到匹配内容"><p>试试命令面板搜索。</p></EmptyState>}
+      <div className="manual-shell">
+        <details className="manual-toc-wrap" open>
+          <summary className="manual-toc-toggle">章节</summary>
+          <nav className="manual-toc" aria-label="章节目录">
+            {chapters.map((chapter, index) => <a key={chapter.id} href={`#${chapter.id}`} onClick={event => { event.preventDefault(); document.getElementById(chapter.id)?.scrollIntoView({ behavior: 'auto', block: 'start' }) }}><span>0{index + 1}</span>{chapter.label}</a>)}
+          </nav>
+        </details>
+        <div className="manual-main">
+          <section className="manual-intro">
+            <p className="atlas-kicker">工作手册</p>
+            <h1>开发者工作台</h1>
+            <p>{siteConfig.tagline}</p>
+            <button type="button" className="atlas-search" onClick={openPalette} aria-label="打开命令面板"><Search size={18} /><span>搜索工具、网站、资源、笔记…</span><kbd>⌘ K</kbd></button>
+          </section>
+          <section id="today" className="manual-section" aria-label="今天继续">
+            <div className="manual-heading"><span>01</span><h2>今天继续</h2><small>最近打开的工具</small></div>
+            <div className="product-stage">{pathTools.length ? pathTools.map((tool, index) => <ToolCard key={tool.id} tool={tool} pathIndex={index + 1} />) : <EmptyState title="暂无工具" />}</div>
+          </section>
+          <section id="tools" className="manual-section">
+            <div className="manual-heading"><span>02</span><h2>工具</h2><Link to="/tools">查看全部</Link></div>
+            <div className="resource-list">{enabledTools.filter(tool => !toolsById.has(tool.id)).map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>
+          </section>
+          <section id="sites" className="manual-section">
+            <div className="manual-heading"><span>03</span><h2>网站</h2></div>
+            <div className="resource-list">{enabledNav.slice(0, 6).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} icon={item.icon} /><b>{item.name}</b><span>{item.description}</span><small>{item.category}</small></a>)}</div>
+          </section>
+          <section id="ai" className="manual-section">
+            <div className="manual-heading"><span>04</span><h2>AI 资源</h2><Link to="/ai">打开 AI Hub</Link></div>
+            <div className="resource-list">{aiItems.slice(0, 4).map(item => { const KindIcon = aiKindIcons[item.kind]; return <Link className="resource-row" key={item.id} to="/ai"><MarkTile name={item.name}><KindIcon size={16} aria-hidden="true" /></MarkTile><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></Link> })}</div>
+          </section>
+          <section id="library" className="manual-section">
+            <div className="manual-heading"><span>05</span><h2>收藏</h2><Link to="/library">打开收藏</Link></div>
+            <div className="resource-list">{enabledLibrary.slice(0, 4).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} /><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></a>)}</div>
+          </section>
+          <section id="notes" className="manual-section">
+            <div className="manual-heading"><span>06</span><h2>笔记</h2><Link to="/notes">打开笔记</Link></div>
+            <div className="resource-list">{enabledNotes.slice(0, 4).map(item => <Link className="resource-row" key={item.id} to={`/notes/${item.id}`}><MarkTile name={item.title} /><b>{item.title}</b><span>{item.summary}</span><small>笔记</small></Link>)}</div>
+          </section>
+        </div>
+        <aside className="manual-notes" aria-label="快捷批注">
+          <span className="manual-note-label">快捷批注</span>
+          <button type="button" className="atlas-search" onClick={openPalette} aria-label="打开命令面板"><kbd>⌘ K</kbd><span>打开命令面板</span></button>
+          <Link to="/library">打开收藏</Link><Link to="/ai">打开 AI Hub</Link>
+          <p>{enabledTools.length} 个工具 · {enabledNav.length} 个网站<br />{enabledLibrary.length} 个收藏 · {enabledNotes.length} 篇笔记</p>
+        </aside>
+      </div>
     </main>
   )
 }

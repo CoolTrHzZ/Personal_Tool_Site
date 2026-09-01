@@ -3,7 +3,6 @@ import ToolCard from '../components/tools/ToolCard'
 import { useMemo, useState } from 'react'
 import { saveSearch } from '../utils/user-state'
 import Input from '../components/ui/Input'
-import Button from '../components/ui/Button'
 import Select from '../components/ui/Select'
 import FormField from '../components/ui/FormField'
 import EmptyState from '../components/ui/EmptyState'
@@ -28,10 +27,16 @@ export default function ToolsPage() {
   return (
     <main className="page tools-marketplace">
       <section className="page-heading">
-        <h1>全部工具 ({filtered.length})</h1>
+        <p className="atlas-kicker">工具路线</p>
+        <h1>全部工具 <small>({filtered.length})</small></h1>
       </section>
       <div className="tool-filters">
-        <div>{categories.map(item => <Button size="sm" variant={item === category ? 'primary' : 'ghost'} onClick={() => setCategory(item)} key={item}>{item === 'all' ? '全部' : item}</Button>)}</div>
+        <nav className="category-route" aria-label="工具类别">
+          <button type="button" className={category === 'all' ? 'active' : ''} onClick={() => setCategory('all')}>全部</button>
+          {categories.filter(item => item !== 'all').map(item => (
+            <button type="button" className={item === category ? 'active' : ''} onClick={() => setCategory(item)} key={item}>{item}<span>{tools.filter(tool => tool.category === item).length}</span></button>
+          ))}
+        </nav>
         <Input glass aria-label="搜索工具" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => event.key === 'Enter' && saveSearch(query)} placeholder="搜索可用工具..." />
         <div className="market-toolbar">
           <FormField label="状态">
@@ -56,7 +61,7 @@ export default function ToolsPage() {
           {Array.from({ length: 8 }, (_, index) => <div className="ui-skeleton-card" key={index} />)}
         </div>
       )}
-      {tools.length > 0 && <div className="tool-grid tool-grid-large marketplace-grid">{filtered.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>}
+      {tools.length > 0 && <div className="directory" aria-label="工具目录">{filtered.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>}
       {tools.length > 0 && !filtered.length && <EmptyState title="没有匹配工具" />}
     </main>
   )

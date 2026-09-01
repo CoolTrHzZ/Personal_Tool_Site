@@ -15,6 +15,7 @@ export type NoteItem = {
 export type AIResourceKind = 'skill' | 'agent' | 'prompt' | 'model' | 'app'
 export type AIResource = {
   id: string; kind: AIResourceKind; name: string; description: string
+  install: string
   content: string; url: string; tags: string[]; enabled: boolean; order: number; updated: string
 }
 export type SiteConfig = {
@@ -28,4 +29,5 @@ export type SiteConfig = {
   adminUrl: string
   publicUrl: string
   basePath: string
+  todayContinueLimit: number
 }
