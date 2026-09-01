@@ -2,8 +2,11 @@ import { Link } from 'react-router-dom'
 import notes from '../data/notes.json'
 import type { NoteItem } from '../types'
 import EmptyState from '../components/ui/EmptyState'
+import site from '../data/site.json'
+import type { SiteConfig } from '../types'
 
 const items = (notes as NoteItem[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
+const siteConfig = site as SiteConfig
 
 export default function NotesPage() {
   return (
@@ -11,7 +14,7 @@ export default function NotesPage() {
       <section className="page-heading">
         <p className="atlas-kicker">工作手册 · 06</p>
         <h1>笔记 <small>({items.length})</small></h1>
-        <p>本地 Markdown 说明，在 Admin 里编辑后随站点发布。</p>
+        {siteConfig.notesDescription && <p>{siteConfig.notesDescription}</p>}
       </section>
       {items.length ? (
         <div className="note-list">

@@ -23,6 +23,11 @@ export type SiteConfig = {
   tagline: string
   title: string
   description: string
+  toolsDescription: string
+  navigationDescription: string
+  libraryDescription: string
+  aiHubDescription: string
+  notesDescription: string
   github: string
   footer: string
   logo: string

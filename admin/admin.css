@@ -417,6 +417,7 @@ body { margin: 0; min-width: 320px; background: var(--surface-page); color: var(
 .note-preview code { padding: 1px 5px; border-radius: 4px; background: var(--accent-soft); font: 12px var(--font-mono); }
 .note-preview pre { padding: 12px; overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-card) 70%, transparent); }
 .note-preview pre code { padding: 0; background: transparent; }
+.note-preview img { display: block; max-width: 100%; height: auto; margin: 18px 0; border: 1px solid var(--border-default); border-radius: var(--radius-sm); }
 @media (max-width: 959px) {
   .note-meta-grid, .note-split { grid-template-columns: 1fr; }
 }

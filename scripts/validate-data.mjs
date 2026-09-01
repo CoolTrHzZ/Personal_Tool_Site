@@ -22,7 +22,8 @@ const registry = await readFile(new URL('../src/tools/registry.ts', import.meta.
 const registryTools = [...registry.matchAll(/\{\s*id:\s*'([^']+)'[\s\S]*?path:\s*'([^']+)'/g)].map(([, id, path]) => ({ id, path }))
 const coreManifests = JSON.parse(await readFile(new URL('../src/tools/manifests/core.json', import.meta.url), 'utf8'))
 const publicManifests = JSON.parse(await readFile(new URL('../public/tools-manifests.json', import.meta.url), 'utf8'))
-for (const field of ['title', 'description', 'github', 'name']) if (typeof site[field] !== 'string' || !site[field].trim()) throw new Error(`invalid site.${field}`)
+for (const field of ['title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'name']) if (typeof site[field] !== 'string') throw new Error(`invalid site.${field}`)
+for (const field of ['title', 'description', 'github', 'name']) if (!site[field].trim()) throw new Error(`invalid site.${field}`)
 if (!/^https?:$/.test(new URL(site.github).protocol)) throw new Error(`invalid site.github: ${site.github}`)
 if (site.publicUrl) {
   if (!/^https?:$/.test(new URL(site.publicUrl).protocol)) throw new Error(`invalid site.publicUrl: ${site.publicUrl}`)

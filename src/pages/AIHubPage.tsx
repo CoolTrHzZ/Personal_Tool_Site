@@ -6,8 +6,11 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import MarkTile from '../components/ui/MarkTile'
 import Modal from '../components/ui/Modal'
+import site from '../data/site.json'
+import type { SiteConfig } from '../types'
 
 const items = (resources as AIResource[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
+const siteConfig = site as SiteConfig
 const kinds = {
   skill: { label: 'Skills', singular: 'Skill', icon: Sparkles },
   agent: { label: 'Agents', singular: 'Agent', icon: Bot },
@@ -44,7 +47,7 @@ export default function AIHubPage() {
         <div>
           <span className="ai-eyebrow">资源手册</span>
           <h1>AI Hub</h1>
-          <p>按用途标签和资源类型定位 Skill、Agent、Prompt、模型配置与产品。配置由 Admin 维护，这里只复制或打开。</p>
+          {siteConfig.aiHubDescription && <p>{siteConfig.aiHubDescription}</p>}
         </div>
       </section>
       <div className="ai-toolbar">

@@ -6,8 +6,11 @@ import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import FormField from '../components/ui/FormField'
 import EmptyState from '../components/ui/EmptyState'
+import site from '../data/site.json'
+import type { SiteConfig } from '../types'
 
 const blob = (tool: { name: string; description: string; keywords: string[]; tags?: string[] }) => [tool.name, tool.description, ...tool.keywords, ...(tool.tags || [])].join(' ').toLowerCase()
+const siteConfig = site as SiteConfig
 
 export default function ToolsPage() {
   const tools = useTools()
@@ -29,6 +32,7 @@ export default function ToolsPage() {
       <section className="page-heading">
         <p className="atlas-kicker">工具路线</p>
         <h1>全部工具 <small>({filtered.length})</small></h1>
+        {siteConfig.toolsDescription && <p>{siteConfig.toolsDescription}</p>}
       </section>
       <div className="tool-filters">
         <nav className="category-route" aria-label="工具类别">
