@@ -23,8 +23,17 @@ test('AI Hub 支持类型筛选、详情、复制和打开产品', async ({ page
   await page.getByRole('tab', { name: '全部' }).click()
 
   const review = page.locator('.ai-resource-card', { has: page.getByRole('heading', { name: 'Code Review' }) })
+  await page.evaluate(() => document.fonts.ready)
+  const hoverBackground = await review.evaluate(card => {
+    const probe = document.createElement('span')
+    probe.style.color = 'var(--surface-overlay)'
+    card.append(probe)
+    const color = window.getComputedStyle(probe).color
+    probe.remove()
+    return color
+  })
   await review.hover()
-  await expect.poll(() => review.evaluate(card => window.getComputedStyle(card).backgroundColor)).toBe('rgb(42, 42, 44)')
+  await expect.poll(() => review.evaluate(card => window.getComputedStyle(card).backgroundColor)).toBe(hoverBackground)
   await review.click()
   const dialog = page.getByRole('dialog', { name: 'Code Review' })
   await expect(dialog).toBeVisible()
@@ -46,7 +55,7 @@ test('AI Hub 支持类型筛选、详情、复制和打开产品', async ({ page
   await expect(dialog.getByRole('heading', { name: 'Code Review' })).toBeVisible()
   const detailText = await dialog.locator('pre').first().textContent()
   await dialog.getByRole('button', { name: '复制安装方式' }).click()
-  await expect(review.getByRole('button', { name: '已复制' })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: '已复制', exact: true })).toBeVisible()
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(detailText || '')
   await page.setViewportSize({ width: 390, height: 760 })
   await assertDialogViewport()

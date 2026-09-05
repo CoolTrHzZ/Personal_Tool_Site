@@ -6,7 +6,11 @@
     "url": "https://github.com/anthropics/skills",
     "description": "Agent Skills 官方示例与规范",
     "language": "",
-    "tags": ["skill", "claude", "agent"],
+    "tags": [
+      "skill",
+      "claude",
+      "agent"
+    ],
     "enabled": true,
     "order": 10
   },
@@ -17,8 +21,52 @@
     "url": "https://github.com/vitejs/vite",
     "description": "前端构建工具",
     "language": "TypeScript",
-    "tags": ["frontend", "build"],
+    "tags": [
+      "frontend",
+      "build"
+    ],
     "enabled": true,
     "order": 20
+  },
+  {
+    "name": "pi",
+    "kind": "repo",
+    "url": "https://github.com/earendil-works/pi",
+    "description": "pi agent",
+    "id": "pi",
+    "language": "",
+    "tags": [
+      "agent"
+    ],
+    "order": 10,
+    "enabled": true
+  },
+  {
+    "name": "deepseek-harness",
+    "kind": "repo",
+    "url": "https://github.com/deepseek-ai/deepseek-harness",
+    "description": "deepseek-harness",
+    "id": "deepseek-harness",
+    "language": "",
+    "tags": [
+      "agent"
+    ],
+    "order": 10,
+    "enabled": true
+  },
+  {
+    "name": "ponytail",
+    "kind": "skill",
+    "url": "https://github.com/DietrichGebert/ponytail",
+    "description": "ponytail",
+    "id": "ponytail",
+    "language": "",
+    "tags": [
+      "skill",
+      "codex",
+      "cursor"
+    ],
+    "order": 10,
+    "enabled": true
   }
 ]

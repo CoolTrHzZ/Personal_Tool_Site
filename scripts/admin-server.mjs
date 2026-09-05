@@ -8,6 +8,9 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { randomUUID } from 'node:crypto'
 import { Buffer } from 'node:buffer'
+import { CFG_ID, validateCfgLibrary, readCfgContent, saveCfgRecord, deleteCfgRecord, rollbackCfgRecord } from './cfg-library.mjs'
+import { assertProjects, assertNoteRelations, assertAIWorkflows } from '../shared/content-validation.js'
+import { exportSiteBackup, previewSiteRestore, restoreSiteBackup, publishingStatus, MAX_BACKUP_BYTES } from './site-backup.mjs'
 import {
   IMPORT_LIMITS, assertManifest, detectFormat, extractHtmlMeta, inspectTool,
   normalizeManifest, scanHtmlCompat, slugifyId, suggestPermissionsFromHtml,
@@ -19,15 +22,20 @@ const dataDir = resolve(root, 'src/data')
 const adminDir = resolve(root, 'admin')
 const publicDir = resolve(root, 'public')
 const toolsDir = join(publicDir, 'tools')
+const cfgDir = join(publicDir, 'cfgs')
+const cfgIndexPath = join(dataDir, 'cfgs.json')
 // staging 必须在 public 之外：public 是正式静态资源目录，暂存文件不允许暴露（含 ../ 穿越兜底由 servePreviewAsset 负责）
 const stagingDir = resolve(root, '.tool-staging')
 const legacyStagingDir = join(toolsDir, '.staging')
 const coreManifestPath = resolve(root, 'src/tools/manifests/core.json')
 const indexManifestPath = join(publicDir, 'tools-manifests.json')
-const files = { navigation: 'navigation.json', categories: 'categories.json', site: 'site.json', library: 'library.json', 'ai-resources': 'ai-resources.json', notes: 'notes.json', tags: 'tags.json' }
+const files = { navigation: 'navigation.json', categories: 'categories.json', site: 'site.json', library: 'library.json', 'ai-resources': 'ai-resources.json', notes: 'notes.json', tags: 'tags.json', projects: 'projects.json', 'ai-workflows': 'ai-workflows.json' }
 const MAX_BODY_SIZE = 1024 * 1024
 const MAX_TOOL_BODY_SIZE = 25 * 1024 * 1024
 const execFileAsync = promisify(execFile)
+// ponytail: one process-local queue keeps the small CFG file/index transactions consistent.
+let cfgQueue = Promise.resolve()
+const withCfgQueue = action => { const next = cfgQueue.then(action); cfgQueue = next.catch(() => {}); return next }
 const json = async key => JSON.parse(await readFile(resolve(dataDir, files[key]), 'utf8'))
 const isISODate = value => {
   const time = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? Date.parse(`${value}T00:00:00Z`) : NaN
@@ -35,7 +43,7 @@ const isISODate = value => {
 }
 // Buffer（静态文件，含 .json）原样输出；仅 JSON API 响应走 JSON.stringify（避免 manifest.json 被二次序列化）
 const send = (res, status, value, type = 'application/json') => { res.writeHead(status, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store' }); res.end(Buffer.isBuffer(value) ? value : type === 'application/json' ? JSON.stringify(value) : String(value)) }
-const body = (req, limit = MAX_BODY_SIZE) => new Promise((resolveBody, reject) => { let value = ''; let size = 0; req.on('data', chunk => { size += chunk.length; if (size > limit) { reject(new Error(`请求体不能超过 ${Math.round(limit / 1024 / 1024)}MB`)); req.destroy(); return } value += chunk }); req.on('end', () => { try { resolveBody(value ? JSON.parse(value) : {}) } catch { reject(new Error('请求 JSON 无效')) } }); req.on('error', reject) })
+const body = (req, limit = MAX_BODY_SIZE) => new Promise((resolveBody, reject) => { const chunks = []; let size = 0; req.on('data', chunk => { size += chunk.length; if (size > limit) { reject(new Error(`请求体不能超过 ${Math.round(limit / 1024 / 1024)}MB`)); req.destroy(); return } chunks.push(chunk) }); req.on('end', () => { try { const bytes = Buffer.concat(chunks); const value = bytes.toString('utf8'); if (!Buffer.from(value, 'utf8').equals(bytes)) throw new Error('UTF-8'); resolveBody(value ? JSON.parse(value) : {}) } catch { reject(new Error('请求 JSON 或 UTF-8 无效')) } }); req.on('error', reject) })
 let navigationCache = [], categoryCache = []
 const normalizeTag = value => String(value ?? '').trim()
 const hasUnsafeTagChar = value => [...value].some(char => { const code = char.charCodeAt(0); return code < 32 || code === 127 })
@@ -51,6 +59,9 @@ const assertTags = tags => {
   for (const tag of tags) assertTagName(tag)
 }
 function validate(key, value) {
+  if (key === 'projects') return assertProjects(value)
+  if (key === 'ai-workflows') return assertAIWorkflows(value)
+  if (key === 'notes') assertNoteRelations(value)
   if (key === 'site') {
     for (const field of ['name', 'title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'footer', 'logo']) if (typeof value[field] !== 'string') throw new Error(`${field} 必须是字符串`)
     if (!Number.isFinite(value.todayContinueLimit) || !Number.isInteger(value.todayContinueLimit) || value.todayContinueLimit < 1 || value.todayContinueLimit > 8) throw new Error('todayContinueLimit 必须是 1-8 的整数')
@@ -97,9 +108,18 @@ async function refresh() { [navigationCache, categoryCache] = await Promise.all(
 async function save(key, value) {
   if (key === 'ai-resources') value = value.map(item => ({ ...item, install: typeof item.install === 'string' ? item.install : '' }))
   validate(key, value)
+  await validateRelations(key, value)
   const target = resolve(dataDir, files[key]); const temp = `${target}.tmp`
   if (existsSync(target)) await copyFile(target, `${target}.bak`)
   await writeFile(temp, JSON.stringify(value, null, 2) + '\n'); await rename(temp, target); await refresh()
+}
+async function validateRelations(key, value) {
+  const projects = key === 'projects' ? value : await json('projects')
+  const notes = key === 'notes' ? value : await json('notes')
+  const cfgs = await validateCfgLibrary(cfgIndexPath, cfgDir)
+  const resources = key === 'ai-resources' ? value : await json('ai-resources')
+  const workflows = key === 'ai-workflows' ? value : await json('ai-workflows')
+  assertProjects(projects, cfgs); assertNoteRelations(notes, projects, cfgs); assertAIWorkflows(workflows, resources)
 }
 function safeAdminPath(requestUrl) { const path = decodeURIComponent(new URL(requestUrl, 'http://localhost').pathname); const file = path === '/admin' || path === '/admin/' ? '/index.html' : path.slice('/admin'.length); const target = resolve(adminDir, `.${file}`); return target.startsWith(adminDir) ? target : null }
 async function writeFileAtomic(target, content) { const temp = `${target}.tmp`; await writeFile(temp, content); await rename(temp, target) }
@@ -147,7 +167,9 @@ async function runValidation() {
   try { validate('library', await json('library')) } catch (error) { issues.push(error.message) }
   try { validate('ai-resources', await json('ai-resources')) } catch (error) { issues.push(error.message) }
   try { validate('notes', await json('notes')) } catch (error) { issues.push(error.message) }
+  try { validate('projects', await json('projects')); validate('ai-workflows', await json('ai-workflows')); await validateRelations() } catch (error) { issues.push(error.message) }
   try { validate('tags', await json('tags')) } catch (error) { issues.push(error.message) }
+  try { await withCfgQueue(() => validateCfgLibrary(cfgIndexPath, cfgDir)) } catch (error) { issues.push(error.message) }
   for (const manifest of await tools()) {
     const hasEntry = manifest.runtime === 'static' ? existsSync(join(toolsDir, manifest.id, manifest.entry)) : undefined
     const report = inspectTool(manifest, { hasEntry })
@@ -613,10 +635,75 @@ async function servePreviewAsset(requestUrl, res) {
   return send(res, 200, await readFile(target), MIME_TYPES[extname(target).toLowerCase()] || 'application/octet-stream')
 }
 
-const server = createServer(async (req, res) => {
+const restorePreviews = new Map()
+async function handleRequest(req, res) {
   try {
     const url = new URL(req.url || '/', 'http://127.0.0.1')
     if (url.pathname.startsWith('/api/')) {
+      if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+        const localOrigin = `http://${req.headers.host || ''}`, host = new URL(localOrigin)
+        if (!['127.0.0.1', 'localhost', '[::1]'].includes(host.hostname) || Number(host.port || 80) !== req.socket.localPort || (req.headers.origin && req.headers.origin !== localOrigin) || req.headers['sec-fetch-site'] === 'cross-site') return send(res, 403, { error: '管理写入仅允许本机 Admin 同源访问' })
+      }
+      if (url.pathname === '/api/backup' && req.method === 'GET') return send(res, 200, await exportSiteBackup(root))
+      if (url.pathname === '/api/backup/preview' && req.method === 'POST') {
+        for (const [token, item] of restorePreviews) if (Date.now() - item.created > 30 * 60 * 1000) { await rm(item.stage, { recursive: true, force: true }); restorePreviews.delete(token) }
+        if (restorePreviews.size >= 3) {
+          const [oldestToken, oldest] = restorePreviews.entries().next().value
+          await rm(oldest.stage, { recursive: true, force: true }); restorePreviews.delete(oldestToken)
+        }
+        const preview = await previewSiteRestore(root, (await body(req, MAX_BACKUP_BYTES * 2)).content)
+        restorePreviews.set(preview.token, preview)
+        const { token, files, bytes, changes } = preview; return send(res, 200, { token, files, bytes, changes })
+      }
+      if (url.pathname === '/api/backup/restore' && req.method === 'POST') {
+        const { token } = await body(req), preview = restorePreviews.get(token)
+        if (!preview) throw new Error('恢复预览不存在或已过期，请重新选择文件')
+        const result = await restoreSiteBackup(root, preview)
+        restorePreviews.delete(token); await refresh(); return send(res, 200, result)
+      }
+      if (url.pathname === '/api/publishing' && req.method === 'GET') return send(res, 200, await publishingStatus(root))
+      if (url.pathname === '/api/publishing/validate' && req.method === 'POST') {
+        const report = await runValidation()
+        try { await execFileAsync(process.execPath, [join(root, 'scripts/validate-data.mjs')], { cwd: root, timeout: 30000, maxBuffer: 1024 * 1024 }) }
+        catch (error) { report.ok = false; report.issues.push((error.stderr || error.message).slice(0, 3000)) }
+        return send(res, 200, report)
+      }
+      const revisionMatch = url.pathname.match(/^\/api\/cfgs\/([^/]+)\/(versions\/([^/]+)|rollback)$/)
+      if (revisionMatch) {
+        const [, id, action, revisionId] = revisionMatch
+        if (!CFG_ID.test(id) || (revisionId && !CFG_ID.test(revisionId))) throw new Error('CFG 或版本 ID 无效')
+        if (action === 'rollback' && req.method === 'POST') { const payload = await body(req); return send(res, 200, await rollbackCfgRecord(cfgIndexPath, cfgDir, id, payload.revisionId, payload.changelog)) }
+        if (revisionId && req.method === 'GET') {
+          const item = (await validateCfgLibrary(cfgIndexPath, cfgDir)).find(item => item.id === id)
+          const revision = item?.history?.find(revision => revision.id === revisionId)
+          if (!revision) return send(res, 404, { error: 'CFG 历史版本不存在' })
+          return send(res, 200, { ...revision, content: await readCfgContent(cfgDir, id, revisionId) })
+        }
+        return send(res, 405, { error: 'Method not allowed' })
+      }
+      const cfgMatch = url.pathname.match(/^\/api\/cfgs(?:\/([^/]+))?$/)
+      if (cfgMatch) {
+        const localHost = `http://${req.headers.host || ''}`
+        const host = new URL(localHost)
+        if (!['127.0.0.1', 'localhost', '[::1]'].includes(host.hostname) || Number(host.port || 80) !== req.socket.localPort || (req.headers.origin && req.headers.origin !== localHost) || req.headers['sec-fetch-site'] === 'cross-site') return send(res, 403, { error: 'CFG 管理仅允许本机 Admin 同源访问' })
+        if (['POST', 'PUT'].includes(req.method) && !/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) return send(res, 415, { error: 'CFG 写请求必须使用 application/json' })
+        const id = cfgMatch[1]
+        if (id && !CFG_ID.test(id)) return send(res, 400, { error: 'CFG id 无效' })
+        if (!id && req.method === 'GET') return send(res, 200, await withCfgQueue(() => validateCfgLibrary(cfgIndexPath, cfgDir)))
+        if (id && req.method === 'GET') return send(res, 200, await withCfgQueue(async () => {
+          const item = (await validateCfgLibrary(cfgIndexPath, cfgDir)).find(item => item.id === id)
+          if (!item) throw Object.assign(new Error('CFG 不存在'), { statusCode: 404 })
+          return { ...item, content: await readCfgContent(cfgDir, id) }
+        }))
+        if (!id && req.method === 'POST') { const payload = await body(req); return send(res, 201, await withCfgQueue(() => saveCfgRecord(cfgIndexPath, cfgDir, payload))) }
+        if (id && req.method === 'PUT') { const payload = await body(req); return send(res, 200, await withCfgQueue(() => saveCfgRecord(cfgIndexPath, cfgDir, payload, id))) }
+        if (id && req.method === 'DELETE') {
+          const projects = await json('projects'), notes = await json('notes')
+          if (projects.some(item => item.cfgIds.includes(id)) || notes.some(item => item.cfgIds?.includes(id))) return send(res, 409, { error: 'CFG 仍被项目或笔记引用，请先解除关联' })
+          return send(res, 200, await withCfgQueue(() => deleteCfgRecord(cfgIndexPath, cfgDir, id)))
+        }
+        return send(res, 405, { error: 'Method not allowed' })
+      }
       if (url.pathname === '/api/system' && req.method === 'GET') {
         const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
         return send(res, 200, { version: pkg.version, admin: 'running', runtime: 'ready', index: 'synced' })
@@ -643,12 +730,26 @@ const server = createServer(async (req, res) => {
         return send(res, 405, { error: 'Method not allowed' })
       }
       if (url.pathname === '/api/validate' && req.method === 'GET') return send(res, 200, await runValidation())
-      const match = url.pathname.match(/^\/api\/(navigation|categories|site|library|ai-resources|notes)(?:\/([^/]+))?$/); if (!match) return send(res, 404, { error: 'Not found' })
+      const match = url.pathname.match(/^\/api\/(navigation|categories|site|library|ai-resources|notes|projects|ai-workflows)(?:\/([^/]+))?$/); if (!match) return send(res, 404, { error: 'Not found' })
       const key = match[1], id = match[2]; let value = await json(key)
       if (req.method === 'GET') return send(res, 200, value)
       if (key === 'site' && req.method === 'PUT') { await save(key, { ...(await json(key)), ...(await body(req)) }); return send(res, 200, await json(key)) }
       if (key !== 'site' && req.method === 'POST') { const item = await body(req); value.push(item); await save(key, value); return send(res, 201, item) }
-      if (key !== 'site' && id && (req.method === 'PUT' || req.method === 'DELETE')) { const index = value.findIndex(item => item.id === id); if (index < 0) return send(res, 404, { error: 'Not found' }); if (req.method === 'DELETE') { if (key === 'categories' && navigationCache.some(item => item.category === id)) return send(res, 409, { error: '分类仍被网址使用' }); value.splice(index, 1) } else value[index] = { ...value[index], ...(await body(req)), id }; await save(key, value); return send(res, 200, value) }
+      if (key !== 'site' && id && (req.method === 'PUT' || req.method === 'DELETE')) {
+        const index = value.findIndex(item => item.id === id)
+        if (index < 0) return send(res, 404, { error: 'Not found' })
+        if (req.method === 'DELETE') {
+          if (key === 'categories' && navigationCache.some(item => item.category === id)) return send(res, 409, { error: '分类仍被网址使用' })
+          if (key === 'projects' && (await json('notes')).some(note => note.projectId === id)) return send(res, 409, { error: '项目仍被笔记引用，请先解除关联' })
+          if (key === 'ai-resources' && (await json('ai-workflows')).some(workflow => workflow.steps.some(step => step.resourceId === id))) return send(res, 409, { error: 'AI 资源仍被工作流引用，请先解除关联' })
+          value.splice(index, 1)
+        } else {
+          const payload = await body(req)
+          if (payload.id !== undefined && payload.id !== id) throw new Error('已有 ID 为固定地址，不能更改')
+          value[index] = { ...value[index], ...payload, id }
+        }
+        await save(key, value); return send(res, 200, value)
+      }
       return send(res, 405, { error: 'Method not allowed' })
     }
     if (url.pathname.startsWith('/shared/')) {
@@ -660,12 +761,22 @@ const server = createServer(async (req, res) => {
     if (url.pathname.startsWith('/__tool_preview/')) return servePreviewAsset(req.url || '/', res)
     if (url.pathname === '/toolbox-bridge.js') return send(res, 200, await readFile(join(toolsDir, 'toolbox-bridge.js')), MIME_TYPES['.js'])
     if (url.pathname.startsWith('/tools/')) return serveToolAsset(req.url || '/', res)
+    const cfgAsset = url.pathname.match(/^\/cfgs\/([a-f0-9-]+)(?:\.([a-f0-9-]+))?\.cfg$/)
+    if (cfgAsset && CFG_ID.test(cfgAsset[1]) && (!cfgAsset[2] || CFG_ID.test(cfgAsset[2]))) return await withCfgQueue(async () => {
+      const item = (await validateCfgLibrary(cfgIndexPath, cfgDir)).find(item => item.id === cfgAsset[1])
+      if (!item || (cfgAsset[2] && !item.history?.some(revision => revision.id === cfgAsset[2]))) return send(res, 404, { error: 'Not found' })
+      return send(res, 200, Buffer.from(await readCfgContent(cfgDir, cfgAsset[1], cfgAsset[2]), 'utf8'), 'text/plain')
+    })
+    if (url.pathname === '/cfgs' || url.pathname.startsWith('/cfgs/')) return send(res, 404, { error: 'Not found' })
     const file = safeAdminPath(req.url || '/admin'); if (!file) return send(res, 403, { error: 'Forbidden' }); const content = await readFile(file); return send(res, 200, content, MIME_TYPES[extname(file)] || 'application/octet-stream')
-  } catch (error) { send(res, 400, { error: error instanceof Error ? error.message : '请求失败' }) }
-})
+  } catch (error) { send(res, error.statusCode === 404 ? 404 : 400, { error: error instanceof Error ? error.message : '请求失败' }) }
+}
+// ponytail: one local Admin serializes requests so no client can observe a half-restored site.
+let requestQueue = Promise.resolve()
+const server = createServer((req, res) => { const next = requestQueue.then(() => handleRequest(req, res)); requestQueue = next.catch(() => {}) })
 await refresh()
 // 历史遗留：把旧 public/tools/.staging 清掉，正式资源目录不再包含暂存文件
 await rm(legacyStagingDir, { recursive: true, force: true }).catch(() => {})
 await rebuildToolIndex().catch(error => console.error('index rebuild failed:', error.message))
 const port = Number(process.env.ADMIN_PORT || 4174)
-server.listen(port, '127.0.0.1', () => console.log(`Admin: http://127.0.0.1:${port}/admin`))
+server.listen(port, '127.0.0.1', () => console.log(`Admin: http://127.0.0.1:${server.address().port}/admin`))

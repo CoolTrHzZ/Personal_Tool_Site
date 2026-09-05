@@ -1,3 +1,5 @@
+/// <reference lib="es2022.intl" />
+
 export type Cs2ColorMode = 'single' | 'gradient' | 'rainbow' | 'custom'
 
 const HEX = /^#?[0-9a-f]{6}$/i
@@ -34,20 +36,22 @@ function customColors(value: string, fallback: string) {
   return colors.length ? colors : [fallback]
 }
 
-export function buildCs2Output(text: string, mode: Cs2ColorMode, color: string, gradientStart: string, gradientEnd: string, custom: string) {
-  if (!text) return ''
-  if (mode === 'single') return `\x07${normalizeHex(color).slice(1)}${text}`
-  const chars = Array.from(text)
+export function buildCs2Segments(text: string, mode: Cs2ColorMode, color: string, gradientStart: string, gradientEnd: string, custom: string) {
+  if (!text) return []
+  if (mode === 'single') return [{ text, color: normalizeHex(color) }]
+  const chars = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), item => item.segment)
+  const total = chars.filter(char => !/^[\r\n]+$/.test(char)).length
   const palette = customColors(custom, normalizeHex(color))
-  return chars.map((char, index) => {
-    if (char === '\n' || char === '\r') return char
-    const ratio = index / Math.max(chars.length - 1, 1)
-    const current = mode === 'gradient' ? gradientColor(gradientStart, gradientEnd, ratio) : mode === 'rainbow' ? rainbowColor(index, chars.length) : palette[index % palette.length]
-    return `\x07${current.slice(1)}${char}`
-  }).join('')
+  let index = 0
+  return chars.map(char => {
+    if (/^[\r\n]+$/.test(char)) return { text: char, color: '' }
+    const ratio = index / Math.max(total - 1, 1)
+    const current = mode === 'gradient' ? gradientColor(gradientStart, gradientEnd, ratio) : mode === 'rainbow' ? rainbowColor(index, total) : palette[index % palette.length]
+    index += 1
+    return { text: char, color: current }
+  })
 }
 
-if (import.meta.env.DEV) {
-  const sample = buildCs2Output('ok', 'single', '#112233', '#112233', '#445566', '#112233')
-  if (sample.charCodeAt(0) !== 7 || sample.includes('\\x07')) throw new Error('CS2 control character self-check failed')
+export function buildCs2Output(text: string, mode: Cs2ColorMode, color: string, gradientStart: string, gradientEnd: string, custom: string) {
+  return buildCs2Segments(text, mode, color, gradientStart, gradientEnd, custom).map(item => `${item.color ? `\x07${item.color.slice(1)}` : ''}${item.text}`).join('')
 }

@@ -13,6 +13,7 @@ export default function LibraryCard({ item }: { item: LibraryItem }) {
       <span className="nav-card-text">
         <strong>{item.name}</strong>
         <small>{item.description || host}</small>
+        {(item.language || item.tags.length > 0) && <span className="library-labels">{item.language && <span>{item.language}</span>}{item.tags.map(tag => <span key={tag}>{tag}</span>)}</span>}
       </span>
       <span className="kind-chip">{kindLabel[item.kind]}</span>
       <ExternalLink className="card-arrow" size={16} />

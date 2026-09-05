@@ -1,0 +1,43 @@
+{
+  "id": "ai-context",
+  "name": "AI 任务上下文包",
+  "description": "整理项目背景、任务目标与代码材料，一次复制完整 AI 上下文",
+  "type": "react",
+  "entry": "react",
+  "category": "development",
+  "version": "1.0.0",
+  "enabled": true,
+  "icon": "FileText",
+  "keywords": [
+    "AI",
+    "上下文",
+    "任务包",
+    "prompt",
+    "代码",
+    "Markdown"
+  ],
+  "favorite": false,
+  "order": 81,
+  "author": "local",
+  "updated": "2026-09-05",
+  "tags": [
+    "AI 开发",
+    "上下文",
+    "本地处理"
+  ],
+  "status": "active",
+  "readme": "填写任务背景并添加选定的文本材料，生成 Markdown 上下文。支持浏览器草稿、JSON 迁移和 Markdown 下载，无需接入 AI API。",
+  "license": "MIT",
+  "permissions": {
+    "clipboard": true,
+    "storage": true,
+    "network": false,
+    "download": true
+  },
+  "runtime": "react",
+  "format": "react-package",
+  "display": {
+    "mode": "workspace",
+    "height": "auto"
+  }
+}

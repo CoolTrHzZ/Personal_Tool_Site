@@ -1,5 +1,16 @@
 import { test, expect } from '@playwright/test'
 
+async function accentColor(page) {
+  return page.evaluate(() => {
+    const probe = document.createElement('span')
+    probe.style.color = 'var(--accent)'
+    document.body.append(probe)
+    const color = window.getComputedStyle(probe).color
+    probe.remove()
+    return color
+  })
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/#/')
   await expect(page.getByTestId('boot-layer')).toBeHidden({ timeout: 5_000 })
@@ -23,12 +34,13 @@ test('命令面板与主题选择可用', async ({ page }) => {
   expect(await page.locator('.brand-mark .brand-symbol').evaluate(image => image.naturalWidth)).toBeGreaterThan(0)
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/favicon.svg')
   await expect(page.locator('footer')).toHaveText('DevOS · Personal Developer Workspace')
-  await expect(page.locator('.letter-icon').first()).toHaveCSS('color', 'rgb(41, 151, 255)')
-  await expect(page.locator('.letter-icon').first()).toHaveCSS('background-color', 'rgba(41, 151, 255, 0.14)')
-  await expect(page.locator('.top-search-mini')).toHaveText('点击搜索')
-  await expect(page.locator('.manual-intro .atlas-search kbd')).toHaveCount(0)
-  await expect(page.getByRole('complementary', { name: '最近便笺' }).locator('.manual-note-card')).toBeVisible()
-  await expect(page.getByRole('complementary', { name: '最近便笺' })).not.toContainText('打开命令面板')
+  const darkAccent = await accentColor(page)
+  await expect(page.locator('.letter-icon').first()).toHaveCSS('color', darkAccent)
+  await expect(page.locator('.top-search-mini')).toContainText('搜索')
+  await expect(page.locator('.manual-intro .atlas-search kbd')).toContainText('Ctrl K')
+  await page.getByRole('button', { name: '我的工作区', exact: true }).click()
+  await expect(page.getByRole('complementary', { name: '个人工作区' }).locator('.manual-note-card')).toBeVisible()
+  await expect(page.getByRole('complementary', { name: '个人工作区' }).getByRole('heading', { name: '今日待办' })).toBeVisible()
   await page.getByRole('button', { name: '打开命令面板' }).first().click()
   await expect(page.getByRole('dialog', { name: '命令面板' })).toBeVisible()
   await page.keyboard.press('Escape')
@@ -37,8 +49,9 @@ test('命令面板与主题选择可用', async ({ page }) => {
   await theme.selectOption('light')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await expect(page.locator('.brand-mark .brand-symbol')).toHaveAttribute('src', '/favicon.svg')
-  await expect(page.locator('.letter-icon').first()).toHaveCSS('color', 'rgb(0, 113, 227)')
-  await expect(page.locator('.letter-icon').first()).toHaveCSS('background-color', 'rgba(0, 113, 227, 0.12)')
+  const lightAccent = await accentColor(page)
+  expect(lightAccent).not.toBe(darkAccent)
+  await expect(page.locator('.letter-icon').first()).toHaveCSS('color', lightAccent)
   await theme.selectOption('dark')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 })
@@ -50,12 +63,8 @@ test('首页工具收藏状态可持久化', async ({ page }) => {
 
   const firstToolCard = page.locator('.tool-card').first()
   const favoriteButton = firstToolCard.getByRole('button', { name: '收藏工具' })
-  if (await favoriteButton.count()) {
-    await favoriteButton.click()
-  } else {
-    await firstToolCard.getByRole('button', { name: '取消收藏' }).click()
-    await firstToolCard.getByRole('button', { name: '收藏工具' }).click()
-  }
+  await expect(favoriteButton).toBeVisible()
+  await favoriteButton.click()
 
   const toolPath = await firstToolCard.locator('a.tool-card-link').getAttribute('href')
   const toolId = toolPath?.split('/').filter(Boolean).pop()

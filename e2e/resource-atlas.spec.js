@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId('boot-layer')).toBeHidden({ timeout: 5_000 })
 })
 
-test('首页是工作手册而不是仪表盘', async ({ page }) => {
+test('科幻首页保留资源目录和移动端章节导航', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /开发者工作台/ })).toBeVisible()
   await expect(page.getByRole('navigation', { name: '章节目录' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '工具', exact: true })).toBeVisible()
@@ -20,7 +20,7 @@ test('首页是工作手册而不是仪表盘', async ({ page }) => {
   await page.locator('.manual-toc-toggle').click()
   await expect(page.getByRole('navigation', { name: '章节目录' })).toBeHidden()
   await page.locator('.manual-toc-toggle').click()
-  await expect(page.getByRole('navigation', { name: '章节目录' }).getByRole('link', { name: /今天继续/ })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: '章节目录' }).getByRole('link', { name: /精选工具/ })).toBeVisible()
   const nav = page.getByRole('navigation', { name: '主导航' })
   for (const name of ['首页', 'AI Hub', '工具', '导航', '收藏', '笔记']) {
     const link = nav.getByRole('link', { name })
@@ -42,7 +42,7 @@ test('首页章节控制保持首页并滚动到真实章节', async ({ page }) 
     if (isLocalOrigin(url) && response.status() >= 400) failed.push(`${response.status()} ${url}`)
   })
   const chapters = [
-    ['今天继续', 'today'],
+    ['精选工具', 'today'],
     ['工具', 'tools'],
     ['网站', 'sites'],
     ['AI 资源', 'ai'],
@@ -54,7 +54,9 @@ test('首页章节控制保持首页并滚动到真实章节', async ({ page }) 
     await page.setViewportSize(viewport)
     if (viewport.width < 768 && await page.locator('.manual-toc-wrap').getAttribute('open') === null) await page.locator('.manual-toc-toggle').click()
     for (const [label, id] of chapters) {
-      await page.getByRole('navigation', { name: '章节目录' }).getByRole('link', { name: new RegExp(label) }).click()
+      const link = page.getByRole('navigation', { name: '章节目录' }).locator(`a[href="#${id}"]`)
+      await expect(link).toContainText(label)
+      await link.click()
       await expect(page).toHaveURL(/\/#\/$/)
       await expect(page.getByRole('heading', { name: '页面不存在' })).toHaveCount(0)
       await expect.poll(() => page.locator(`#${id} .manual-heading`).evaluate(element => {
@@ -67,7 +69,7 @@ test('首页章节控制保持首页并滚动到真实章节', async ({ page }) 
   expect(failed, failed.join('\n')).toEqual([])
 })
 
-test('首页资源行显示 32px 标识与 AI 类型图标', async ({ page }) => {
+test('首页资源行显示完整标识与 AI 类型图标', async ({ page }) => {
   await expect(page.locator('#today .tool-card')).toHaveCount(3)
   await expect(page.locator('#today .tool-icon').first()).toBeVisible()
   for (const selector of ['#today .tool-icon', '#tools .tool-icon', '#sites .mark-tile', '#ai .mark-tile', '#library .mark-tile', '#notes .mark-tile']) {
@@ -75,7 +77,7 @@ test('首页资源行显示 32px 标识与 AI 类型图标', async ({ page }) =>
     expect(await marks.count()).toBeGreaterThan(0)
     expect(await marks.evaluateAll(elements => elements.every(element => {
       const { width, height } = element.getBoundingClientRect()
-      return width === 32 && height === 32 && element.getClientRects().length > 0
+      return width === height && width >= 32 && width <= 40 && element.getClientRects().length > 0
     }))).toBeTruthy()
   }
   const aiIcons = page.locator('#ai .resource-row .mark-tile svg')
@@ -86,15 +88,23 @@ test('首页资源行显示 32px 标识与 AI 类型图标', async ({ page }) =>
   await expect(favorite).toHaveAttribute('aria-pressed', 'false')
   await favorite.click()
   await expect(favorite).toHaveAttribute('aria-pressed', 'true')
-  await expect(favorite).toHaveCSS('color', 'rgb(41, 151, 255)')
+  const selectedColor = await favorite.evaluate(element => {
+    const probe = document.createElement('span')
+    probe.style.color = 'var(--accent-secondary)'
+    element.append(probe)
+    const color = window.getComputedStyle(probe).color
+    probe.remove()
+    return color
+  })
+  await expect(favorite).toHaveCSS('color', selectedColor)
 })
 
 test('内容页说明和资源网格使用站点配置', async ({ page }) => {
   for (const [path, description] of [
     ['/tools', '集中查找、筛选并打开日常开发工具。'],
     ['/nav', '按开发场景整理常用网站与在线服务。'],
-    ['/library', 'GitHub 仓库与 Agent Skill，链接在 Admin 里配置。'],
-    ['/notes', '本地 Markdown 说明，在 Admin 里编辑后随站点发布。'],
+    ['/library', '收藏值得反复阅读的开源仓库与 Agent Skills。'],
+    ['/notes', '记录工具用法、开发经验与值得保留的想法。'],
     ['/ai', '按用途标签和资源类型定位 Skill、Agent、Prompt、模型配置与产品。'],
   ]) {
     await page.goto(`/#${path}`)

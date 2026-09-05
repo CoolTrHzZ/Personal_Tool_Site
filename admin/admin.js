@@ -7,10 +7,19 @@ import {
 import { TAG_PAGE_SIZES, collectTagItems, filterTagItems, paginateTagItems, tagSourceLabel } from './tags-core.js'
 import { ICON_NAMES, createIconSvg } from './icon-catalog.js'
 import { mountTechField } from '/shared/tech-field.js'
+import { mountCfgLibrary } from './cfg-library.js'
+import { createEditProtection } from './edit-protection.js'
+import { mountSiteManagement } from './site-management.js'
+import { mountContentCollections } from './content-collections.js'
+import { noteKinds, runbookTemplates } from '/shared/runbook-templates.js'
 
+const readPreference = (key, fallback) => { try { return localStorage.getItem(key) || fallback } catch { return fallback } }
+let themePreference = readPreference('theme', 'dark')
+if (!['dark', 'light', 'system'].includes(themePreference)) themePreference = 'dark'
+const systemTheme = matchMedia('(prefers-color-scheme: dark)')
 function applyAdminTheme() {
-  const preference = localStorage.getItem('theme') || 'dark'
-  const dark = preference === 'dark' || (preference === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+  const preference = themePreference
+  const dark = preference === 'dark' || (preference === 'system' && systemTheme.matches)
   const theme = dark ? 'dark' : 'light'
   document.documentElement.dataset.theme = theme
   let themeColor = document.querySelector('meta[name="theme-color"]')
@@ -19,10 +28,13 @@ function applyAdminTheme() {
     themeColor.name = 'theme-color'
     document.head.append(themeColor)
   }
-  themeColor.content = dark ? '#000000' : '#F5F5F7'
+  themeColor.content = window.getComputedStyle(document.documentElement).getPropertyValue('--surface-page').trim()
+  const select = document.querySelector('#admin-theme')
+  if (select) select.value = preference
 }
 
 applyAdminTheme()
+systemTheme.addEventListener('change', applyAdminTheme)
 const i18n = await loadI18n()
 const $ = selector => document.querySelector(selector)
 // 防御性绑定（v3.0.1 错误边界精神）：单个元素缺失只降级该功能并在控制台明确告警，
@@ -38,6 +50,11 @@ let state = { navigation: [], categories: [], site: {}, tools: [], library: [], 
 document.documentElement.lang = i18n.locale
 if ($('#locale-select')) $('#locale-select').value = i18n.locale
 i18n.apply()
+if (i18n.locale === 'en-US') {
+  $('#admin-preview').textContent = 'Local preview ↗'
+  $('#admin-theme').setAttribute('aria-label', 'Admin theme')
+  ;['Dark', 'Light', 'System'].forEach((label, index) => { $('#admin-theme').options[index].textContent = label })
+}
 
 const request = async (path, options) => {
   const response = await fetch(`/api/${path}`, { headers: { 'content-type': 'application/json' }, ...options })
@@ -72,7 +89,7 @@ const input = (name, value, label, required = true) => {
 const readActivity = () => { try { const value = JSON.parse(localStorage.getItem(ACTIVITY_KEY) || '[]'); return Array.isArray(value) ? value : [] } catch { return [] } }
 const logActivity = message => {
   const items = [{ at: new Date().toISOString(), message }, ...readActivity()].slice(0, 12)
-  localStorage.setItem(ACTIVITY_KEY, JSON.stringify(items))
+  try { localStorage.setItem(ACTIVITY_KEY, JSON.stringify(items)) } catch { /* Activity history is optional. */ }
 }
 const toolStatus = tool => tool.status || (tool.enabled === false ? 'disabled' : 'active')
 const formatBytes = bytes => `${(Number(bytes) / 1024).toFixed(Number(bytes) > 1024 * 1024 ? 0 : 1)}KB`
@@ -85,7 +102,7 @@ function toBase64(bytes) {
 const fileToPayload = async file => ({ filename: file.name, content: toBase64(new Uint8Array(await file.arrayBuffer())) })
 function downloadBase64(filename, base64) {
   const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0))
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }))
+  const url = URL.createObjectURL(new Blob([bytes], { type: filename.endsWith('.gz') ? 'application/gzip' : 'application/zip' }))
   const link = document.createElement('a')
   link.href = url
   link.download = filename
@@ -102,40 +119,64 @@ function toast(message, level = 'success') {
   setTimeout(() => { item.classList.add('toast-out'); setTimeout(() => item.remove(), 200) }, 3000)
 }
 const toastError = message => toast(message, 'error')
+const protectForm = createEditProtection({ notify: toast })
 const adminScene = { dashboard: 'dash', websites: 'nav', library: 'nav', 'ai-resources': 'cms', notes: 'cms', 'note-editor': 'cms', tools: 'tools', marketplace: 'market', categories: 'nav', tags: 'cms', settings: 'form', validate: 'cms', import: 'form' }
 let currentView = 'dashboard'
+function updateTelemetry() {
+  if ($('#page-telemetry')) $('#page-telemetry').textContent = `index · tools ${state.tools.length} · websites ${state.navigation.length} · System Online`
+}
 
 function showView(view) {
+  if (!protectForm.mayLeave()) return false
+  const menuWasOpen = $('.admin-shell').classList.contains('nav-open')
+  setAdminMenu(false)
   closeEditorDrawer()
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
+  if (currentView === 'note-editor' && view !== 'note-editor') protectForm.end($('#note-studio-form'))
   currentView = view
+  const hash = { 'cfg-library': 'cfgs', projects: 'projects', 'ai-workflows': 'ai-workflows' }[view]
+  window.history.replaceState(null, '', hash ? `#${hash}` : location.pathname + location.search)
   document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view))
   const navView = view === 'note-editor' ? 'notes' : view
-  document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === navView))
-  $('#page-title').textContent = i18n.t(`title.${view}`)
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => { item.classList.toggle('active', item.dataset.view === navView); if (item.dataset.view === navView) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current') })
+  $('#page-title').textContent = view === 'cfg-library' ? 'CFG 配置库' : contentCollections.titles[view] || i18n.t(`title.${view}`)
   const title = $('#page-title')
   title.classList.remove('title-swap')
   void title.offsetWidth
   title.classList.add('title-swap')
-  if ($('#page-telemetry')) $('#page-telemetry').textContent = `index · tools ${state.tools.length} · websites ${state.navigation.length} · System Online`
+  updateTelemetry()
   $('.carbon-fx')?.setAttribute('data-scene', adminScene[view] || 'cms')
+  if (menuWasOpen) $('#page-title').focus()
   if (view === 'import') $('#tool-dropzone')?.focus()
+  if (view === 'cfg-library') void cfgLibrary.load()
+  if (contentCollections.titles[view]) void contentCollections.load(view)
+  if (view === 'settings') protectForm.resume($('#site'))
+  return true
 }
 
+let modalFocusRevision = 0
 function openModal({ title, body, confirm = false, okText }) {
+  const focusRevision = ++modalFocusRevision
+  const modal = $('#modal')
+  const returnFocus = document.activeElement
   $('#modal-title').textContent = title
   $('#modal-body').replaceChildren(typeof body === 'string' ? text('p', body) : body)
   $('#modal-ok').hidden = !confirm
-  if (okText) $('#modal-ok').textContent = okText
+  $('#modal-ok').textContent = okText || i18n.t('modal.confirm')
   $('#modal').hidden = false
+  requestAnimationFrame(() => {
+    if (focusRevision !== modalFocusRevision || !modal.isConnected || modal.hidden || modal.contains(document.activeElement)) return
+    $('#modal-cancel').focus({ preventScroll: true })
+  })
   return new Promise(resolve => {
-    const done = value => { $('#modal').hidden = true; $('#modal-ok').onclick = null; $('#modal-cancel').onclick = null; resolve(value) }
+    const done = value => { $('#modal').hidden = true; $('#modal-ok').onclick = null; $('#modal-cancel').onclick = null; returnFocus?.focus(); resolve(value) }
     $('#modal-cancel').onclick = () => done(false)
     $('#modal-ok').onclick = () => done(true)
   })
 }
 
 function openPromptModal({ title, label, value = '' }) {
+  modalFocusRevision++
   const inputBox = document.createElement('input')
   inputBox.className = 'ui-input'
   inputBox.value = value
@@ -144,6 +185,7 @@ function openPromptModal({ title, label, value = '' }) {
   $('#modal-title').textContent = title
   $('#modal-body').replaceChildren(wrapper)
   $('#modal-ok').hidden = false
+  $('#modal-ok').textContent = i18n.t('modal.confirm')
   $('#modal').hidden = false
   inputBox.focus()
   return new Promise(resolve => {
@@ -157,6 +199,7 @@ function openPromptModal({ title, label, value = '' }) {
 
 let settingsTab = 'general'
 function renderSite() {
+  if (protectForm.hasChanges($('#site'))) return
   const labels = {
     name: i18n.t('form.siteName'), title: i18n.t('form.title'), description: i18n.t('form.description'), github: i18n.t('form.github'),
     footer: i18n.t('form.footer'), logo: i18n.t('form.logo'), tagline: i18n.t('form.tagline'), todayContinueLimit: i18n.t('form.todayContinueLimit'),
@@ -180,12 +223,16 @@ function renderSite() {
     limitInput.step = '1'
     form.append(limitField)
     form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
+    protectForm.begin(form, { key: `site:${settingsTab}` })
+    if (settingsTab === 'deploy') void siteManagement.publishing(extra)
     return
   }
   if (settingsTab === 'appearance') {
     form.hidden = false
     for (const name of ['logo', 'footer']) form.append(input(name, state.site[name], labels[name]))
     form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
+    protectForm.begin(form, { key: `site:${settingsTab}` })
+    if (settingsTab === 'deploy') void siteManagement.publishing(extra)
     return
   }
   if (settingsTab === 'deploy') {
@@ -193,6 +240,8 @@ function renderSite() {
     form.append(el('p', 'muted', i18n.t('form.deployHint')))
     for (const name of ['publicUrl', 'basePath', 'adminUrl']) form.append(input(name, state.site[name], labels[name], name !== 'publicUrl'))
     form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
+    protectForm.begin(form, { key: `site:${settingsTab}` })
+    if (settingsTab === 'deploy') void siteManagement.publishing(extra)
     return
   }
   form.hidden = true
@@ -201,18 +250,7 @@ function renderSite() {
     extra.querySelector('button').id = 'rebuild-index-settings'
     extra.querySelector('button').addEventListener('click', () => $('#rebuild-index')?.click())
   }
-  if (settingsTab === 'backup') {
-    extra.append(el('p', 'muted', '导出当前 JSON 配置（真实数据）。恢复请使用对应 PUT 接口或手动替换文件。'))
-    const exportBtn = button('导出导航 / 分类 / 站点 JSON', {}, 'ui-button ui-button-primary')
-    exportBtn.addEventListener('click', () => {
-      const payload = { navigation: state.navigation, categories: state.categories, site: state.site }
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }))
-      link.download = 'devos-backup.json'
-      link.click()
-    })
-    extra.append(exportBtn)
-  }
+  if (settingsTab === 'backup') siteManagement.backup(extra)
   if (settingsTab === 'about') extra.append(el('p', '', `${state.site.name || 'DevOS'}`), el('p', 'muted', state.site.tagline || ''), el('p', 'muted', state.site.description || ''), el('p', 'muted', state.site.publicUrl || i18n.t('form.publicUrlEmpty')))
 }
 function renderStats() {
@@ -665,7 +703,7 @@ function renderTags() {
 function openTagDrawer(name) {
   const item = state.tags.find(entry => entry.name === name)
   if (!item) return
-  closeEditorDrawer()
+  if (!closeEditorDrawer()) return
   tagsView.current = name
   const body = $('#tag-drawer-body')
   body.replaceChildren(el('h3', 'drawer-title', item.name), el('p', 'muted', i18n.t('tags.usageCount', { count: String(item.total) })))
@@ -700,7 +738,7 @@ function openTagDrawer(name) {
   armOutside($('#tag-drawer'), () => { $('#tag-drawer').hidden = true; tagsView.current = null })
 }
 
-function render() { renderSite(); renderStats(); renderCategories(); renderNavigation(); renderLibrary(); renderAIResources(); renderNotes(); renderTools(); renderMarketplace(); renderTags(); i18n.apply() }
+function render() { renderSite(); renderStats(); renderCategories(); renderNavigation(); renderLibrary(); renderAIResources(); renderNotes(); renderTools(); renderMarketplace(); renderTags(); updateTelemetry(); i18n.apply() }
 
 async function reload(message = i18n.t('msg.updated'), record = true) {
   const [navigation, categories, site, system, validation] = await Promise.all([
@@ -711,14 +749,21 @@ async function reload(message = i18n.t('msg.updated'), record = true) {
   state.navigation = navigation
   state.categories = categories
   state.site = site
+  const siteLink = $('.site-link')
+  try {
+    const url = new URL(site.publicUrl)
+    siteLink.hidden = !['http:', 'https:'].includes(url.protocol)
+    if (!siteLink.hidden) siteLink.href = url.href
+  } catch { siteLink.hidden = true }
+  siteLink.textContent = i18n.locale === 'en-US' ? 'Published site ↗' : '线上站点 ↗'
   state.system = system
   state.validation = validation
   state.loadErrors = []
   const loadCollection = async path => {
     try { return await request(path) } catch { state.loadErrors.push(path); return [] }
   }
-  ;[state.library, state.aiResources, state.notes, state.tools] = await Promise.all([
-    loadCollection('library'), loadCollection('ai-resources'), loadCollection('notes'), loadCollection('tools'),
+  ;[state.library, state.aiResources, state.notes, state.tools, state.projects, state.cfgs] = await Promise.all([
+    loadCollection('library'), loadCollection('ai-resources'), loadCollection('notes'), loadCollection('tools'), loadCollection('projects'), loadCollection('cfgs'),
   ])
   try {
     const tagData = await request('tags')
@@ -753,30 +798,49 @@ function armOutside(node, close) {
 }
 
 function closeEditorDrawer() {
+  const active = [...$('#editor-drawer-body').querySelectorAll('form')].find(form => !form.hidden)
+  if (!$('#editor-drawer').hidden && active && !protectForm.mayLeave(active)) return false
   stopOutside?.()
   const returnFocus = editorReturnFocus
   editorReturnFocus = null
+  $('#editor-drawer-body').querySelectorAll('form').forEach(form => protectForm.end(form))
   $('#editor-drawer').hidden = true
   $('#nav-form').hidden = true
   $('#category-form').hidden = true
   if ($('#library-form')) $('#library-form').hidden = true
   if ($('#ai-resource-form')) $('#ai-resource-form').hidden = true
+  if ($('#cfg-form')) $('#cfg-form').hidden = true
+  if ($('#content-collection-form')) $('#content-collection-form').hidden = true
   returnFocus?.focus()
+  return true
 }
 function hideEditorForms() {
+  $('#editor-drawer-body').querySelectorAll('form').forEach(form => protectForm.end(form))
   $('#nav-form').hidden = true
   $('#category-form').hidden = true
   if ($('#library-form')) $('#library-form').hidden = true
   if ($('#ai-resource-form')) $('#ai-resource-form').hidden = true
+  if ($('#cfg-form')) $('#cfg-form').hidden = true
+  if ($('#content-collection-form')) $('#content-collection-form').hidden = true
 }
 let editorReturnFocus = null
+let editorFocusRevision = 0
 function showEditorModal(form) {
+  const focusRevision = ++editorFocusRevision
+  const drawer = $('#editor-drawer')
+  if (form.elements.originalId && form.elements.id) { form.elements.id.readOnly = Boolean(form.elements.originalId.value); form.elements.id.title = form.elements.originalId.value ? '已有 ID 为固定地址，不能更改' : '' }
+  if (!['cfg-form', 'content-collection-form'].includes(form.id)) protectForm.begin(form)
   editorReturnFocus = document.activeElement
   renderEditorPickers(form)
-  $('#editor-drawer').hidden = false
-  requestAnimationFrame(() => form.querySelector('input:not([type="hidden"]), select, textarea, button')?.focus())
+  drawer.hidden = false
+  $('#editor-drawer-body').scrollTop = 0
+  requestAnimationFrame(() => {
+    if (focusRevision !== editorFocusRevision || !form.isConnected || !drawer.isConnected || drawer.hidden || form.hidden || !$('#modal').hidden || drawer.contains(document.activeElement)) return
+    form.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])')?.focus({ preventScroll: true })
+  })
 }
 function openWebsiteDrawer(item) {
+  if (!protectForm.mayLeave()) return
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   hideEditorForms()
   const form = $('#nav-form')
@@ -787,6 +851,7 @@ function openWebsiteDrawer(item) {
   showEditorModal(form)
 }
 function openCategoryDrawer(item) {
+  if (!protectForm.mayLeave()) return
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   hideEditorForms()
   const form = $('#category-form')
@@ -803,6 +868,7 @@ function readNoteForm() {
   const originalId = data.originalId
   delete data.originalId
   data.tags = String(data.tags || '').split(',').map(value => value.trim()).filter(Boolean)
+  data.cfgIds = [...form.elements.cfgIds.selectedOptions].map(option => option.value)
   data.order = Number(data.order)
   data.enabled = new FormData(form).has('enabled')
   data.summary = data.summary || ''
@@ -814,6 +880,8 @@ function fillNoteStudio(item) {
   const form = $('#note-studio-form')
   if (!form) return
   form.reset()
+  populateNoteRelations(form)
+  form.elements.kind.value = item?.kind || 'note'
   if (item) fill(form, item, true)
   else {
     form.elements.originalId.value = ''
@@ -822,6 +890,7 @@ function fillNoteStudio(item) {
     form.elements.enabled.checked = true
     form.elements.body.value = '# 标题\n\n在左侧写 Markdown，右侧即时预览。\n'
   }
+  form.elements.id.readOnly = Boolean(item)
   refreshNotePreview()
   syncNoteJson()
   setNoteTab('write')
@@ -844,7 +913,8 @@ function applyNoteJson() {
   const form = $('#note-studio-form')
   const current = form.elements.originalId.value
   fill(form, {
-    id: parsed.id || '',
+    id: current || parsed.id || '',
+    kind: parsed.kind || 'note', projectId: parsed.projectId || '', cfgIds: parsed.cfgIds || [],
     title: parsed.title || '',
     summary: parsed.summary || '',
     tags: parsed.tags || [],
@@ -879,17 +949,22 @@ function insertMarkdown(kind) {
   const end = ta.selectionEnd
   ta.setRangeText(insert, start, end, 'end')
   ta.focus()
+  protectForm.changed($('#note-studio-form'))
   refreshNotePreview()
 }
-function openNoteStudio(item) {
+async function openNoteStudio(item) {
+  if (!protectForm.mayLeave()) return
+  try { [state.projects, state.cfgs] = await Promise.all([request('projects'), request('cfgs')]) } catch (error) { toastError(error.message); return }
+  if (!showView('note-editor')) return
   closeEditorDrawer()
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   fillNoteStudio(item)
   $('#note-studio-title').textContent = item ? i18n.t('form.saveNote') : i18n.t('form.addNote')
-  showView('note-editor')
+  protectForm.begin($('#note-studio-form'), { extra: { get: () => ({ rawJson: $('#note-json').value }), set: value => { $('#note-json').value = value.rawJson || '' } }, afterRestore: refreshNotePreview })
   $('#note-body')?.focus()
 }
 function openLibraryDrawer(item) {
+  if (!protectForm.mayLeave()) return
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   hideEditorForms()
   const form = $('#library-form')
@@ -900,6 +975,7 @@ function openLibraryDrawer(item) {
   showEditorModal(form)
 }
 function openAIResourceDrawer(item) {
+  if (!protectForm.mayLeave()) return
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   hideEditorForms()
   const form = $('#ai-resource-form')
@@ -919,7 +995,8 @@ function fill(form, item, tags = false) {
   for (const [key, value] of Object.entries(item)) {
     const fieldElement = form.elements[key]
     if (!fieldElement) continue
-    if (fieldElement.type === 'checkbox') fieldElement.checked = Boolean(value)
+    if (fieldElement.multiple && Array.isArray(value)) { for (const option of fieldElement.options) option.selected = value.includes(option.value) }
+    else if (fieldElement.type === 'checkbox') fieldElement.checked = Boolean(value)
     else fieldElement.value = tags && Array.isArray(value) ? value.join(', ') : value
   }
   form.elements.originalId.value = item.id
@@ -940,7 +1017,8 @@ function openWizard(file = null) {
 }
 
 // 关闭向导必须清理服务端 staging（v3.0.1 十一）
-async function closeWizard() {
+async function closeWizard(saved = false) {
+  if (wizard.busy && !saved) { toastError('工具正在分析或保存，请稍候再关闭。'); return }
   detachWizardPreview()
   const token = wizard.analysis?.token
   Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false })
@@ -1194,7 +1272,7 @@ async function runWizardImport() {
   renderWizard()
   try {
     await request('tools/import', { method: 'POST', body: JSON.stringify({ token: wizard.analysis.token, manifest: wizard.manifest, overwrite }) })
-    await closeWizard()
+    await closeWizard(true)
     await reload(i18n.t('msg.imported'))
     showView('tools')
   } catch (error) {
@@ -1234,6 +1312,7 @@ const wizardGuard = error => {
   wizard.error = error instanceof Error ? error.message : i18n.t('wizard.unknownError')
   renderWizard()
 }
+window.addEventListener('beforeunload', event => { if (!$('#wizard').hidden && wizard.busy) { event.preventDefault(); event.returnValue = '' } })
 bind('#wizard-close', 'click', () => { closeWizard().catch(() => {}) })
 bind('#wizard-prev', 'click', () => { try { wizardPrev() } catch (error) { wizardGuard(error) } })
 bind('#wizard-next', 'click', async () => { try { await wizardNext() } catch (error) { wizardGuard(error) } })
@@ -1265,6 +1344,7 @@ bind('#rebuild-index', 'click', async () => {
 let editingTool = null
 
 function openToolEdit(tool) {
+  if (!protectForm.mayLeave()) return
   editingTool = tool
   $('#tool-edit-title').textContent = i18n.t('toolEdit.title', { id: tool.id })
   const form = el('form', 'wizard-form tool-edit-form')
@@ -1287,9 +1367,11 @@ function openToolEdit(tool) {
   access.append(el('p', 'edit-kicker', i18n.t('toolEdit.permissions')), renderPermissionsForm(document, { permissions: tool.permissions || {}, t: i18n.t }))
   $('#tool-edit-body').replaceChildren(identity, access)
   $('#tool-edit').hidden = false
+  protectForm.begin(form, { key: `tool:${tool.id}` })
+  protectForm.begin(access.querySelector('form'), { key: `tool-permissions:${tool.id}` })
 }
 
-bind('#tool-edit-cancel', 'click', () => { $('#tool-edit').hidden = true; editingTool = null })
+bind('#tool-edit-cancel', 'click', () => { if (!protectForm.mayLeave()) return; $('#tool-edit-body').querySelectorAll('form').forEach(form => protectForm.end(form)); $('#tool-edit').hidden = true; editingTool = null })
 bind('#tool-edit-save', 'click', async () => {
   if (!editingTool) return
   try {
@@ -1312,7 +1394,10 @@ bind('#tool-edit-save', 'click', async () => {
       display: { mode: data['display.mode'], height },
       permissions: permResult.permissions,
     }
-    await request(`tools/${encodeURIComponent(editingTool.id)}`, { method: 'PUT', body: JSON.stringify(patch) })
+    protectForm.busy(form, true); protectForm.busy(permForm, true); $('#tool-edit-save').disabled = true
+    try { await request(`tools/${encodeURIComponent(editingTool.id)}`, { method: 'PUT', body: JSON.stringify(patch) }); protectForm.clean(form); protectForm.clean(permForm) }
+    finally { protectForm.busy(form, false); protectForm.busy(permForm, false); $('#tool-edit-save').disabled = false }
+    protectForm.end(form); protectForm.end(permForm)
     $('#tool-edit').hidden = true
     editingTool = null
     await reload(i18n.t('msg.manifestSaved'))
@@ -1345,11 +1430,19 @@ bind('#tag-sort', 'change', event => { tagsView.sort = event.target.value; tagsV
 bind('#tag-size', 'change', event => { tagsView.pageSize = Number(event.target.value) || 20; tagsView.page = 1; renderTags() })
 bind('#editor-drawer-close', 'click', closeEditorDrawer)
 bind('#editor-drawer', 'click', event => { if (event.target.id === 'editor-drawer') closeEditorDrawer() })
-bind('#admin-menu', 'click', () => {
-  const shell = $('.admin-shell')
-  const open = shell.classList.toggle('nav-open')
-  $('#admin-menu').setAttribute('aria-expanded', String(open))
-})
+const mobileMenu = matchMedia('(max-width: 1024px)')
+function setAdminMenu(open) {
+  const visible = mobileMenu.matches && open
+  $('.admin-shell').classList.toggle('nav-open', visible)
+  $('#admin-menu').setAttribute('aria-expanded', String(visible))
+  $('#admin-menu-backdrop').hidden = !visible
+  $('#admin-sidebar').inert = mobileMenu.matches && !visible
+  $('.admin-content').inert = visible
+}
+bind('#admin-menu', 'click', () => setAdminMenu(!$('.admin-shell').classList.contains('nav-open')))
+bind('#admin-menu-backdrop', 'click', () => { setAdminMenu(false); $('#admin-menu').focus() })
+mobileMenu.addEventListener('change', () => setAdminMenu(false))
+setAdminMenu(false)
 bind('#website-query', 'input', renderNavigation)
 bind('#website-category', 'change', renderNavigation)
 bind('#website-status', 'change', renderNavigation)
@@ -1357,34 +1450,53 @@ bind('#nav-cancel', 'click', closeEditorDrawer)
 bind('#library-cancel', 'click', closeEditorDrawer)
 bind('#ai-resource-cancel', 'click', closeEditorDrawer)
 bind('#category-cancel', 'click', closeEditorDrawer)
+
+function populateNoteRelations(form) {
+  for (const [name, items, label] of [['projectId', state.projects || [], '不关联项目'], ['cfgIds', state.cfgs || [], null]]) {
+    const select = form.elements[name]; select.replaceChildren()
+    if (label) { const option = el('option', '', label); option.value = ''; select.append(option) }
+    for (const item of items) { const option = el('option', '', item.name); option.value = item.id; select.append(option) }
+  }
+}
+for (const [id, label] of Object.entries(noteKinds)) { const option = el('option', '', label); option.value = id; $('#note-kind').append(option) }
+bind('#note-template', 'click', async () => {
+  const template = runbookTemplates[$('#note-kind').value]
+  if (!template) return toast('请选择部署、故障或回滚类型后使用模板')
+  if ($('#note-body').value.trim() && !await openModal({ title: '替换当前正文？', body: '使用类型模板会替换当前 Markdown 正文。', confirm: true, okText: '替换正文' })) return
+  $('#note-body').value = template; refreshNotePreview(); syncNoteJson(); protectForm.changed($('#note-studio-form'))
+})
+
 bind('#note-body', 'input', () => { refreshNotePreview() })
 bind('#note-studio-form', 'input', event => {
   if (event.target.id === 'note-json') return
-  if (currentView === 'note-editor' && event.target.id !== 'note-body') syncNoteJson()
+  if (currentView === 'note-editor') syncNoteJson()
 })
 bind('#note-studio-form', 'submit', event => { event.preventDefault(); $('#note-save')?.click() })
 bind('#note-save', 'click', async () => {
+  if (!$('#note-tab-json').hidden) { try { applyNoteJson() } catch (error) { toastError(error.message); return } }
   const pack = readNoteForm()
   if (!pack) return
   if (!pack.data.id || !pack.data.title) { toastError(i18n.t('notes.needFields')); return }
   try {
     await withBusy($('#note-save'), async () => {
       await request(pack.originalId ? `notes/${pack.originalId}` : 'notes', { method: pack.originalId ? 'PUT' : 'POST', body: JSON.stringify(pack.data) })
+      protectForm.clean($('#note-studio-form'))
       await reload(pack.originalId ? i18n.t('msg.savedNote') : i18n.t('msg.addedNote'))
       showView('notes')
     })
   } catch (error) { toastError(error.message) }
 })
+bind('#note-json', 'input', () => protectForm.changed($('#note-studio-form')))
 bind('#note-json-apply', 'click', () => {
-  try { applyNoteJson(); setNoteTab('write'); toast(i18n.t('notes.jsonApplied')) } catch (error) { toastError(error.message) }
+  try { applyNoteJson(); protectForm.changed($('#note-studio-form')); setNoteTab('write'); toast(i18n.t('notes.jsonApplied')) } catch (error) { toastError(error.message) }
 })
-document.querySelectorAll('.settings-tab').forEach(tab => tab.addEventListener('click', () => { settingsTab = tab.dataset.settingsTab; renderSite() }))
+document.querySelectorAll('.settings-tab').forEach(tab => tab.addEventListener('click', () => { if (!protectForm.mayLeave($('#site'))) return; settingsTab = tab.dataset.settingsTab; renderSite() }))
 document.addEventListener('click', event => {
   if (event.target.closest('.kebab')) return
   document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
 })
 document.addEventListener('keydown', event => {
-  const editor = $('#editor-drawer')
+  const editor = !$('#modal').hidden ? $('#modal') : $('#editor-drawer')
   if (event.key === 'Tab' && editor && !editor.hidden) {
     const focusable = [...editor.querySelectorAll('button, input:not([type="hidden"]), select, textarea')].filter(node => !node.hidden && !node.disabled && node.offsetParent)
     const [first] = focusable
@@ -1394,6 +1506,7 @@ document.addEventListener('keydown', event => {
     return
   }
   if (event.key !== 'Escape') return
+  if ($('.admin-shell').classList.contains('nav-open')) { setAdminMenu(false); $('#admin-menu').focus(); return }
   document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
   if ($('#modal') && !$('#modal').hidden) { $('#modal-cancel')?.click(); return }
   if ($('#tool-edit') && !$('#tool-edit').hidden) { $('#tool-edit-cancel')?.click(); return }
@@ -1444,16 +1557,19 @@ bind('#run-validate', 'click', async () => {
 })
 const withBusy = async (form, fn) => {
   const submit = form.matches?.('button') ? form : form.querySelector('button[type="submit"], button.ui-button-primary')
+  const protectedForm = form.matches?.('button') ? (form.id === 'note-save' ? $('#note-studio-form') : form.closest('form')) : form
+  if (protectedForm?.getAttribute('aria-busy') === 'true') return
+  if (protectedForm) protectForm.busy(protectedForm, true)
   const previous = submit?.textContent
   if (submit) { submit.disabled = true; submit.textContent = i18n.t('form.saving') }
-  try { return await fn() } finally { if (submit) { submit.disabled = false; submit.textContent = previous } }
+  try { return await fn() } finally { if (protectedForm) protectForm.busy(protectedForm, false); if (submit) { submit.disabled = false; submit.textContent = previous } }
 }
 bind('#site', 'submit', async event => {
   event.preventDefault()
   const data = Object.fromEntries(new FormData(event.target))
   if (data.todayContinueLimit === undefined || data.todayContinueLimit === '') delete data.todayContinueLimit
   else data.todayContinueLimit = Number(data.todayContinueLimit)
-  try { await withBusy(event.target, async () => { await request('site', { method: 'PUT', body: JSON.stringify({ ...state.site, ...data }) }); await reload(i18n.t('msg.savedSite')) }) } catch (error) { toastError(error.message) }
+  try { await withBusy(event.target, async () => { await request('site', { method: 'PUT', body: JSON.stringify({ ...state.site, ...data }) }); protectForm.clean(event.target); await reload(i18n.t('msg.savedSite')) }) } catch (error) { toastError(error.message) }
 })
 bind('#category-form', 'submit', async event => {
   event.preventDefault()
@@ -1464,6 +1580,7 @@ bind('#category-form', 'submit', async event => {
   try {
     await withBusy(event.target, async () => {
       await request(originalId ? `categories/${originalId}` : 'categories', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
+      protectForm.clean(event.target)
       event.target.reset()
       closeEditorDrawer()
       await reload(originalId ? i18n.t('msg.savedCategory') : i18n.t('msg.addedCategory'))
@@ -1482,6 +1599,7 @@ bind('#nav-form', 'submit', async event => {
   try {
     await withBusy(event.target, async () => {
       await request(originalId ? `navigation/${originalId}` : 'navigation', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
+      protectForm.clean(event.target)
       event.target.reset()
       closeEditorDrawer()
       await reload(originalId ? i18n.t('msg.savedWebsite') : i18n.t('msg.addedWebsite'))
@@ -1502,6 +1620,7 @@ bind('#library-form', 'submit', async event => {
   try {
     await withBusy(event.target, async () => {
       await request(originalId ? `library/${originalId}` : 'library', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
+      protectForm.clean(event.target)
       event.target.reset()
       closeEditorDrawer()
       await reload(originalId ? i18n.t('msg.savedLibrary') : i18n.t('msg.addedLibrary'))
@@ -1527,6 +1646,7 @@ bind('#ai-resource-form', 'submit', async event => {
   try {
     await withBusy(event.target, async () => {
       await request(originalId ? `ai-resources/${originalId}` : 'ai-resources', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
+      protectForm.clean(event.target)
       event.target.reset()
       closeEditorDrawer()
       await reload(originalId ? i18n.t('msg.savedAIResource') : i18n.t('msg.addedAIResource'))
@@ -1647,12 +1767,47 @@ document.addEventListener('click', async event => {
   } catch (error) { toastError(error.message) }
 })
 
+const siteManagement = mountSiteManagement({ request, el, button, toast, openModal, downloadBase64, fileToPayload, reload })
+const contentCollections = mountContentCollections({ request, el, button, toast, openModal, showEditorModal, closeEditorDrawer, hideEditorForms, protectForm, getState: () => state })
+const cfgLibrary = mountCfgLibrary({ request, openModal, showEditorModal, closeEditorDrawer, hideEditorForms, toast, el, button, protectForm })
+const followAdminHash = () => { const view = { '#cfgs': 'cfg-library', '#projects': 'projects', '#ai-workflows': 'ai-workflows' }[location.hash]; if (view) showView(view) }
+followAdminHash()
+window.addEventListener('hashchange', followAdminHash)
 reload('', false).catch(error => toastError(error.message))
 
 const carbon = $('.carbon-fx')
-mountTechField(carbon)
+let motionEnabled = readPreference('devos-motion', 'on') !== 'off'
+let unmountTechField = () => {}
+function applyAdminMotion() {
+  document.documentElement.dataset.motion = motionEnabled ? 'on' : 'off'
+  const control = $('#admin-motion')
+  control.setAttribute('aria-pressed', String(motionEnabled))
+  control.textContent = i18n.locale === 'en-US' ? `Motion ${motionEnabled ? 'on' : 'off'}` : `动效${motionEnabled ? '开启' : '关闭'}`
+  control.setAttribute('aria-label', i18n.locale === 'en-US' ? `${motionEnabled ? 'Disable' : 'Enable'} motion` : `${motionEnabled ? '关闭' : '开启'}管理页动效`)
+  unmountTechField()
+  unmountTechField = motionEnabled ? mountTechField(carbon) : () => {}
+}
+bind('#admin-theme', 'change', event => {
+  themePreference = event.target.value
+  applyAdminTheme()
+  try { localStorage.setItem('theme', themePreference) } catch { /* Keep the preference for this page. */ }
+})
+bind('#admin-motion', 'click', () => {
+  motionEnabled = !motionEnabled
+  applyAdminMotion()
+  try { localStorage.setItem('devos-motion', motionEnabled ? 'on' : 'off') } catch { /* Keep the preference for this page. */ }
+})
+window.addEventListener('storage', event => {
+  if (event.key === 'theme' || event.key === null) {
+    const preference = readPreference('theme', 'dark')
+    themePreference = ['dark', 'light', 'system'].includes(preference) ? preference : 'dark'
+    applyAdminTheme()
+  }
+  if (event.key === 'devos-motion' || event.key === null) { motionEnabled = readPreference('devos-motion', 'on') !== 'off'; applyAdminMotion() }
+})
+applyAdminMotion()
 carbon?.addEventListener('pointermove', event => {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!motionEnabled || matchMedia('(prefers-reduced-motion: reduce)').matches) return
   const box = carbon.getBoundingClientRect()
   carbon.style.setProperty('--mx', `${((event.clientX - box.left) / box.width) * 100}%`)
   carbon.style.setProperty('--my', `${((event.clientY - box.top) / box.height) * 100}%`)

@@ -1,7 +1,4 @@
 .ai-hub-page { max-width: 1320px; }
-.ai-hub-hero { padding: 8px 0 28px; border-bottom: 1px solid var(--border-default); }
-.ai-hub-hero h1 { margin: 6px 0 8px; font: 600 clamp(36px, 6vw, 56px)/1.05 var(--font-display); letter-spacing: -.04em; }
-.ai-hub-hero p { max-width: 680px; margin: 0; color: var(--text-secondary); line-height: 1.6; }
 .ai-eyebrow { color: var(--marker); font: 600 11px var(--font-mono); letter-spacing: .12em; }
 .ai-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin: 22px 0 18px; }
 .ai-search { position: relative; display: block; width: min(480px, 100%); }

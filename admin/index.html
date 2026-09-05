@@ -15,8 +15,9 @@
 </head>
 <body>
   <div class="admin-shell carbon-fx" data-scene="dash">
-    <button type="button" class="admin-menu-btn ui-button ui-button-ghost ui-button-sm" id="admin-menu" aria-expanded="false">菜单</button>
-    <aside class="sidebar">
+    <button type="button" class="admin-menu-btn ui-button ui-button-ghost ui-button-sm" id="admin-menu" aria-expanded="false" aria-controls="admin-sidebar">菜单</button>
+    <button type="button" class="admin-menu-backdrop" id="admin-menu-backdrop" aria-label="关闭菜单" tabindex="-1" hidden></button>
+    <aside class="sidebar" id="admin-sidebar">
       <div class="admin-brand">
         <span class="admin-brand-mark"><img class="brand-symbol" src="/favicon.svg" alt=""></span>
         <div>
@@ -24,13 +25,14 @@
           <small data-i18n="brandTagline">Personal Developer Workspace</small>
         </div>
       </div>
-      <nav>
+      <nav aria-label="管理导航">
         <button class="nav-item active" data-view="dashboard" data-i18n="nav.dashboard">仪表盘</button>
         <button class="nav-item" data-view="websites" data-i18n="nav.websites">网站管理</button>
         <button class="nav-item" data-view="library" data-i18n="nav.library">收藏仓库</button>
         <button class="nav-item" data-view="ai-resources" data-i18n="nav.aiResources">AI Hub 资源</button>
         <button class="nav-item" data-view="notes" data-i18n="nav.notes">笔记文章</button>
         <button class="nav-item" data-view="tools" data-i18n="nav.tools">工具管理</button>
+        <button class="nav-item" data-view="cfg-library">CFG 配置库</button>
         <button class="nav-item" data-view="marketplace" data-i18n="nav.marketplace">工具市场</button>
         <button class="nav-item" data-view="categories" data-i18n="nav.categories">分类管理</button>
         <button class="nav-item" data-view="tags" data-i18n="nav.tags">标签管理</button>
@@ -40,7 +42,7 @@
       </nav>
       <div class="sidebar-footer">
         <label class="locale-control"><span class="sr-only">Language</span><select id="locale-select" class="ui-input" aria-label="Language"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
-        <a class="site-link" href="/" target="_blank" data-i18n="openSite">打开站点 ↗</a>
+        <a class="site-link" href="http://127.0.0.1:5173/" target="_blank" rel="noopener noreferrer" hidden>线上站点 ↗</a>
         <p class="sidebar-status"><span class="status-dot"></span><span data-i18n="statusReady">本地服务正常</span></p>
       </div>
     </aside>
@@ -48,9 +50,15 @@
       <header class="content-header">
         <div>
           <p class="eyebrow">DEVOS ADMIN</p>
-          <h1 id="page-title">仪表盘</h1>
+          <h1 id="page-title" tabindex="-1">仪表盘</h1>
           <p class="page-telemetry" id="page-telemetry">System Online</p>
           <p id="status" data-i18n="localCms">本地内容管理</p>
+        </div>
+        <div class="admin-display-controls">
+          <span class="admin-local-label" title="管理服务仅在本机运行">LOCAL / 127.0.0.1</span>
+          <a class="ui-button ui-button-ghost ui-button-sm" id="admin-preview" href="http://127.0.0.1:5173/" target="_blank" rel="noopener noreferrer" title="打开本地前台开发服务">本地预览 ↗</a>
+          <label class="admin-theme-control"><span class="sr-only">管理页主题</span><select id="admin-theme" class="ui-input" aria-label="管理页主题"><option value="dark">深色</option><option value="light">浅色</option><option value="system">跟随系统</option></select></label>
+          <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="admin-motion" aria-pressed="true">动效开启</button>
         </div>
       </header>
 
@@ -195,6 +203,10 @@
                 <label class="ui-field"><span class="ui-field-label">标签</span><input class="ui-input" name="tags" placeholder="guide, ai"></label>
                 <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
                 <label class="ui-field"><span class="ui-field-label">更新日期</span><input class="ui-input" name="updated" type="date"></label>
+                <label class="ui-field"><span class="ui-field-label">笔记类型</span><select class="ui-input" name="kind" id="note-kind"></select></label>
+                <label class="ui-field"><span class="ui-field-label">关联项目</span><select class="ui-input" name="projectId"></select></label>
+                <label class="ui-field"><span class="ui-field-label">关联 CFG（可多选）</span><select class="ui-input" name="cfgIds" multiple></select></label>
+                <button type="button" class="ui-button ui-button-ghost" id="note-template">使用类型模板</button>
                 <label class="check-inline note-enabled"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
               </div>
             </section>
@@ -243,6 +255,17 @@
           </div>
           <p class="muted" data-i18n="tools.indexHint">工具目录内 manifest.json 为 Source of Truth，索引自动重建。</p>
           <div class="ui-table-wrap"><table class="ui-table table-tools"><colgroup><col class="col-tool-name"><col class="col-tool-runtime"><col class="col-tool-format"><col class="col-tool-version"><col class="col-tool-status"><col class="col-tool-display"><col class="col-tool-updated"><col class="col-tool-actions"></colgroup><thead><tr><th>Tool</th><th>Runtime</th><th>Format</th><th>Version</th><th>Status</th><th data-i18n="tools.colDisplay">载入样式</th><th>Updated</th><th>操作</th></tr></thead><tbody id="tools"></tbody></table></div>
+        </section>
+      </section>
+
+      <section class="view content-medium" data-view-panel="cfg-library">
+        <section class="ui-card panel">
+          <div class="panel-toolbar"><div><p class="edit-kicker">CS2 CONFIG LIBRARY</p><h2>CFG 配置库</h2></div><button type="button" class="ui-button ui-button-primary" id="cfg-add">上传 CFG</button></div>
+          <p class="muted">文件和说明保存在本地项目中，随站点发布后可公开浏览、预览和下载。</p>
+          <div class="table-toolbar"><input id="cfg-query" class="ui-input" type="search" placeholder="搜索名称、分类或标签…" aria-label="搜索 CFG 配置"><button type="button" class="ui-button ui-button-ghost" id="cfg-refresh">刷新列表</button></div>
+          <p id="cfg-library-error" class="cfg-admin-error" role="alert" hidden></p>
+          <p id="cfg-library-count" class="muted" role="status">尚未载入配置库</p>
+          <div id="cfg-list" class="cfg-admin-list"></div>
         </section>
       </section>
 
@@ -345,7 +368,7 @@
   </div>
 
   <div id="modal" class="ui-modal-backdrop" hidden>
-    <div class="ui-modal ui-card" role="dialog" aria-modal="true">
+    <div class="ui-modal ui-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <h2 id="modal-title"></h2>
       <div id="modal-body"></div>
       <div class="ui-modal-actions">
@@ -356,7 +379,7 @@
   </div>
 
   <div id="wizard" class="wizard-backdrop" hidden>
-    <div class="wizard ui-card wizard-md" role="dialog" aria-modal="true">
+    <div class="wizard ui-card wizard-md" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
       <header class="wizard-head">
         <div>
           <p class="eyebrow">IMPORT WIZARD</p>
@@ -382,7 +405,7 @@
   </div>
 
   <div id="tool-edit" class="ui-modal-backdrop" hidden>
-    <div class="ui-modal ui-card tool-edit-modal" role="dialog" aria-modal="true">
+    <div class="ui-modal ui-card tool-edit-modal" role="dialog" aria-modal="true" aria-labelledby="tool-edit-title">
       <header class="tool-edit-head">
         <p class="edit-kicker">MANIFEST</p>
         <h2 id="tool-edit-title">编辑 Manifest</h2>
@@ -402,6 +425,22 @@
       <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="editor-drawer-close" data-i18n="wizard.close">关闭</button>
     </div>
     <div class="ui-modal-body" id="editor-drawer-body">
+    <form id="cfg-form" class="drawer-form" hidden>
+      <p class="cfg-admin-publish-note">保存到本地项目；发布站点后，文件内容及说明均可被其他人访问。</p>
+      <div class="cfg-admin-meta">
+        <label class="ui-field"><span class="ui-field-label">配置名称</span><input class="ui-input" name="name" required maxlength="80"></label>
+        <label class="ui-field"><span class="ui-field-label">下载文件名</span><input class="ui-input" name="filename" required maxlength="120" placeholder="autoexec.cfg"></label>
+        <label class="ui-field"><span class="ui-field-label">分类</span><input class="ui-input" name="category" required maxlength="32" placeholder="练习 / 社区服 / 日常"></label>
+        <label class="ui-field"><span class="ui-field-label">标签</span><input class="ui-input" name="tags" maxlength="400" placeholder="多个标签用逗号分隔"></label>
+        <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" step="1" value="10"></label>
+      </div>
+      <label class="ui-field"><span class="ui-field-label">配置说明</span><textarea class="ui-input" name="description" rows="3" maxlength="2000"></textarea></label>
+      <label class="ui-field"><span class="ui-field-label">本次变更说明</span><textarea class="ui-input" name="changelog" rows="2" maxlength="2000"></textarea></label>
+      <div class="cfg-admin-file"><label class="ui-button ui-button-ghost" for="cfg-file">选择或替换 .cfg 文件</label><input id="cfg-file" type="file" accept=".cfg" class="sr-only"><span id="cfg-file-status" class="muted" role="status">请选择 UTF-8 .cfg 文件，最大 256 KiB。</span></div>
+      <p id="cfg-form-error" class="cfg-admin-error" role="alert" hidden></p>
+      <details class="cfg-admin-preview" open><summary>CFG 原文预览</summary><pre id="cfg-content-preview" tabindex="0" aria-label="CFG 原文预览"></pre></details>
+      <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="cfg-download">下载原文</button><button type="button" class="ui-button ui-button-ghost" id="cfg-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" id="cfg-save">保存到项目</button></div>
+    </form>
     <form id="nav-form" class="drawer-form" hidden>
       <input type="hidden" name="originalId">
       <label class="ui-field"><span class="ui-field-label">网站名称</span><input class="ui-input" name="name" required></label>

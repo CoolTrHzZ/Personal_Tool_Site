@@ -1,0 +1,92 @@
+[
+  {
+    "id": "review-change",
+    "name": "代码变更审查",
+    "description": "准备变更背景与差异，得到可复现的问题和验收清单。",
+    "category": "code-review",
+    "tags": [
+      "代码审查",
+      "回归"
+    ],
+    "steps": [
+      {
+        "title": "整理变更上下文",
+        "description": "填写目标、技术栈与预期行为，添加相关 diff、源码或测试结果。",
+        "resourceId": ""
+      },
+      {
+        "title": "检查真实问题",
+        "description": "逐项检查正确性与边界条件，要求给出触发条件、代码位置和最小修复。",
+        "resourceId": "code-review-skill"
+      },
+      {
+        "title": "复核修复与验收",
+        "description": "根据原始需求验证修复，记录实际测试结果与剩余限制。",
+        "resourceId": "release-agent"
+      }
+    ],
+    "enabled": true,
+    "order": 10,
+    "updated": "2026-09-05"
+  },
+  {
+    "id": "deliver-requirement",
+    "name": "需求拆解与实现",
+    "description": "把模糊需求整理为可实施步骤，再按验收标准交付。",
+    "category": "requirements",
+    "tags": [
+      "需求",
+      "实现"
+    ],
+    "steps": [
+      {
+        "title": "明确范围与验收",
+        "description": "描述使用者、当前问题、目标行为与不包含的范围，补充必要约束。",
+        "resourceId": ""
+      },
+      {
+        "title": "拆解并实现",
+        "description": "拆分可独立验证的任务，结合项目已有技术栈实现，并验证关键用户路径。",
+        "resourceId": "frontend-agent"
+      },
+      {
+        "title": "检查交付覆盖",
+        "description": "逐项核对验收标准，记录未覆盖的需求与后续行动。",
+        "resourceId": "release-agent"
+      }
+    ],
+    "enabled": true,
+    "order": 20,
+    "updated": "2026-09-05"
+  },
+  {
+    "id": "investigate-incident",
+    "name": "故障定位与复盘",
+    "description": "围绕时间线和证据排查问题，保留验证与回滚记录。",
+    "category": "incident",
+    "tags": [
+      "运维",
+      "故障"
+    ],
+    "steps": [
+      {
+        "title": "收集故障证据",
+        "description": "记录故障时间、影响范围、最近变更、脱敏日志与监控现象，不把推测当成结论。",
+        "resourceId": ""
+      },
+      {
+        "title": "验证排查假设",
+        "description": "根据证据列出假设及验证方法；涉及外部知识时核对原始资料，并注明未知项。",
+        "resourceId": "research-skill"
+      },
+      {
+        "title": "整理修复与复盘",
+        "description": "记录根因、修复验证、回滚步骤与预防措施，补充后续负责人和验收方式。",
+        "resourceId": "release-agent"
+      }
+    ],
+    "enabled": true,
+    "order": 30,
+    "updated": "2026-09-05"
+  }
+]

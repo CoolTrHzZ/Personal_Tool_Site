@@ -14,15 +14,18 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "validate": "node scripts/validate-data.mjs",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:pages": "node scripts/check-pages.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "4.3.4",
     "lucide-react": "0.468.0",
+    "motion": "^13.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router-dom": "6.28.1",
-    "vite": "6.0.7"
+    "vite": "6.0.7",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@eslint/js": "9.17.0",

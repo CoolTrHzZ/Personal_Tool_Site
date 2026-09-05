@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { Code2, Globe2, Palette, Wrench } from 'lucide-react'
+import { Code2, FileText, GitCompareArrows, Globe2, Palette, Wrench } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import type { ToolManifest } from './types'
@@ -17,6 +17,9 @@ export const reactTools: ReactToolEntry[] = [
   { id: 'timestamp', name: '时间戳转换', description: 'Unix 时间戳互转', type: 'react', entry: 'react', category: 'development', version: '1.0.0', enabled: true, icon: 'Wrench', keywords: ['时间戳', 'unix', 'date'], favorite: true, order: 30, path: '/tools/timestamp', iconComponent: Wrench, component: lazy(() => import('./packages/timestamp')) },
   { id: 'base64', name: 'Base64', description: '文本 Base64 编解码', type: 'react', entry: 'react', category: 'development', version: '1.0.0', enabled: true, icon: 'Code2', keywords: ['base64', '编码', '解码'], favorite: true, order: 40, path: '/tools/base64', iconComponent: Code2, component: lazy(() => import('./packages/base64')) },
   { id: 'url', name: 'URL 编解码', description: '处理 URL 编码内容', type: 'react', entry: 'react', category: 'development', version: '1.0.0', enabled: true, icon: 'Globe2', keywords: ['url', 'encode', 'decode'], order: 50, path: '/tools/url', iconComponent: Globe2, component: lazy(() => import('./packages/url')) },
+  { id: 'ai-context', name: 'AI 任务上下文包', description: '整理项目背景、目标与代码材料', type: 'react', entry: 'react', category: 'development', version: '1.0.0', enabled: true, icon: 'FileText', keywords: ['AI', '上下文', '任务包'], order: 81, path: '/tools/ai-context', iconComponent: FileText, component: lazy(() => import('./packages/ai-context')) },
+  { id: 'config-diff', name: '配置差异对比', description: '检查配置差异与重复键', type: 'react', entry: 'react', category: 'development', version: '1.0.0', enabled: true, icon: 'GitCompareArrows', keywords: ['diff', '配置', '运维'], order: 82, path: '/tools/config-diff', iconComponent: GitCompareArrows, component: lazy(() => import('./packages/config-diff')) },
+  { id: 'cs2-cfg', name: 'CS2 CFG 工作台', description: '编辑、检查、保存与分享 CFG', type: 'react', entry: 'react', category: 'game', version: '1.0.0', enabled: true, icon: 'Wrench', keywords: ['cs2', 'cfg', 'autoexec', '绑定'], order: 83, path: '/tools/cs2-cfg', iconComponent: Wrench, component: lazy(() => import('./packages/cs2-cfg')) },
 ]
 
 export const tools = reactTools

@@ -58,7 +58,7 @@ export function mountTechField(root) {
     if (document.hidden || media.matches) return
     const width = window.innerWidth
     const height = window.innerHeight
-    const accent = window.getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2997FF'
+    const accent = window.getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e4e4e7'
     const mx = (Number.parseFloat(root.style.getPropertyValue('--mx')) || 52) / 100 * width
     const my = (Number.parseFloat(root.style.getPropertyValue('--my')) || 18) / 100 * height
     context.clearRect(0, 0, width, height)
