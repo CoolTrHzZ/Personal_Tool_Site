@@ -8,6 +8,7 @@ test('Admin dashboard 一屏展示真实项目配置并可直达管理页', asyn
   await expect(page.locator('.view.active')).toHaveCSS('animation-duration', '0.3s')
   await expect(page.locator('.view.active')).toHaveCSS('animation-timing-function', 'cubic-bezier(0.2, 0, 0, 1)')
   await expect(page.locator('.admin-brand-mark .brand-symbol')).toHaveAttribute('src', '/favicon.svg')
+  await expect(page.locator('.admin-brand-mark .brand-symbol')).toHaveCSS('filter', 'none')
   expect(await page.locator('.admin-brand-mark .brand-symbol').evaluate(image => image.naturalWidth)).toBeGreaterThan(0)
   await expect(page.locator('#app-version, #sidebar-version')).toHaveCount(0)
   await expect(page.locator('canvas.tech-field')).toBeVisible()
@@ -91,6 +92,8 @@ test('Admin light theme 使用浅色品牌标记', async ({ page }) => {
   await page.addInitScript(() => globalThis.localStorage.setItem('theme', 'light'))
   await page.goto('/admin/')
   await expect(page.locator('.admin-brand-mark .brand-symbol')).toHaveAttribute('src', '/favicon.svg')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(page.locator('.admin-brand-mark .brand-symbol')).toHaveCSS('filter', 'none')
 })
 
 test('Admin dashboard 明确显示运行时和配置接口异常', async ({ page }) => {

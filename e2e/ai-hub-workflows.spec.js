@@ -1,0 +1,31 @@
+import { test, expect } from '@playwright/test'
+
+test.use({ reducedMotion: 'reduce' })
+
+test('提示词填变量后复制正文，工作流深链接可新建任务', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/#/ai')
+  const prompt = page.locator('.ai-resource-card', { has: page.getByRole('heading', { name: 'Explain Simply' }) })
+  await prompt.getByRole('button', { name: '填写变量' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Explain Simply' })
+  await expect(dialog.getByRole('button', { name: '复制提示词', exact: true })).toBeDisabled()
+  await dialog.getByRole('textbox', { name: 'topic', exact: true }).fill('React 服务端渲染 $&')
+  await expect(dialog.getByLabel('正文预览')).toContainText('Explain React 服务端渲染 $& in plain language.')
+  await dialog.getByRole('button', { name: '复制提示词', exact: true }).click()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('React 服务端渲染 $&')
+  await dialog.getByRole('button', { name: '复制安装方式', exact: true }).click()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('{{topic}}')
+
+  await page.goto('/#/ai?workflow=review-change')
+  const workflow = page.getByRole('dialog', { name: '代码变更审查', exact: true })
+  await expect(workflow.getByRole('button', { name: '关联资源：Code Review' })).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await workflow.getByRole('link', { name: '从此工作流创建任务包' }).click()
+  await expect(page.getByRole('region', { name: '工作流任务预览' })).toBeVisible()
+  await page.getByRole('button', { name: '从工作流新建任务', exact: true }).click()
+  await expect(page.getByLabel('项目名称', { exact: true })).toHaveValue('代码变更审查')
+  await expect(page.getByLabel('材料内容 2', { exact: true })).toHaveValue(/Prioritize bugs/)
+  await page.reload()
+  await expect(page.getByLabel('项目名称', { exact: true })).toHaveValue('代码变更审查')
+  await expect(page.getByRole('region', { name: '工作流任务预览' })).toHaveCount(0)
+})

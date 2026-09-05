@@ -1,0 +1,27 @@
+.page:has(> .page-hero) { max-width: 1320px; }
+.page-hero { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 40px; padding: 0 8px 32px 0; margin-bottom: 28px; border-bottom: 1px solid var(--border-default); }
+.page-hero-copy { min-width: 0; }
+.page-hero .atlas-kicker { color: var(--accent); overflow-wrap: anywhere; }
+.page-hero h1 { margin: 12px 0 16px; font: 650 clamp(32px, 4.6vw, 54px)/1.2 var(--font-display); letter-spacing: -.04em; overflow-wrap: anywhere; }
+.page-hero-subtitle { margin: 0 0 20px; color: var(--text-secondary); font: 600 clamp(17px, 2.1vw, 25px)/1.5 var(--font-display); letter-spacing: -.02em; }
+.page-hero-description { max-width: 680px; margin: 0; color: var(--text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
+.page-hero-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; margin-top: 26px; color: var(--text-faint); font-size: 12px; }
+.page-hero-stats { display: flex; flex-wrap: wrap; gap: 18px 28px; margin: 0; }
+.page-hero-stats > div { display: inline-flex; align-items: center; gap: 9px; }
+.page-hero-stats dt { order: 1; }
+.page-hero-stats dd { margin: 0; color: var(--accent); font: 500 23px var(--font-mono); }
+.page-hero-note { display: inline-flex; align-items: center; gap: 9px; }
+.page-hero-note svg { flex-shrink: 0; }
+.page-hero-emblem { display: grid; place-content: center; justify-items: center; gap: 4px; align-self: center; height: 200px; border: 1px solid var(--border-default); border-radius: 20px; background: radial-gradient(ellipse at 50% 20%, var(--accent-soft), transparent 70%), var(--surface-card); transform: rotate(-4deg); color: var(--accent); animation: page-emblem-float 8s ease-in-out infinite; }
+.page-hero-emblem > span { color: var(--text-primary); font: 500 26px var(--font-mono); }
+.page-hero-emblem small { margin-top: 10px; color: var(--accent-secondary); font: 9px var(--font-mono); letter-spacing: .1em; }
+@keyframes page-emblem-float { 50% { transform: translateY(-6px) rotate(-2deg); } }
+:root[data-motion="off"] .page-hero-emblem { animation: none; }
+@media (prefers-reduced-motion: reduce) { .page-hero-emblem { animation: none; } }
+@media (max-width: 700px) {
+  .page-hero { grid-template-columns: minmax(0, 1fr); gap: 0; padding-right: 0; padding-bottom: 24px; margin-bottom: 24px; }
+  .page-hero-emblem { display: none; }
+  .page-hero-subtitle { margin-bottom: 16px; }
+  .page-hero-summary { gap: 14px 20px; margin-top: 22px; }
+  .page-hero-stats { gap: 14px 20px; }
+}

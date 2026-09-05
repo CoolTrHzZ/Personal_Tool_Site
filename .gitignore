@@ -25,3 +25,4 @@ playwright-report/
 e2e/screenshots/
 
 .adcp-local/
+.admin-restore-*/

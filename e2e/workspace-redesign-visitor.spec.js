@@ -1,0 +1,36 @@
+import { test, expect } from '@playwright/test'
+
+test.use({ reducedMotion: 'reduce' })
+
+test('新访客默认浏览资源，个人模式记住偏好且切回资源时保留数据', async ({ page }) => {
+  await page.goto('/#/')
+  await expect(page.getByTestId('boot-layer')).toBeHidden()
+  const resources = page.getByRole('button', { name: '资源浏览', exact: true })
+  const personal = page.getByRole('button', { name: '我的工作区', exact: true })
+  const workspace = page.locator('.workspace-panel')
+  await expect(resources).toBeVisible()
+  await expect(personal).toBeVisible()
+  await expect(workspace).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '今日待办', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: '临时便笺内容' })).toHaveCount(0)
+
+  await personal.click()
+  await expect(workspace).toBeVisible()
+  await expect(workspace.getByRole('checkbox')).toHaveCount(0)
+  await workspace.getByRole('textbox', { name: '新增待办' }).fill('保留我的个人任务')
+  await workspace.getByRole('button', { name: '添加待办' }).click()
+  await workspace.getByRole('textbox', { name: '临时便笺内容' }).fill('切换浏览模式后也要保留的灵感')
+  expect(await page.evaluate(() => localStorage.getItem('devos-home-view'))).toBe('personal')
+
+  await page.reload()
+  await expect(workspace.getByRole('checkbox', { name: '保留我的个人任务' })).toBeVisible()
+  await expect(workspace.getByRole('textbox', { name: '临时便笺内容' })).toHaveValue('切换浏览模式后也要保留的灵感')
+  await resources.click()
+  await expect(workspace).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: '临时便笺内容' })).toHaveCount(0)
+  await page.reload()
+  await expect(workspace).toHaveCount(0)
+  await personal.click()
+  await expect(workspace.getByRole('checkbox', { name: '保留我的个人任务' })).toBeVisible()
+  await expect(workspace.getByRole('textbox', { name: '临时便笺内容' })).toHaveValue('切换浏览模式后也要保留的灵感')
+})

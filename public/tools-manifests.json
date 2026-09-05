@@ -248,5 +248,151 @@
     "updated": "2026-08-22",
     "favorite": true,
     "order": 80
+  },
+  {
+    "id": "ai-context",
+    "name": "AI 任务上下文包",
+    "description": "整理项目背景、任务目标与代码材料，一次复制完整 AI 上下文",
+    "type": "react",
+    "entry": "react",
+    "category": "development",
+    "version": "1.0.0",
+    "enabled": true,
+    "icon": "FileText",
+    "keywords": [
+      "AI",
+      "上下文",
+      "任务包",
+      "prompt",
+      "代码",
+      "Markdown"
+    ],
+    "favorite": false,
+    "order": 81,
+    "author": "local",
+    "updated": "2026-09-05",
+    "tags": [
+      "AI 开发",
+      "上下文",
+      "本地处理"
+    ],
+    "status": "active",
+    "readme": "填写任务背景并添加选定的文本材料，生成 Markdown 上下文。支持浏览器草稿、JSON 迁移和 Markdown 下载，无需接入 AI API。",
+    "license": "MIT",
+    "permissions": {
+      "clipboard": true,
+      "storage": true,
+      "network": false,
+      "notifications": false,
+      "modals": false,
+      "download": true,
+      "externalLinks": false,
+      "sameOrigin": false,
+      "popups": false
+    },
+    "runtime": "react",
+    "format": "react-package",
+    "display": {
+      "mode": "workspace",
+      "height": "auto"
+    }
+  },
+  {
+    "id": "config-diff",
+    "name": "配置差异对比",
+    "description": "对比 JSON、YAML、.env 与 CFG，检查重复键并导出变更报告",
+    "type": "react",
+    "entry": "react",
+    "category": "development",
+    "version": "1.0.0",
+    "enabled": true,
+    "icon": "GitCompareArrows",
+    "keywords": [
+      "配置",
+      "diff",
+      "对比",
+      "json",
+      "yaml",
+      "env",
+      "cfg",
+      "运维"
+    ],
+    "order": 82,
+    "author": "local",
+    "updated": "2026-09-05",
+    "tags": [
+      "开发",
+      "运维",
+      "配置对比"
+    ],
+    "status": "active",
+    "readme": "在浏览器内对比配置原文，支持格式检查、重复键诊断及 Markdown 变更报告。内容不会上传或自动保存。单侧上限 256 KiB、2000 行。",
+    "license": "MIT",
+    "permissions": {
+      "clipboard": true,
+      "storage": false,
+      "network": false,
+      "notifications": false,
+      "modals": false,
+      "download": true,
+      "externalLinks": false,
+      "sameOrigin": false,
+      "popups": false
+    },
+    "runtime": "react",
+    "format": "react-package",
+    "display": {
+      "mode": "workspace",
+      "height": "auto"
+    },
+    "favorite": false
+  },
+  {
+    "id": "cs2-cfg",
+    "name": "CS2 CFG 工作台",
+    "description": "在线编辑、检查绑定、保存版本并通过链接分享 CFG",
+    "type": "react",
+    "entry": "react",
+    "runtime": "react",
+    "format": "react-package",
+    "category": "game",
+    "version": "1.0.0",
+    "enabled": true,
+    "icon": "Wrench",
+    "keywords": [
+      "cs2",
+      "cfg",
+      "autoexec",
+      "bind",
+      "配置",
+      "分享"
+    ],
+    "order": 83,
+    "author": "local",
+    "updated": "2026-09-05",
+    "tags": [
+      "CS2",
+      "CFG",
+      "配置"
+    ],
+    "status": "active",
+    "readme": "在浏览器内编辑、静态检查与预览 CFG 绑定，保存本地版本、下载或生成包含配置内容的分享链接。检查不代表游戏引擎实际执行。",
+    "license": "MIT",
+    "display": {
+      "mode": "workspace",
+      "height": "auto"
+    },
+    "permissions": {
+      "clipboard": true,
+      "storage": true,
+      "network": false,
+      "notifications": false,
+      "modals": false,
+      "download": true,
+      "externalLinks": false,
+      "sameOrigin": false,
+      "popups": false
+    },
+    "favorite": false
   }
 ]

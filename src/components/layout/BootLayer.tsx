@@ -9,8 +9,8 @@ export default function BootLayer() {
   const [leaving, setLeaving] = useState(false)
   useEffect(() => {
     if (!open) return
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
-    const hold = reduce ? 40 : 920
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.motion === 'off'
+    const hold = reduce ? 0 : 480
     const fade = reduce ? 0 : 280
     let fadeTimer = 0
     const start = window.setTimeout(() => {
@@ -26,7 +26,7 @@ export default function BootLayer() {
   return (
     <div className={`boot-layer${leaving ? ' is-leaving' : ''}`} data-testid="boot-layer" role="status" aria-live="polite" aria-busy="true">
       <div className="boot-panel">
-        <span className="mark-tile mark-tile-brand boot-mark"><img className="brand-symbol" src="/favicon.svg" alt="" /></span>
+        <span className="mark-tile mark-tile-brand boot-mark"><img className="brand-symbol" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" /></span>
         <div className="boot-ring" aria-hidden="true" />
         <p>载入工作区</p>
         <div className="boot-meter"><span /></div>

@@ -1,0 +1,44 @@
+{
+  "id": "config-diff",
+  "name": "配置差异对比",
+  "description": "对比 JSON、YAML、.env 与 CFG，检查重复键并导出变更报告",
+  "type": "react",
+  "entry": "react",
+  "category": "development",
+  "version": "1.0.0",
+  "enabled": true,
+  "icon": "GitCompareArrows",
+  "keywords": [
+    "配置",
+    "diff",
+    "对比",
+    "json",
+    "yaml",
+    "env",
+    "cfg",
+    "运维"
+  ],
+  "order": 82,
+  "author": "local",
+  "updated": "2026-09-05",
+  "tags": [
+    "开发",
+    "运维",
+    "配置对比"
+  ],
+  "status": "active",
+  "readme": "在浏览器内对比配置原文，支持格式检查、重复键诊断及 Markdown 变更报告。内容不会上传或自动保存。单侧上限 256 KiB、2000 行。",
+  "license": "MIT",
+  "permissions": {
+    "clipboard": true,
+    "storage": false,
+    "network": false,
+    "download": true
+  },
+  "runtime": "react",
+  "format": "react-package",
+  "display": {
+    "mode": "workspace",
+    "height": "auto"
+  }
+}

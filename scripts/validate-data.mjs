@@ -2,6 +2,9 @@ import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { URL } from 'node:url'
 import { validateManifest } from './tool-manifest.mjs'
+import { validateCfgLibrary } from './cfg-library.mjs'
+import { fileURLToPath } from 'node:url'
+import { assertProjects, assertNoteRelations, assertAIWorkflows } from '../shared/content-validation.js'
 
 const load = name => readFile(new URL(`../src/data/${name}.json`, import.meta.url), 'utf8').then(JSON.parse)
 const isISODate = value => {
@@ -16,8 +19,14 @@ const [navigation, categories] = await Promise.all([load('navigation'), load('ca
 const library = await load('library')
 const aiResources = await load('ai-resources')
 const notes = await load('notes')
+const projects = await load('projects')
+const workflows = await load('ai-workflows')
 const tags = await load('tags')
 const site = await load('site')
+const cfgs = await validateCfgLibrary(fileURLToPath(new URL('../src/data/cfgs.json', import.meta.url)), fileURLToPath(new URL('../public/cfgs/', import.meta.url)))
+assertProjects(projects, cfgs)
+assertNoteRelations(notes, projects, cfgs)
+assertAIWorkflows(workflows, aiResources)
 const registry = await readFile(new URL('../src/tools/registry.ts', import.meta.url), 'utf8')
 const registryTools = [...registry.matchAll(/\{\s*id:\s*'([^']+)'[\s\S]*?path:\s*'([^']+)'/g)].map(([, id, path]) => ({ id, path }))
 const coreManifests = JSON.parse(await readFile(new URL('../src/tools/manifests/core.json', import.meta.url), 'utf8'))
@@ -81,4 +90,4 @@ const checkManifests = (manifests, label) => {
 checkManifests(coreManifests, 'core')
 checkManifests(publicManifests, 'public')
 if (String.fromCharCode(7) !== '\x07') throw new Error('control character self-check failed')
-console.log(`valid: ${navigation.length} navigation items, ${library.length} library items, ${aiResources.length} AI resources, ${notes.length} notes, ${categories.length} categories, ${coreManifests.length} tools`)
+console.log(`valid: ${navigation.length} navigation items, ${library.length} library items, ${aiResources.length} AI resources, ${workflows.length} AI workflows, ${projects.length} projects, ${notes.length} notes, ${categories.length} categories, ${coreManifests.length} tools, ${cfgs.length} CFG files`)

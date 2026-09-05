@@ -1,0 +1,79 @@
+.cfg-library-page { max-width: 1320px; }
+.cfg-library-page .back-link { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 24px; }
+.cfg-library-detail-heading h1 { margin: 12px 0 16px; font: 650 clamp(32px, 4.6vw, 54px)/1.2 var(--font-display); letter-spacing: -.04em; overflow-wrap: anywhere; }
+.cfg-library-detail-heading > p:not(.atlas-kicker) { max-width: 680px; color: var(--text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
+.cfg-library-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-top: 28px; }
+.cfg-library-sort { display: flex; align-items: center; gap: 10px; color: var(--text-faint); font-size: 12px; }
+.cfg-library-sort select { padding: 9px 30px 9px 12px; border: 1px solid var(--border-default); border-radius: 6px; background: var(--surface-panel); color: var(--text-primary); }
+.cfg-library-filters { margin: 18px 0 28px; }
+.cfg-library-filters small { margin-left: 5px; color: var(--text-faint); }
+.cfg-library-list-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cfg-library-list-heading h2 { margin: 0; font-size: 17px; }
+.cfg-library-list-heading > span { color: var(--text-faint); font-size: 12px; }
+.cfg-library-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.cfg-library-card { min-width: 0; display: flex; flex-direction: column; padding: 22px; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-card); transition: border-color var(--duration) var(--ease), background var(--duration) var(--ease); }
+.cfg-library-card:hover { border-color: var(--border-hover); background: var(--surface-overlay); }
+.cfg-library-card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--accent-secondary); font-size: 11px; }
+.cfg-library-card-top > span:last-child { overflow-wrap: anywhere; }
+.cfg-library-file-icon { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 1px solid var(--border-default); border-radius: 9px; background: var(--accent-soft); color: var(--accent); }
+.cfg-library-card h3 { margin: 20px 0 7px; font-size: 19px; }
+.cfg-library-card h3 a { display: flex; justify-content: space-between; align-items: center; gap: 10px; overflow-wrap: anywhere; }
+.cfg-library-card h3 svg { flex-shrink: 0; color: var(--text-faint); }
+.cfg-library-filename { color: var(--text-faint); font: 11px var(--font-mono); overflow-wrap: anywhere; }
+.cfg-library-card > p { color: var(--text-secondary); font-size: 12px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cfg-library-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 18px; }
+.cfg-library-tags span { max-width: 100%; padding: 3px 7px; border: 1px solid var(--border-subtle); border-radius: 4px; color: var(--text-secondary); font-size: 10px; overflow-wrap: anywhere; }
+.cfg-library-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border-subtle); }
+.cfg-library-card-foot time { flex: 1 0 100%; margin-bottom: 5px; color: var(--text-faint); font: 10px var(--font-mono); }
+.cfg-library-empty { display: grid; justify-items: center; gap: 12px; padding: 64px 22px; border: 1px dashed var(--border-default); border-radius: 12px; background: var(--surface-card); text-align: center; }
+.cfg-library-empty > svg { color: var(--accent); }
+.cfg-library-empty h2 { margin: 5px 0 0; font-size: 21px; }
+.cfg-library-empty p { margin: 0 0 12px; color: var(--text-secondary); font-size: 13px; }
+.cfg-library-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border-subtle); color: var(--text-faint); font-size: 11px; }
+.cfg-library-bottom a { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.cfg-library-detail-heading { padding-bottom: 18px; }
+.cfg-library-detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 24px; align-items: start; }
+.cfg-library-preview { min-width: 0; border: 1px solid var(--border-default); border-radius: 12px; overflow: hidden; background: var(--surface-card); }
+.cfg-library-preview-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-default); }
+.cfg-library-preview-bar > span { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--accent); font: 12px var(--font-mono); overflow-wrap: anywhere; }
+.cfg-library-preview-bar svg { flex-shrink: 0; }
+.cfg-library-preview-bar small { color: var(--text-faint); font: 10px var(--font-mono); }
+.cfg-library-code { min-height: 350px; max-height: 70vh; margin: 0; padding: 24px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-primary); font: 12px/1.9 var(--font-mono); tab-size: 2; }
+.cfg-library-code code { font: inherit; }
+.cfg-library-feedback { padding: 28px 22px; color: var(--text-secondary); }
+.cfg-library-side { display: grid; gap: 16px; min-width: 0; }
+.cfg-library-panel { min-width: 0; padding: 22px; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-card); }
+.cfg-library-panel h2 { margin: 8px 0 20px; font-size: 18px; line-height: 1.5; }
+.cfg-library-panel dl { display: grid; gap: 12px; margin: 0 0 24px; font-size: 12px; }
+.cfg-library-panel dl > div { display: flex; gap: 20px; justify-content: space-between; }
+.cfg-library-panel dt { flex-shrink: 0; color: var(--text-faint); }
+.cfg-library-panel dd { margin: 0; overflow-wrap: anywhere; text-align: right; }
+.cfg-library-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cfg-library-actions > button { flex: 1 1 auto; min-height: 38px; }
+.cfg-library-actions > span { flex-basis: 100%; color: var(--accent); font-size: 12px; }
+.cfg-library-panel .cfg-library-hint { margin: 16px 0 0; color: var(--text-faint); font-size: 11px; line-height: 1.8; }
+.cfg-library-guide ol { display: grid; gap: 16px; margin: 0; padding-left: 18px; color: var(--text-secondary); font-size: 12px; line-height: 1.8; }
+.cfg-library-guide li::marker { color: var(--accent-secondary); }
+.cfg-library-guide code { color: var(--accent); font-size: 11px; overflow-wrap: anywhere; }
+.cfg-version-panel label { display: grid; gap: 9px; margin-top: 16px; color: var(--text-secondary); font-size: 12px; }
+.cfg-version-panel select { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--border-default); border-radius: 6px; background: var(--surface-panel); color: var(--text-primary); }
+.cfg-changelog, .cfg-library-detail-heading > p { white-space: pre-wrap; }
+.cfg-changelog { color: var(--text-secondary); font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.cfg-history-diff { margin-top: 24px; }
+.cfg-history-diff > p, .cfg-package-preview > p { color: var(--text-secondary); font-size: 12px; }
+.cfg-history-diff pre { max-height: 60vh; overflow: auto; font: 12px/1.8 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.cfg-diff-add { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); }
+.cfg-diff-remove { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.cfg-library-package { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px; margin-bottom: 22px; border: 1px solid var(--border-default); border-radius: 12px; background: var(--accent-soft); }
+.cfg-library-package > div { flex: 1 1 270px; }
+.cfg-library-package h2 { margin: 0; font-size: 16px; }
+.cfg-library-package p, .cfg-library-package > span { margin: 7px 0 0; font-size: 12px; color: var(--text-secondary); }
+.cfg-package-choice { display: inline-flex; align-items: center; gap: 8px; margin: auto 0 14px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+.cfg-package-choice input { accent-color: var(--accent); width: 16px; height: 16px; }
+.cfg-package-preview { margin-bottom: 24px; }
+.cfg-package-preview li { overflow-wrap: anywhere; color: var(--text-secondary); line-height: 1.8; font-size: 12px; }
+.cfg-package-preview [role="alert"], .cfg-package-error { color: var(--warning); }
+.cfg-package-preview h3 { font-size: 14px; }
+.cfg-package-preview .ui-button { margin-top: 16px; }
+@media (max-width: 1100px) { .cfg-library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cfg-library-detail-grid { grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; } }
+@media (max-width: 700px) { .cfg-library-grid, .cfg-library-detail-grid { grid-template-columns: minmax(0, 1fr); } .cfg-library-toolbar .ai-search { width: 100%; } .cfg-library-card { padding: 18px; } .cfg-library-detail-grid { gap: 20px; } .cfg-library-code { min-height: 260px; padding: 18px; font-size: 11px; } }

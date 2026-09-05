@@ -2,6 +2,14 @@ import { test, expect } from '@playwright/test'
 
 const TOOL_ID = 'community-rainbow-chat-generator-v4-unicode-fix'
 
+test('本地预览提供与静态部署一致的工具 SDK 路径', async ({ request }) => {
+  const sdk = await request.get('/tools/toolbox-bridge.js')
+  const alias = await request.get('/toolbox-bridge.js?v=preview')
+  expect(alias.ok()).toBe(true)
+  expect(alias.headers()['content-type']).toMatch(/javascript/)
+  expect(await alias.text()).toBe(await sdk.text())
+})
+
 test('静态工具全屏后 iframe 铺满视口剩余区域', async ({ page }) => {
   const errors = []
   const failed = []

@@ -1,4 +1,5 @@
-import { useTools } from '../tools/runtime/ToolCatalog'
+import { TerminalSquare } from 'lucide-react'
+import { useTools, useToolsLoaded } from '../tools/runtime/ToolCatalog'
 import ToolCard from '../components/tools/ToolCard'
 import { useMemo, useState } from 'react'
 import { saveSearch } from '../utils/user-state'
@@ -6,6 +7,7 @@ import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import FormField from '../components/ui/FormField'
 import EmptyState from '../components/ui/EmptyState'
+import PageHero from '../components/ui/PageHero'
 import site from '../data/site.json'
 import type { SiteConfig } from '../types'
 
@@ -14,6 +16,7 @@ const siteConfig = site as SiteConfig
 
 export default function ToolsPage() {
   const tools = useTools()
+  const loaded = useToolsLoaded()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('all')
   const [status, setStatus] = useState('all')
@@ -29,11 +32,17 @@ export default function ToolsPage() {
   })
   return (
     <main className="page tools-marketplace">
-      <section className="page-heading">
-        <p className="atlas-kicker">工具路线</p>
-        <h1>全部工具 <small>({filtered.length})</small></h1>
-        {siteConfig.toolsDescription && <p>{siteConfig.toolsDescription}</p>}
-      </section>
+      <PageHero
+        eyebrow="WORKBENCH / TOOL DIRECTORY"
+        title="全部工具"
+        subtitle="趁手工具，即开即用。"
+        description={siteConfig.toolsDescription}
+        stats={[{ value: loaded ? tools.length : '—', label: '个工具' }, { value: loaded ? categories.length - 1 : '—', label: '个分类' }]}
+        icon={TerminalSquare}
+        code=".TOOLS"
+        caption="READY FOR YOUR NEXT TASK"
+        note={<span role="status">{loaded ? `${filtered.length} 个匹配工具` : '正在加载工具目录…'}</span>}
+      />
       <div className="tool-filters">
         <nav className="category-route" aria-label="工具类别">
           <button type="button" className={category === 'all' ? 'active' : ''} onClick={() => setCategory('all')}>全部</button>
@@ -60,13 +69,13 @@ export default function ToolsPage() {
           </FormField>
         </div>
       </div>
-      {!tools.length && (
+      {!loaded && (
         <div className="tool-grid tool-grid-large marketplace-grid" aria-busy="true" data-testid="tools-skeleton">
           {Array.from({ length: 8 }, (_, index) => <div className="ui-skeleton-card" key={index} />)}
         </div>
       )}
       {tools.length > 0 && <div className="directory" aria-label="工具目录">{filtered.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>}
-      {tools.length > 0 && !filtered.length && <EmptyState title="没有匹配工具" />}
+      {loaded && !filtered.length && <EmptyState title={tools.length ? '没有匹配工具' : '暂无可用工具'} />}
     </main>
   )
 }

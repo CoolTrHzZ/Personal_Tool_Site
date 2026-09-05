@@ -9,6 +9,5 @@
 .card-arrow { margin-left: auto; color: var(--text-faint); }
 .category { margin-bottom: 36px; }
 .category h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-default); color: var(--text-primary); font: 600 16px var(--font-display); }
-.nav-page .page-heading h1 { font-family: var(--font-display); }
 @media (min-width: 768px) and (max-width: 1023px) { .nav-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 767px) { .nav-grid { grid-template-columns: 1fr; } }

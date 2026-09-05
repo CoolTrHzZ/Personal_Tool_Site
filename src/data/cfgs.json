@@ -1,0 +1,15 @@
+[
+  {
+    "id": "efd3e468-374c-4d86-acd2-3321a5526e7b",
+    "name": "cs2cfg",
+    "filename": "autoexec.cfg",
+    "description": "cs2cfg",
+    "category": "通用",
+    "tags": [],
+    "updated": "2026-09-05",
+    "order": 10,
+    "version": 1,
+    "changelog": "",
+    "history": []
+  }
+]

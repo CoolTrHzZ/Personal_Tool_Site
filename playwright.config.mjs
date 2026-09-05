@@ -7,6 +7,8 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   fullyParallel: false,
+  // ponytail: Admin tests share repository data and trigger Vite HMR; parallelize after isolating each worker's data and servers.
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   webServer: [
