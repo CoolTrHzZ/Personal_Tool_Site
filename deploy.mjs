@@ -178,6 +178,7 @@ async function main() {
   process.exitCode = await runServices(directory, { openBrowser: !values['no-open'] })
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// macOS temporary directories and symlinked launchers may have a different lexical path.
+if (process.argv[1] && await realpath(process.argv[1]).catch(() => '') === await realpath(fileURLToPath(import.meta.url))) {
   main().catch(error => { console.error(`部署未完成：${error.message}`); process.exitCode = 1 })
 }

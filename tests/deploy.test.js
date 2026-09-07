@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, expect, it } from 'vitest'
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -81,6 +81,16 @@ beforeEach(async () => {
 })
 
 afterEach(async () => { if (root) await rm(root, { recursive: true, force: true }) })
+
+it('runs the downloaded CLI through a symlinked temporary directory', async () => {
+  const actual = join(root, 'downloaded'), alias = join(root, 'temporary-link')
+  await mkdir(actual)
+  await cp(join(source, 'deploy.mjs'), join(actual, 'deploy.mjs'))
+  await symlink(actual, alias, 'junction')
+  const { stdout } = await exec(process.execPath, [join(alias, 'deploy.mjs'), '--help'])
+  expect(stdout).toContain('DevOS 本地一键部署')
+  expect(stdout).toContain('update')
+})
 
 it('downloads into a path containing spaces and Chinese, and reuses an existing checkout without erasing local edits', async () => {
   await install()
