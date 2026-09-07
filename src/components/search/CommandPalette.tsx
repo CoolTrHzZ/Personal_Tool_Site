@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, X } from 'lucide-react'
 import library from '../../data/library.json'
 import navigation from '../../data/navigation.json'
@@ -25,8 +25,10 @@ const workflowItems = workflows as AIWorkflow[]
 export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const tools = useTools()
   const navigate = useNavigate()
+  const location = useLocation()
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState(0)
+  useEffect(() => { if (open) { setQuery(''); setIndex(0) } }, [open])
   const listId = useId()
   const listRef = useRef<HTMLDivElement>(null)
   const q = query.trim().toLowerCase()
@@ -34,7 +36,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     const matches = (values: string[]) => values.join(' ').toLowerCase().includes(q)
     return [
       ...tools.filter(tool => tool.enabled && tool.status !== 'disabled' && matches([tool.name, tool.description, ...tool.keywords, ...(tool.tags || [])])).slice(0, 8).map(tool => ({
-        id: `tool-${tool.id}`, group: '工具', name: `打开 ${tool.name}`, hint: '↵', run: () => { addRecentTool(tool.id); navigate(tool.path) },
+        id: `tool-${tool.id}`, group: '工具', name: `打开 ${tool.name}`, hint: '↵', run: () => { addRecentTool(tool.id); navigate(tool.path, { state: location.pathname === '/tools' ? { returnTo: `${location.pathname}${location.search}` } : undefined }) },
       })),
       ...sites.filter(item => item.enabled && matches([item.name, item.url, item.description, ...item.tags])).slice(0, 6).map(item => ({
         id: `site-${item.id}`, group: '网站', name: item.name, hint: new URL(item.url).hostname, run: () => { window.open(item.url, '_blank', 'noopener,noreferrer') },
@@ -46,7 +48,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         id: `note-${item.id}`, group: '笔记', name: item.title, hint: '笔记', run: () => navigate(`/notes/${item.id}`),
       })),
       ...aiResources.filter(item => item.enabled && matches([item.name, item.description, item.kind, item.install, item.content, ...item.tags])).slice(0, 6).map(item => ({
-        id: `ai-${item.id}`, group: 'AI 资源', name: item.name, hint: item.kind, run: () => navigate(`/ai?q=${encodeURIComponent(item.name)}`),
+        id: `ai-${item.id}`, group: 'AI 资源', name: item.name, hint: item.kind, run: () => navigate(`/ai?resource=${encodeURIComponent(item.id)}`),
       })),
       ...configurations.filter(item => matches([item.name, item.filename, item.description, item.category, ...item.tags])).slice(0, 6).map(item => ({
         id: `cfg-${item.id}`, group: 'CFG 配置库', name: item.name, hint: item.filename, run: () => navigate(`/cfg/${item.id}`),
@@ -67,7 +69,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         { id: 'projects', name: '打开桌面工具库', hint: 'EXE 项目', path: '/projects' },
       ].filter(item => matches([item.name, item.hint])).map(item => ({ ...item, group: '命令', run: () => navigate(item.path) })),
     ]
-  }, [tools, q, navigate])
+  }, [tools, q, navigate, location.pathname, location.search])
   const selectedIndex = Math.min(index, Math.max(0, items.length - 1))
   useEffect(() => {
     if (open) listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })

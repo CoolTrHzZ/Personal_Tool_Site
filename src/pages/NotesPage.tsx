@@ -21,10 +21,11 @@ export default function NotesPage() {
   const [params, setParams] = useSearchParams()
   const query = params.get('q') || ''
   const kind = params.get('kind') || 'all'
-  const project = params.get('project') || 'all'
+  const project = params.get('project') || ''
+  const hasFilters = Boolean(query || kind !== 'all' || project)
   const q = query.trim().toLocaleLowerCase()
-  const shown = items.filter(item => (kind === 'all' || (item.kind || 'note') === kind) && (project === 'all' || item.projectId === project) && [item.title, item.summary, item.body, ...item.tags].join(' ').toLocaleLowerCase().includes(q))
-  const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || value === 'all') next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
+  const shown = items.filter(item => (kind === 'all' || (item.kind || 'note') === kind) && (!project || item.projectId === project) && [item.title, item.summary, item.body, ...item.tags].join(' ').toLocaleLowerCase().includes(q))
+  const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || (key === 'kind' && value === 'all')) next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
   return (
     <main className="page notes-page">
       <PageHero
@@ -37,7 +38,7 @@ export default function NotesPage() {
         code=".MD"
         caption="KNOWLEDGE AT HAND"
       />
-      <div className="content-toolbar"><Input aria-label="搜索笔记" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索手册、故障现象或标签…" /><label>手册类型<Select aria-label="手册类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{Object.entries(noteKinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>关联项目<Select aria-label="笔记关联项目" value={project} onChange={event => setFilter('project', event.target.value)}><option value="all">全部项目</option>{projectItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label></div>
+      <div className="content-toolbar"><Input aria-label="搜索笔记" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索手册、故障现象或标签…" /><label>手册类型<Select aria-label="手册类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{kind !== 'all' && !Object.keys(noteKinds).includes(kind) && <option value={kind} disabled>已失效：{kind}</option>}{Object.entries(noteKinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>关联项目<Select aria-label="笔记关联项目" value={project} onChange={event => setFilter('project', event.target.value)}><option value="">全部项目</option>{project && !projectItems.some(item => item.id === project) && <option value={project} disabled>已失效：{project}</option>}{projectItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
       <p className="content-count" role="status">{shown.length} 篇笔记与手册</p>
       {shown.length ? (
         <div className="note-list">
@@ -51,7 +52,7 @@ export default function NotesPage() {
             </Link>
           ))}
         </div>
-      ) : <><EmptyState title={items.length ? '没有匹配的手册' : '暂无笔记'} />{items.length > 0 && <Button onClick={() => setParams({})}>清除筛选</Button>}</>}
+      ) : <EmptyState title={items.length ? '没有匹配的手册' : '暂无笔记'} />}
     </main>
   )
 }

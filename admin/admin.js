@@ -5,6 +5,7 @@ import {
   field, renderMetadataForm, renderPermissionsForm,
 } from './wizard-forms.js'
 import { TAG_PAGE_SIZES, collectTagItems, filterTagItems, paginateTagItems, tagSourceLabel } from './tags-core.js'
+import { mountTagPicker } from './tag-picker.js'
 import { ICON_NAMES, createIconSvg } from './icon-catalog.js'
 import { mountTechField } from '/shared/tech-field.js'
 import { mountCfgLibrary } from './cfg-library.js'
@@ -46,10 +47,13 @@ const bind = (selector, event, handler) => {
   return node
 }
 const ACTIVITY_KEY = 'adminActivity'
-let state = { navigation: [], categories: [], site: {}, tools: [], library: [], aiResources: [], notes: [], tags: [], tagStats: { navigationTagCount: 0, toolTagCount: 0, aiResourceTagCount: 0 }, system: null, validation: null, loadErrors: [] }
+let state = { navigation: [], categories: [], site: {}, tools: [], library: [], aiResources: [], notes: [], projects: [], cfgs: [], aiWorkflows: [], tags: [], system: null, validation: null, loadErrors: [] }
 document.documentElement.lang = i18n.locale
 if ($('#locale-select')) $('#locale-select').value = i18n.locale
 i18n.apply()
+for (const field of document.querySelectorAll('.visual-picker-field input[type="hidden"]')) {
+  field.type = 'text'; field.hidden = true; field.dataset.restoreValue = 'true'
+}
 if (i18n.locale === 'en-US') {
   $('#admin-preview').textContent = 'Local preview ↗'
   $('#admin-theme').setAttribute('aria-label', 'Admin theme')
@@ -150,6 +154,7 @@ function showView(view) {
   if (view === 'import') $('#tool-dropzone')?.focus()
   if (view === 'cfg-library') void cfgLibrary.load()
   if (contentCollections.titles[view]) void contentCollections.load(view)
+  if (view === 'tags') void readTags().then(renderTags).catch(error => toastError(error.message))
   if (view === 'settings') protectForm.resume($('#site'))
   return true
 }
@@ -350,56 +355,36 @@ function renderCategoryPicker(form) {
   const host = form.querySelector('.category-picker')
   const field = form.elements.category
   if (!host || !field) return
+  const focused = host.contains(document.activeElement) ? document.activeElement.dataset.categoryOption : undefined
+  field.dataset.restoreValue = 'true'
   if (!field.value && state.categories[0]) field.value = state.categories[0].id
   host.replaceChildren(...state.categories.map(category => {
     const option = button('', { categoryOption: category.id }, 'picker-card')
     option.setAttribute('aria-pressed', String(field.value === category.id))
     option.append(el('strong', '', category.name), el('small', '', category.id))
-    option.addEventListener('click', () => { field.value = category.id; renderCategoryPicker(form) })
+    option.addEventListener('click', () => { field.value = category.id; field.dispatchEvent(new Event('change', { bubbles: true })); renderCategoryPicker(form) })
     return option
   }))
   if (!state.categories.length) host.append(el('span', 'picker-empty', i18n.t('picker.noCategories')))
+  if (focused !== undefined) [...host.children].find(option => option.dataset.categoryOption === focused)?.focus({ preventScroll: true })
 }
 
 function renderTagPicker(form) {
-  const host = form.querySelector('.tags-picker')
-  const field = form.elements.tags
-  if (!host || !field) return
-  const selected = new Set(String(field.value || '').split(',').map(value => value.trim()).filter(Boolean))
-  const search = document.createElement('input')
-  search.className = 'ui-input picker-search'
-  search.type = 'search'
-  search.placeholder = i18n.t('picker.tagSearch')
-  const selection = el('div', 'tag-chips')
-  const options = el('div', 'tag-option-list')
-  const draw = () => {
-    selection.hidden = selected.size === 0
-    selection.replaceChildren(...chips([...selected]).childNodes)
-    const query = search.value.trim().toLowerCase()
-    const items = state.tags.filter(item => !query || item.name.toLowerCase().includes(query))
-    options.replaceChildren(...items.map(item => {
-      const option = button(item.name, { tagOption: item.name }, 'tag-option')
-      option.setAttribute('aria-pressed', String(selected.has(item.name)))
-      option.classList.toggle('is-selected', selected.has(item.name))
-      option.addEventListener('click', () => {
-        if (selected.has(item.name)) selected.delete(item.name)
-        else selected.add(item.name)
-        field.value = [...selected].join(', ')
-        draw()
-      })
-      return option
-    }))
-    if (!items.length) options.append(el('span', 'picker-empty', i18n.t('picker.noTags')))
-  }
-  search.addEventListener('input', draw)
-  host.replaceChildren(search, selection, options)
-  draw()
+  return mountTagPicker(form, { initialTags: state.tags, locale: i18n.locale, getTags: readTags, maxTags: form.id === 'cfg-form' ? 20 : 30 })
+}
+async function readTags() {
+  const data = await request('tags')
+  if (!Array.isArray(data.items)) throw new Error('标签目录无效')
+  state.tags = data.items
+  return data.items
 }
 
 function renderIconPicker(form) {
   const host = form.querySelector('.icon-picker')
   const field = form.elements.icon
   if (!host || !field) return
+  const focused = host.contains(document.activeElement) ? document.activeElement.dataset.iconOption : undefined
+  field.dataset.restoreValue = 'true'
   const website = host.id === 'nav-icon-picker'
   const names = website ? ['auto', 'letter'] : ICON_NAMES
   host.replaceChildren(...names.map(name => {
@@ -407,20 +392,21 @@ function renderIconPicker(form) {
     option.setAttribute('aria-pressed', String(field.value === name))
     const preview = name === 'auto' ? el('span', 'icon-option-letter', 'A') : name === 'letter' ? el('span', 'icon-option-letter', 'A') : createIconSvg(name, 20)
     option.append(preview, el('small', '', name === 'auto' ? i18n.t('picker.autoIcon') : name === 'letter' ? i18n.t('picker.letterIcon') : name))
-    option.addEventListener('click', () => { field.value = name; renderIconPicker(form) })
+    option.addEventListener('click', () => { field.value = name; field.dispatchEvent(new Event('change', { bubbles: true })); renderIconPicker(form) })
     return option
   }))
+  if (focused !== undefined) [...host.children].find(option => option.dataset.iconOption === focused)?.focus({ preventScroll: true })
 }
 
 function renderEditorPickers(form) {
+  renderTagPicker(form)
   if (form.querySelector('.category-picker')) {
     renderCategoryPicker(form)
-    renderTagPicker(form)
     renderIconPicker(form)
   }
-  if (form.querySelector('#ai-tags-picker')) renderTagPicker(form)
   if (form.querySelector('#category-icon-picker')) renderIconPicker(form)
 }
+document.addEventListener('devos:picker-sync', event => { renderCategoryPicker(event.target); renderIconPicker(event.target) })
 
 function kebab(actions) {
   const wrap = el('div', 'kebab')
@@ -671,7 +657,7 @@ function renderTags() {
   const filtered = filterTagItems(state.tags, tagsView)
   const page = paginateTagItems(filtered, tagsView.page, tagsView.pageSize)
   tagsView.page = page.page
-  $('#tag-summary').textContent = i18n.t('tags.summary', { total: String(state.tags.length), sites: String(state.tagStats.navigationTagCount), tools: String(state.tagStats.toolTagCount), ai: String(state.tagStats.aiResourceTagCount || 0) })
+  $('#tag-summary').textContent = i18n.t('tags.summary', { total: String(state.tags.length), used: String(state.tags.filter(item => item.total > 0).length), unused: String(state.tags.filter(item => !item.total).length) })
   const tbody = $('#tags')
   if (!page.items.length) {
     const row = document.createElement('tr')
@@ -707,25 +693,12 @@ function openTagDrawer(name) {
   tagsView.current = name
   const body = $('#tag-drawer-body')
   body.replaceChildren(el('h3', 'drawer-title', item.name), el('p', 'muted', i18n.t('tags.usageCount', { count: String(item.total) })))
-  const toolSources = item.sources.filter(source => source.type === 'tool')
-  const navigationSources = item.sources.filter(source => source.type === 'navigation')
-  const aiSources = item.sources.filter(source => source.type === 'ai-resource')
-  if (toolSources.length) {
+  for (const [type, key] of [['tool', 'tools'], ['navigation', 'navigation'], ['ai-resource', 'ai-resources'], ['library', 'library'], ['note', 'notes'], ['project', 'projects'], ['ai-workflow', 'ai-workflows'], ['cfg', 'cfgs']]) {
+    const sources = item.sources.filter(source => source.type === type)
+    if (!sources.length) continue
     const section = el('div', 'drawer-section')
-    section.append(el('h4', '', i18n.t('tags.usedByTools')))
-    for (const source of toolSources) section.append(el('div', 'drawer-item', `${source.name} (${source.id})`))
-    body.append(section)
-  }
-  if (navigationSources.length) {
-    const section = el('div', 'drawer-section')
-    section.append(el('h4', '', i18n.t('tags.usedBySites')))
-    for (const source of navigationSources) section.append(el('div', 'drawer-item', `${source.name} (${source.id})`))
-    body.append(section)
-  }
-  if (aiSources.length) {
-    const section = el('div', 'drawer-section')
-    section.append(el('h4', '', i18n.t('tags.usedByAI')))
-    for (const source of aiSources) section.append(el('div', 'drawer-item', `${source.name} (${source.id})`))
+    section.append(el('h4', '', i18n.t(`tags.source.${key}`)))
+    for (const source of sources) section.append(el('div', 'drawer-item', `${source.name} (${source.id})`))
     body.append(section)
   }
   const actions = el('div', 'drawer-actions')
@@ -762,21 +735,14 @@ async function reload(message = i18n.t('msg.updated'), record = true) {
   const loadCollection = async path => {
     try { return await request(path) } catch { state.loadErrors.push(path); return [] }
   }
-  ;[state.library, state.aiResources, state.notes, state.tools, state.projects, state.cfgs] = await Promise.all([
-    loadCollection('library'), loadCollection('ai-resources'), loadCollection('notes'), loadCollection('tools'), loadCollection('projects'), loadCollection('cfgs'),
+  ;[state.library, state.aiResources, state.notes, state.tools, state.projects, state.cfgs, state.aiWorkflows] = await Promise.all([
+    loadCollection('library'), loadCollection('ai-resources'), loadCollection('notes'), loadCollection('tools'), loadCollection('projects'), loadCollection('cfgs'), loadCollection('ai-workflows'),
   ])
   try {
-    const tagData = await request('tags')
-    state.tags = tagData.items
-      state.tagStats = { navigationTagCount: tagData.navigationTagCount, toolTagCount: tagData.toolTagCount, aiResourceTagCount: tagData.aiResourceTagCount || 0 }
+    await readTags()
   } catch {
     state.loadErrors.push('tags')
     state.tags = collectTagItems(state)
-    state.tagStats = {
-      navigationTagCount: state.tags.filter(item => item.navigationCount > 0).length,
-      toolTagCount: state.tags.filter(item => item.toolCount > 0).length,
-      aiResourceTagCount: state.tags.filter(item => item.aiResourceCount > 0).length,
-    }
   }
   if (message && record) logActivity(message)
   render()
@@ -829,9 +795,9 @@ function showEditorModal(form) {
   const focusRevision = ++editorFocusRevision
   const drawer = $('#editor-drawer')
   if (form.elements.originalId && form.elements.id) { form.elements.id.readOnly = Boolean(form.elements.originalId.value); form.elements.id.title = form.elements.originalId.value ? '已有 ID 为固定地址，不能更改' : '' }
-  if (!['cfg-form', 'content-collection-form'].includes(form.id)) protectForm.begin(form)
   editorReturnFocus = document.activeElement
   renderEditorPickers(form)
+  if (!['cfg-form', 'content-collection-form'].includes(form.id)) protectForm.begin(form)
   drawer.hidden = false
   $('#editor-drawer-body').scrollTop = 0
   requestAnimationFrame(() => {
@@ -891,6 +857,7 @@ function fillNoteStudio(item) {
     form.elements.body.value = '# 标题\n\n在左侧写 Markdown，右侧即时预览。\n'
   }
   form.elements.id.readOnly = Boolean(item)
+  renderTagPicker(form)
   refreshNotePreview()
   syncNoteJson()
   setNoteTab('write')
@@ -1000,6 +967,7 @@ function fill(form, item, tags = false) {
     else fieldElement.value = tags && Array.isArray(value) ? value.join(', ') : value
   }
   form.elements.originalId.value = item.id
+  form.dispatchEvent(new Event('devos:picker-sync', { bubbles: true }))
 }
 
 // ---------------- Import Wizard：StepRegistry + WizardState + 错误边界（v3.0.1 P0）----------------
@@ -1088,10 +1056,13 @@ function renderWizardStep1() {
 function renderWizardStep2() {
   const form = renderMetadataForm(document, { manifest: wizard.manifest, categories: state.categories, t: i18n.t })
   $('#wizard-body').replaceChildren(form)
+  renderTagPicker(form)
 }
 
 function collectWizardStep2() {
-  const result = collectMetadataForm($('#wizard-body .wizard-form'), wizard.manifest)
+  const form = $('#wizard-body .wizard-form')
+  if (!form.reportValidity()) return false
+  const result = collectMetadataForm(form, wizard.manifest)
   if (!result.ok) { wizard.error = i18n.t(`wizard.${result.code}`); return false }
   wizard.manifest = result.manifest
   return true
@@ -1367,6 +1338,7 @@ function openToolEdit(tool) {
   access.append(el('p', 'edit-kicker', i18n.t('toolEdit.permissions')), renderPermissionsForm(document, { permissions: tool.permissions || {}, t: i18n.t }))
   $('#tool-edit-body').replaceChildren(identity, access)
   $('#tool-edit').hidden = false
+  renderTagPicker(form)
   protectForm.begin(form, { key: `tool:${tool.id}` })
   protectForm.begin(access.querySelector('form'), { key: `tool-permissions:${tool.id}` })
 }
@@ -1376,6 +1348,7 @@ bind('#tool-edit-save', 'click', async () => {
   if (!editingTool) return
   try {
     const form = $('#tool-edit-body .tool-edit-form')
+    if (!form.reportValidity()) return
     const permForm = $('#tool-edit-body form.perm-grid')
     const data = Object.fromEntries(new FormData(form))
     const permResult = collectPermissionsForm(permForm, editingTool.permissions || {})
@@ -1474,6 +1447,7 @@ bind('#note-studio-form', 'input', event => {
 bind('#note-studio-form', 'submit', event => { event.preventDefault(); $('#note-save')?.click() })
 bind('#note-save', 'click', async () => {
   if (!$('#note-tab-json').hidden) { try { applyNoteJson() } catch (error) { toastError(error.message); return } }
+  if (!$('#note-studio-form').reportValidity()) return
   const pack = readNoteForm()
   if (!pack) return
   if (!pack.data.id || !pack.data.title) { toastError(i18n.t('notes.needFields')); return }
@@ -1681,7 +1655,7 @@ document.addEventListener('click', async event => {
     if (element.dataset.deleteTag) {
       const name = element.dataset.deleteTag
       const item = state.tags.find(entry => entry.name === name)
-      const body = i18n.t('tags.deleteBody', { name, tools: String(item?.toolCount || 0), sites: String(item?.navigationCount || 0), ai: String(item?.aiResourceCount || 0) })
+      const body = i18n.t('tags.deleteBody', { name, count: String(item?.total || 0) })
       if (!await openModal({ title: i18n.t('modal.deleteTitle'), body, confirm: true })) return
       const result = await request(`tags/${encodeURIComponent(name)}`, { method: 'DELETE' })
       $('#tag-drawer').hidden = true

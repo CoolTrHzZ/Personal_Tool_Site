@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, ArrowUpRight, Bot, Box, Compass, Cpu, FileCode2, FileText, Github, Globe, Layers, MessageSquareText, PanelRight, Search, Sparkles, Terminal, Zap } from 'lucide-react'
 import { m, useReducedMotion } from 'motion/react'
@@ -39,6 +39,14 @@ export default function HomePage() {
   const reducedMotion = useReducedMotion()
   const tools = useTools()
   const [personal, setPersonal] = useState(() => { try { return localStorage.getItem('devos-home-view') === 'personal' } catch { return false } })
+  const focusWorkspace = useRef(false)
+  useEffect(() => {
+    if (!personal || !focusWorkspace.current) return
+    focusWorkspace.current = false
+    const input = document.getElementById('workspace-todo-input')
+    input?.focus({ preventScroll: true })
+    input?.scrollIntoView({ block: 'center' })
+  }, [personal])
   const chooseView = (value: boolean) => {
     setPersonal(value)
     try { localStorage.setItem('devos-home-view', value ? 'personal' : 'public') } catch { /* The view still switches when browser storage is unavailable. */ }
@@ -69,7 +77,7 @@ export default function HomePage() {
           <summary className="manual-toc-toggle">工作区目录</summary>
           <div className="toc-label"><Terminal size={13} /> WORKSPACE</div>
           <nav className="manual-toc" aria-label="章节目录">
-            {chapters.filter(chapter => personal || chapter.id !== 'workspace').map((chapter, index) => <a key={chapter.id} href={`#${chapter.id}`} onClick={event => { event.preventDefault(); document.getElementById(chapter.id)?.scrollIntoView({ behavior: 'auto', block: 'start' }) }}><span>0{index + 1}</span>{chapter.id === 'today' && !personal ? '精选工具' : chapter.label}</a>)}
+            {chapters.filter(chapter => personal || chapter.id !== 'workspace').map((chapter, index) => <a key={chapter.id} href={`#${chapter.id}`} onClick={event => { event.preventDefault(); const section = document.getElementById(chapter.id); section?.focus({ preventScroll: true }); section?.scrollIntoView({ behavior: 'auto', block: 'start' }) }}><span>0{index + 1}</span>{chapter.id === 'today' && !personal ? '精选工具' : chapter.label}</a>)}
           </nav>
           <div className="toc-foot"><span className="status-dot" />本地优先<span>你的工具，你的空间。</span></div>
         </details>
@@ -87,32 +95,32 @@ export default function HomePage() {
             <button type="button" className="atlas-search" onClick={openPalette} aria-label="打开命令面板"><Search size={17} /><span>搜索工具、网站、资源、笔记…</span><kbd>⌘ / Ctrl K</kbd></button>
           </m.section>
           <div className="station-metrics" aria-label="工作区概览">{[{ path: '/tools', value: enabledTools.length, label: '可用工具', icon: Terminal }, { path: '/nav', value: enabledNav.length, label: '导航站点', icon: Globe }, { path: '/ai', value: aiItems.length, label: 'AI 资源', icon: Layers }, { path: '/notes', value: enabledNotes.length, label: '知识笔记', icon: FileText }].map(({ path, value, label, icon: Icon }) => <Link to={path} key={path}><Icon size={16} /><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span><ArrowUpRight size={12} /></Link>)}</div>
-          <m.section id="today" className="manual-section" aria-label={personal ? '今天继续' : '精选工具'} {...reveal}>
+          <m.section id="today" tabIndex={-1} className="manual-section" aria-label={personal ? '今天继续' : '精选工具'} {...reveal}>
             <div className="manual-heading"><span>01 /</span><h2>{personal ? '今天继续' : '精选工具'}</h2><small>{personal && recent.length ? '最近打开的工具' : '从常用工具开始'}</small></div>
             <div className="product-stage">{pathTools.length ? pathTools.map((tool, index) => <m.div key={tool.id} {...reveal} transition={{ delay: motionEnabled && !reducedMotion ? index * .06 : 0, duration: motionEnabled && !reducedMotion ? .3 : 0 }}><ToolCard tool={tool} pathIndex={index + 1} /></m.div>) : <EmptyState title="暂无工具" />}</div>
           </m.section>
-          <m.section id="tools" className="manual-section" {...reveal}>
+          <m.section id="tools" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>02</span><h2>工具</h2><Link to="/tools">查看全部</Link></div>
             <div className="resource-list">{enabledTools.filter(tool => !toolsById.has(tool.id)).map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>
           </m.section>
-          <m.section id="sites" className="manual-section" {...reveal}>
+          <m.section id="sites" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>03</span><h2>网站</h2><Link to="/nav">全部站点 ↗</Link></div>
             <div className="resource-list">{enabledNav.slice(0, 6).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} icon={item.icon} /><b>{item.name}</b><span>{item.description}</span><small>{item.category}</small></a>)}</div>
           </m.section>
-          <m.section id="ai" className="manual-section" {...reveal}>
+          <m.section id="ai" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>04</span><h2>AI 资源</h2><Link to="/ai">打开 AI Hub</Link></div>
-            <div className="resource-list">{aiItems.slice(0, 4).map(item => { const KindIcon = aiKindIcons[item.kind]; return <Link className="resource-row" key={item.id} to={`/ai?q=${encodeURIComponent(item.name)}`}><MarkTile name={item.name}><KindIcon size={16} aria-hidden="true" /></MarkTile><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></Link> })}</div>
+            <div className="resource-list">{aiItems.slice(0, 4).map(item => { const KindIcon = aiKindIcons[item.kind]; return <Link className="resource-row" key={item.id} to={`/ai?resource=${encodeURIComponent(item.id)}`}><MarkTile name={item.name}><KindIcon size={16} aria-hidden="true" /></MarkTile><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></Link> })}</div>
           </m.section>
-          <m.section id="library" className="manual-section" {...reveal}>
+          <m.section id="library" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>05</span><h2>收藏</h2><Link to="/library">打开收藏</Link></div>
             <div className="resource-list">{enabledLibrary.slice(0, 4).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} /><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></a>)}</div>
           </m.section>
-          <m.section id="notes" className="manual-section" {...reveal}>
+          <m.section id="notes" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>06</span><h2>笔记</h2><Link to="/notes">打开笔记</Link></div>
             <div className="resource-list">{enabledNotes.slice(0, 4).map(item => <Link className="resource-row" key={item.id} to={`/notes/${item.id}`}><MarkTile name={item.title} /><b>{item.title}</b><span>{item.summary}</span><small>笔记</small></Link>)}</div>
           </m.section>
         </div>
-        <aside id="workspace" className="manual-notes" aria-label={personal ? '个人工作区' : '探索指南'}>
+        <aside id="workspace" tabIndex={-1} className="manual-notes" aria-label={personal ? '个人工作区' : '探索指南'}>
           <div className="workspace-aside-title"><span className="status-dot" /> {personal ? 'PERSONAL SPACE' : 'OPEN WORKSPACE'} <span>{personal ? '仅此浏览器' : '开放探索'}</span></div>
           {personal ? <>
             <p className="personal-space-hint">待办与便笺仅保存在你当前的浏览器中。</p>
@@ -121,7 +129,7 @@ export default function HomePage() {
           </> : <>
             <section className="visitor-about"><span className="visitor-eyebrow">BUILT FOR THE CURIOUS</span><h2>一个人的工作站，<br />也是你的工具箱。</h2><p>把日常用得上的工具和资源收集在一起，留出更多时间，做真正想做的事。</p>{siteConfig.github && <a href={siteConfig.github} target="_blank" rel="noreferrer"><Github size={14} />浏览项目源码<ArrowUpRight size={13} /></a>}</section>
             <nav className="visitor-routes" aria-label="探索资源"><Link to="/projects"><Layers size={17} /><span><b>桌面工具库</b><small>我的 EXE 作品、版本说明与下载</small></span><ArrowUpRight size={13} /></Link><Link to="/cfg"><FileCode2 size={17} /><span><b>CS2 配置档案</b><small>预览配置、换机下载</small></span><ArrowUpRight size={13} /></Link><Link to="/tools"><Terminal size={17} /><span><b>随手用的小工具</b><small>格式化、转换、编码</small></span><ArrowUpRight size={13} /></Link><Link to="/ai"><Sparkles size={17} /><span><b>AI 灵感与资源</b><small>Skills、Prompts 与应用</small></span><ArrowUpRight size={13} /></Link><Link to="/nav"><Globe size={17} /><span><b>值得收藏的站点</b><small>开发、设计与效率</small></span><ArrowUpRight size={13} /></Link></nav>
-            <section className="visitor-personal"><PanelRight size={19} /><h2>也给自己一个工作区</h2><p>记下待办，捕捉灵感，专注一会儿。每位访客都可以使用自己的工作区。</p><button type="button" onClick={() => chooseView(true)}>开启我的工作区<ArrowRight size={13} /></button></section>
+            <section className="visitor-personal"><PanelRight size={19} /><h2>也给自己一个工作区</h2><p>记下待办，捕捉灵感，专注一会儿。每位访客都可以使用自己的工作区。</p><button type="button" onClick={() => { focusWorkspace.current = true; chooseView(true) }}>开启我的工作区<ArrowRight size={13} /></button></section>
           </>}
           <span className="manual-note-label">工作站笔记</span>
           {enabledNotes[0] && <Link className="manual-note-card" to={`/notes/${enabledNotes[0].id}`}><strong>{enabledNotes[0].title}</strong><span>{enabledNotes[0].summary}</span></Link>}

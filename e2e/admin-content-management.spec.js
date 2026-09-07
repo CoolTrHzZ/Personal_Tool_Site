@@ -4,6 +4,17 @@ import { resolve, extname } from 'node:path'
 import { Buffer } from 'node:buffer'
 import { gzipSync } from 'node:zlib'
 
+const tagOptions = [{ name: 'AI workflow', total: 1 }, { name: '社区服', total: 1 }]
+async function tagApi(route, url) { if (url.pathname !== '/api/tags') return false; await route.fulfill({ json: { items: tagOptions } }); return true }
+async function selectTags(form, custom = '自定义') {
+  const search = form.locator('.picker-search')
+  await search.fill('awf'); await search.press('ArrowDown'); await form.locator('[data-tag-option="AI workflow"]').press('Enter')
+  await expect(form.locator('[data-tag-option="AI workflow"]')).toBeFocused()
+  await search.fill(custom); await search.press('Enter')
+  await form.getByRole('button', { name: '移除标签 AI workflow', exact: true }).click()
+  await expect(form.locator('[name="tags"]')).toHaveValue(custom)
+}
+
 async function mockAdmin(page, override) {
   const collections = {}
   for (const key of ['navigation', 'categories', 'site', 'library', 'ai-resources', 'notes', 'tags', 'projects', 'cfgs', 'ai-workflows']) collections[key] = JSON.parse(await readFile(resolve('src/data', `${key}.json`), 'utf8'))
@@ -210,5 +221,117 @@ test('Admin 延迟初始聚焦不会抢走已输入字段、确认按钮或已�
   })
   await expect(page.locator('#editor-drawer')).toBeHidden()
   await expect(page.locator('#website-query')).toBeFocused()
+  expect(errors).toEqual([])
+})
+
+test('Admin 全部内容标签支持候选、自定义与草稿恢复，笔记 JSON 与选择保持同步', async ({ page }) => {
+  const { collections, errors } = await mockAdmin(page, tagApi)
+  for (const [view, create, id] of [
+    ['websites', '[data-add-website]', '#nav-form'], ['library', '[data-add-library]', '#library-form'],
+    ['ai-resources', '[data-add-ai-resource]', '#ai-resource-form'], ['cfg-library', '#cfg-add', '#cfg-form'],
+    ['projects', '[data-view-panel="projects"] .ui-button-primary', '#content-collection-form'],
+    ['ai-workflows', '[data-view-panel="ai-workflows"] .ui-button-primary', '#content-collection-form'],
+  ]) {
+    await page.locator(`.nav-item[data-view="${view}"]`).click(); await page.locator(create).click()
+    const form = page.locator(id)
+    await selectTags(form)
+    page.once('dialog', dialog => dialog.accept()); await page.locator('#editor-drawer-close').click()
+    await page.locator(create).click(); await form.getByRole('button', { name: '恢复草稿', exact: true }).click()
+    await expect(form.getByRole('button', { name: '移除标签 自定义', exact: true })).toBeVisible()
+    page.once('dialog', dialog => dialog.accept()); await page.locator('#editor-drawer-close').click()
+  }
+  await page.locator('.nav-item[data-view="notes"]').click(); await page.locator('[data-add-note]').click()
+  const note = page.locator('#note-studio-form')
+  await selectTags(note, '笔记标签')
+  await note.locator('[name="title"]').fill('标签同步笔记'); await note.locator('[name="id"]').fill('tag-sync')
+  await note.locator('.picker-search').fill('x'.repeat(65)); await note.locator('.picker-search').press('Enter'); await page.locator('#note-save').click()
+  expect(collections.notes).toHaveLength(0); await expect(note.locator('.picker-search')).toBeFocused()
+  await note.locator('.picker-search').fill('')
+  expect(JSON.parse(await page.locator('#note-json').inputValue()).tags).toEqual(['笔记标签'])
+  await page.locator('[data-note-tab="json"]').click()
+  const content = JSON.parse(await page.locator('#note-json').inputValue()); content.tags = ['JSON 标签']
+  await page.locator('#note-json').fill(JSON.stringify(content)); await page.locator('#note-json-apply').click()
+  await expect(note.getByRole('button', { name: '移除标签 JSON 标签', exact: true })).toBeVisible()
+  await page.locator('#note-save').click(); expect(collections.notes[0].tags).toEqual(['JSON 标签'])
+  await expect(page.locator('[data-view-panel="notes"]')).toHaveClass(/active/)
+  await page.locator('#notes .kebab-toggle').first().click(); await page.locator('[data-edit-note="tag-sync"]').click()
+  await expect(note.getByRole('button', { name: '移除标签 JSON 标签', exact: true })).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('Admin 仅改变图标或分类也会保护并恢复草稿，隐藏身份字段不改变', async ({ page }) => {
+  const { errors } = await mockAdmin(page, tagApi)
+  await page.locator('.nav-item[data-view="websites"]').click(); await page.locator('#navigation .kebab-toggle').first().click()
+  await page.locator('.kebab-menu:not([hidden]) [data-edit]').click()
+  const form = page.locator('#nav-form'), id = await form.locator('[name="originalId"]').inputValue()
+  const category = await form.locator('[data-category-option][aria-pressed="false"]').first().getAttribute('data-category-option')
+  await form.locator(`[data-category-option="${category}"]`).focus(); await page.keyboard.press('Enter')
+  await expect(form.locator(`[data-category-option="${category}"]`)).toBeFocused()
+  await form.locator('[data-icon-option="letter"]').focus(); await page.keyboard.press('Enter')
+  await expect(form.locator('[data-icon-option="letter"]')).toBeFocused()
+  page.once('dialog', dialog => dialog.dismiss()); await page.locator('#editor-drawer-close').click(); await expect(form).toBeVisible()
+  page.once('dialog', dialog => dialog.accept()); await page.locator('#editor-drawer-close').click()
+  await page.locator('#navigation .kebab-toggle').first().click(); await page.locator('.kebab-menu:not([hidden]) [data-edit]').click()
+  await form.getByRole('button', { name: '恢复草稿', exact: true }).click()
+  await expect(form.locator(`[data-category-option="${category}"]`)).toHaveAttribute('aria-pressed', 'true')
+  await expect(form.locator('[data-icon-option="letter"]')).toHaveAttribute('aria-pressed', 'true')
+  await expect(form.locator('[name="originalId"]')).toHaveValue(id)
+  expect(errors).toEqual([])
+})
+
+test('Admin 工具编辑与导入向导共享标签选择，手机页面不溢出', async ({ page }) => {
+  const writes = []
+  const { errors } = await mockAdmin(page, async (route, url) => {
+    if (await tagApi(route, url)) return true
+    if (url.pathname === '/api/tools') { await route.fulfill({ json: [{ id: 'static-demo', name: 'Static Demo', runtime: 'static', version: '1.0.0', category: 'development', tags: [], permissions: {} }] }); return true }
+    if (url.pathname === '/api/tools/static-demo' && route.request().method() === 'PUT') { writes.push(route.request().postDataJSON()); await route.fulfill({ json: writes.at(-1) }); return true }
+    if (url.pathname !== '/api/tools/analyze') return false
+    await route.fulfill({ json: { token: 'test', kind: 'html', format: 'html', entry: 'index.html', files: ['index.html'], stats: { totalBytes: 10, zipBytes: 10 }, suggested: { id: 'demo', name: 'Demo' }, notes: [], compat: [], manifestDraft: { id: 'demo', name: 'Demo', version: '1.0.0', tags: [], category: 'development', permissions: {}, display: { mode: 'embedded', height: 'auto' } } } }); return true
+  })
+  await page.locator('.nav-item[data-view="tools"]').click(); await page.locator('#tools .kebab-toggle').first().click()
+  await page.locator('.kebab-menu:not([hidden]) [data-edit-tool]').click()
+  const tool = page.locator('.tool-edit-form'), originalTags = await tool.locator('[name="tags"]').inputValue()
+  const search = tool.locator('.picker-search'); await search.fill('工具标签'); await search.press('Enter')
+  await expect(tool.locator('[name="tags"]')).toHaveValue([originalTags, '工具标签'].filter(Boolean).join(', '))
+  await search.fill('x'.repeat(65)); await search.press('Enter'); await page.locator('#tool-edit-save').click()
+  expect(writes).toHaveLength(0); await expect(search).toBeFocused()
+  await search.fill(''); await page.locator('#tool-edit-save').click(); await expect(page.locator('#tool-edit')).toBeHidden()
+  expect(writes).toHaveLength(1); expect(writes[0].tags).toEqual(['工具标签'])
+  await page.locator('.nav-item[data-view="import"]').click()
+  await page.locator('#tool-file-input').setInputFiles({ name: 'demo.html', mimeType: 'text/html', buffer: Buffer.from('<p>test</p>') })
+  await page.locator('#wizard-next').click(); await selectTags(page.locator('#wizard-body .wizard-form'), '向导标签')
+  const wizardSearch = page.locator('#wizard-body .picker-search')
+  await wizardSearch.fill('x'.repeat(65)); await wizardSearch.press('Enter'); await page.locator('#wizard-next').click()
+  await expect(wizardSearch).toBeFocused(); await expect(page.locator('#wizard-steps [data-step="2"]')).toHaveClass(/active/)
+  await wizardSearch.fill('')
+  await page.locator('#wizard-next').click(); await page.locator('#wizard-prev').click()
+  await expect(page.locator('#wizard-body [name="tags"]')).toHaveValue('向导标签')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.locator('#wizard-body .picker-search')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  expect(errors).toEqual([])
+})
+
+test('Admin 项目编辑忽略旧请求，读取失败保留当前表单', async ({ page }) => {
+  const pending = []; let defer = false, fail = false
+  const { collections, errors } = await mockAdmin(page, async (route, url) => {
+    if (url.pathname !== '/api/cfgs') return false
+    if (fail) { await route.fulfill({ status: 500, json: { error: 'CFG 暂时不可用' } }); return true }
+    if (!defer) return false
+    await new Promise(resolve => pending.push(async () => { await route.fulfill({ json: [] }); resolve() })); return true
+  })
+  collections.projects.push(...['first', 'second'].map(id => ({ id, name: id, tags: [], cfgIds: [], order: 10, enabled: true, updated: '2026-09-08' })))
+  await page.locator('.nav-item[data-view="projects"]').click()
+  const edits = page.locator('[data-view-panel="projects"] .admin-collection-row button').filter({ hasText: /^编辑$/ })
+  await expect(edits).toHaveCount(2); defer = true
+  await edits.nth(0).click(); await edits.nth(1).click(); await expect.poll(() => pending.length).toBe(2)
+  await pending[1](); const form = page.locator('#content-collection-form')
+  await expect(form.locator('[name="id"]')).toHaveValue('second'); await form.locator('[name="name"]').fill('正在编辑第二个')
+  await pending[0](); await expect(form.locator('[name="name"]')).toHaveValue('正在编辑第二个')
+  fail = true; defer = false
+  page.once('dialog', dialog => dialog.accept())
+  await edits.nth(0).evaluate(node => node.click())
+  await expect(page.locator('.toast').filter({ hasText: 'CFG 暂时不可用' })).toBeVisible()
+  await expect(form.locator('[name="name"]')).toHaveValue('正在编辑第二个'); await expect(form).toBeVisible()
   expect(errors).toEqual([])
 })

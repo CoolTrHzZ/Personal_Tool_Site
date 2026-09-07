@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import workflows from '../../../data/ai-workflows.json'
 import resources from '../../../data/ai-resources.json'
 import { hasPersonalPending, readPersonalRaw, rememberPersonalPending, writePersonalRaw } from '../../../utils/personal-storage'
@@ -43,6 +43,7 @@ export default function AiContextTool() {
   const [dragging, setDragging] = useState(false)
   const [deletePending, setDeletePending] = useState(false)
   const [params, setParams] = useSearchParams()
+  const { state } = useLocation()
   const workflow = workflows.find(item => item.enabled && item.id === params.get('workflow'))
   const markdown = buildContextMarkdown(draft)
   const bytes = contextBytes(draft)
@@ -117,7 +118,7 @@ export default function AiContextTool() {
       return { id: crypto.randomUUID(), name: `${index + 1}. ${step.title}`, content: [step.description, resource && `关联资源：${resource.name}\n${resource.content || resource.install}`].filter(Boolean).join('\n\n') }
     }) }
     const task = newContextTask(value)
-    if (commit({ ...storeRef.current, activeId: task.id, tasks: [...storeRef.current.tasks, task] })) { cancelReads(); const next = new URLSearchParams(params); next.delete('workflow'); setParams(next, { replace: true }) }
+    if (commit({ ...storeRef.current, activeId: task.id, tasks: [...storeRef.current.tasks, task] })) { cancelReads(); const next = new URLSearchParams(params); next.delete('workflow'); setParams(next, { replace: true, state }) }
   }
 
   async function addFiles(files: File[]) {

@@ -9,9 +9,14 @@
 }
 .command-item { transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease); }
 .command-item:hover, .command-item[aria-selected="true"] { transform: translateX(2px); }
-.ui-toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 95; display: grid; gap: 8px; }
+.ui-toast-stack { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); z-index: 95; display: grid; gap: 8px; width: min(360px, calc(100vw - 36px)); max-height: calc(100dvh - 36px); overflow-y: auto; pointer-events: none; }
 .ui-toast, .tool-toast { max-width: 320px; padding: 11px 14px; border: 1px solid var(--border-hover); border-radius: var(--radius-sm); background: var(--surface-overlay); color: var(--text-primary); font-size: 13px; box-shadow: var(--shadow-md); animation: toast-in .28s var(--ease); }
-.tool-toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 95; display: grid; gap: 8px; }
+.ui-toast { display: flex; align-items: center; gap: 12px; max-width: none; pointer-events: auto; }
+.ui-toast > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.ui-toast-close { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 1px solid var(--border-subtle); border-radius: 6px; background: transparent; color: var(--text-secondary); font-size: 20px; }
+.ui-toast-close:focus-visible { color: var(--accent); border-color: var(--accent); }
+.ui-toast.is-closing { animation: toast-in .18s var(--ease) reverse both; pointer-events: none; }
+.tool-toast-stack { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); z-index: 95; display: grid; gap: 8px; }
 .tool-toast-success, .ui-toast-success { border-color: var(--success); color: var(--success); }
 .tool-toast-error, .ui-toast-error { border-color: var(--danger); color: var(--danger); }
 .ui-skeleton-card { min-height: 148px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: linear-gradient(90deg, var(--surface-card) 25%, var(--surface-raised) 50%, var(--surface-card) 75%); background-size: 220% 100%; animation: dash-flow 1.2s linear infinite; }

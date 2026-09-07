@@ -26,6 +26,8 @@
 .ai-resource-card p { display: -webkit-box; margin: 0; overflow: hidden; color: var(--text-secondary); font-size: 12px; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .ai-resource-select > span { color: var(--text-faint); font: 10px var(--font-mono); }
 .ai-empty { color: var(--text-faint); font-size: 13px; }
+.ai-results-bar, .ai-detail-missing { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 20px; color: var(--text-secondary); font-size: 13px; }
+.ai-results-bar p { margin: 0; }
 .ai-resource-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ai-resource-actions a { text-decoration: none; }
 .ai-detail { display: grid; grid-template-columns: 1fr auto; gap: 24px; margin-top: 18px; padding: 18px 0 0; border-top: 1px solid var(--border-default); }
@@ -40,3 +42,5 @@
   .ai-chapter-list { grid-template-columns: 1fr; }
   .ai-detail { grid-template-columns: 1fr; }
 }
+
+.ai-resource-modal > div > .ai-resource-actions { justify-content: flex-end; margin-bottom: 16px; }

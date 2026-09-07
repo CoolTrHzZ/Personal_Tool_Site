@@ -159,6 +159,19 @@ footer { font: 10px var(--font-mono); letter-spacing: .07em; }
 :root[data-motion="off"] .carbon-fx::before, :root[data-motion="off"] .carbon-fx::after { opacity: 0; }
 :root[data-motion="off"] .tech-field, :root[data-motion="off"] .tech-grid, :root[data-motion="off"] .topbar::after { display: none; }
 :root[data-motion="off"] :where(.tool-card, .nav-card, .ai-resource-card, .note-card, .tool-icon, .mark-tile):hover { transform: none; }
+:root[data-motion="off"] :is(.resource-row:hover, .command-item, .brand:hover .brand-symbol),
+:root[data-motion="off"] :is(.tool-card, .resource-row, .nav-card, .ai-resource-card, .note-card):is(:hover, :has(:focus-visible)) :is(.tool-icon, .mark-tile) { transform: none; }
+:root[data-motion="off"] :is(.ui-button-primary, .primary)::after { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  :root :is(.command-item, .brand:hover .brand-symbol),
+  :root :is(.tool-card, .resource-row, .nav-card, .ai-resource-card, .note-card):is(:hover, :has(:focus-visible)) :is(.tool-icon, .mark-tile) { transform: none; }
+  :is(.ui-button-primary, .primary)::after { display: none; }
+}
+@media (hover: none) {
+  :is(.ui-button, .primary, .resource-row, .tool-card, .nav-card, .ai-resource-card, .note-card):hover,
+  :is(.tool-card, .resource-row, .nav-card, .ai-resource-card, .note-card):hover :is(.tool-icon, .mark-tile),
+  .brand:hover .brand-symbol, .command-item:hover { transform: none; }
+}
 @media (prefers-reduced-motion: reduce) { .carbon-fx::before { opacity: 0; } }
 @media (max-width: 1199px) and (min-width: 768px) {
   .manual-shell { grid-template-columns: minmax(0, 1fr) 270px; gap: 22px; }

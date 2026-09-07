@@ -41,6 +41,42 @@ afterEach(() => {
 })
 
 describe('personal workspace', () => {
+  it('keeps the draft when the todo limit is reached', () => {
+    localStorage.setItem('devos.workspace.todos', JSON.stringify(Array.from({ length: 1000 }, (_, index) => ({ id: `task-${index}`, text: `任务 ${index}`, done: false }))))
+    render()
+    input('#workspace-todo-input', '不能丢失的待办')
+    click(button('添加待办'))
+    expect(container.querySelector('#workspace-todo-input').value).toBe('不能丢失的待办')
+    expect(JSON.parse(localStorage.getItem('devos.workspace.todos'))).toHaveLength(1000)
+    expect(container.textContent).toContain('1000 条上限')
+  })
+
+  it('undoes a deletion without replacing newer tasks from another tab', () => {
+    const tasks = [{ id: 'a', text: '第一项', done: false }, { id: 'b', text: '已完成事项', done: true }, { id: 'c', text: '最后一项', done: false }]
+    localStorage.setItem('devos.workspace.todos', JSON.stringify(tasks))
+    render()
+    const latest = tasks.map(task => task.id === 'b' ? { ...task, text: '另一页更新后的事项', done: false } : task)
+    localStorage.setItem('devos.workspace.todos', JSON.stringify(latest))
+    click(button('删除待办：已完成事项'))
+    const newest = { id: 'new', text: '其他标签页新增', done: false }
+    localStorage.setItem('devos.workspace.todos', JSON.stringify([tasks[0], tasks[2], newest]))
+    // The other tab has saved, but its storage event has not reached this page yet.
+    click(button('撤销删除'))
+    expect(JSON.parse(localStorage.getItem('devos.workspace.todos'))).toEqual([...latest, newest])
+    expect(button('撤销删除')).toBeUndefined()
+  })
+
+  it('keeps paused progress when selecting the current timer mode again', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-08T08:00:00Z'))
+    render()
+    click(button('开始'))
+    act(() => vi.advanceTimersByTime(120000))
+    click(button('暂停'))
+    click(button('专注'))
+    expect(container.querySelector('[role="timer"]').textContent).toBe('23:00')
+  })
+
   it('adds, completes, persists and deletes todos, and saves a scratch note', () => {
     render()
     expect(button('添加待办').disabled).toBe(true)

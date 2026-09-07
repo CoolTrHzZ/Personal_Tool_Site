@@ -15,30 +15,33 @@ import CfgLibraryPage from '../pages/CfgLibraryPage'
 import ProjectsPage from '../pages/ProjectsPage'
 import NotFound from '../pages/NotFound'
 import StaticToolPage from '../tools/runtime/StaticToolPage'
+import { useToolsReturnPath } from '../components/tools/ToolShell'
+import Button from '../components/ui/Button'
 
 const siteConfig = site as SiteConfig
 
-class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+class ErrorBoundary extends Component<{ children: ReactNode; returnTo: string }, { error: Error | null }> {
   state: { error: Error | null } = { error: null }
   static getDerivedStateFromError(error: Error) { return { error } }
   componentDidCatch(error: Error, info: ErrorInfo) { console.error(error, info) }
-  render() { return this.state.error ? <div className="tool-error"><h2>工具加载失败</h2><p>请刷新页面后重试。</p></div> : this.props.children }
+  render() { return this.state.error ? <main className="page tool-error"><h1>工具加载失败</h1><p role="alert">请检查网络后刷新重试，也可以先返回工具中心。</p><div className="project-actions"><Button onClick={() => window.location.reload()}>刷新重试</Button><Link className="ui-button ui-button-ghost" to={this.props.returnTo}>返回工具中心</Link></div></main> : this.props.children }
 }
 
 function ToolRoute() {
   const location = useLocation()
+  const returnTo = useToolsReturnPath()
   const tools = useTools()
   const loaded = useToolsLoaded()
   const tool = tools.find(item => item.path === location.pathname)
   useEffect(() => { document.title = tool ? `${tool.name} | ${siteConfig.name}` : '页面不存在'; return () => { document.title = siteConfig.title } }, [tool])
   useEffect(() => { if (tool?.enabled && tool.status !== 'disabled') addRecentTool(tool.id) }, [tool])
   if (!tool) return loaded ? <NotFound /> : <div className="tool-panel">加载工具中…</div>
-  if (!tool.enabled || tool.status === 'disabled') return <main className="page"><h1>工具已停用</h1><p>{tool.name} 当前不可用。</p><Link className="back-link" to="/tools">← 返回工具中心</Link></main>
+  if (!tool.enabled || tool.status === 'disabled') return <main className="page"><h1>工具已停用</h1><p>{tool.name} 当前不可用。</p><Link className="back-link" to={returnTo}>← 返回工具中心</Link></main>
   // Static Web App Runtime：static（HTML/Bundle/build/WASM）与 iframe（外部链接）统一处理
   if (tool.runtime !== 'react') return <StaticToolPage tool={tool} />
   if (!tool.component) return <NotFound />
   const ToolComponent = tool.component
-  return <ErrorBoundary key={tool.id}><Suspense fallback={<div className="tool-panel">加载工具中…</div>}><ToolComponent /></Suspense></ErrorBoundary>
+  return <ErrorBoundary key={tool.id} returnTo={returnTo}><Suspense fallback={<div className="tool-panel">加载工具中…</div>}><ToolComponent /></Suspense></ErrorBoundary>
 }
 
 export default function Router() {

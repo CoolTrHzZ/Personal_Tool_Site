@@ -1,14 +1,19 @@
 // @vitest-environment node
 import { afterAll, beforeAll, expect, it } from 'vitest'
-import { cp, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { appendFile, cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { Buffer } from 'node:buffer'
+import { createHash, randomUUID } from 'node:crypto'
 
 const source = fileURLToPath(new URL('../../', import.meta.url))
+const fixturePrefix = `tag-api-${randomUUID().slice(0, 8)}`
+const fixtureKeys = ['navigation', 'ai-resources', 'library', 'notes', 'projects', 'ai-workflows', 'cfgs']
+const fixtureIds = Object.fromEntries(fixtureKeys.map(key => [key, key === 'cfgs' ? randomUUID() : `${fixturePrefix}-${key}`]))
+const coreFixtureId = `${fixturePrefix}-core`, staticFixtureId = `${fixturePrefix}-static`
 let root, server, origin
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'admin-content-api-'))
@@ -19,6 +24,38 @@ beforeAll(async () => {
       await mkdir(join(root, path), { recursive: true })
     })
   }
+  // Append dedicated fixtures in this temporary copy; personal collections may all be empty.
+  const append = async (path, item) => {
+    const items = JSON.parse(await readFile(path, 'utf8'))
+    await writeFile(path, JSON.stringify([...items, item], null, 2) + '\n')
+  }
+  const bytes = Buffer.alloc(1024)
+  bytes.write('MZ'); bytes.writeUInt32LE(128, 60); bytes.writeUInt32LE(0x4550, 128)
+  bytes.writeUInt16LE(0x8664, 132); bytes.writeUInt16LE(1, 134); bytes.writeUInt16LE(240, 148); bytes.writeUInt16LE(2, 150)
+  bytes.writeUInt16LE(0x20b, 152); bytes.writeUInt16LE(3, 220); bytes.writeUInt32LE(512, 408); bytes.writeUInt32LE(512, 412)
+  const download = { filename: 'tag-fixture.exe', size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') }
+  await mkdir(join(root, 'public/downloads', fixtureIds.projects), { recursive: true })
+  await writeFile(join(root, 'public/downloads', fixtureIds.projects, `${download.sha256}.exe`), bytes)
+  await mkdir(join(root, 'public/cfgs'), { recursive: true })
+  await writeFile(join(root, 'public/cfgs', `${fixtureIds.cfgs}.cfg`), '\ufeff// 标签测试\r\nbind F6 say \u0006颜色\u0007文本\u000b保留\u000e社区\u0010服\r\n')
+  const common = { name: '标签测试资源', description: '', tags: [], enabled: true, order: 1, updated: '2026-09-08' }
+  await append(join(root, 'src/data/categories.json'), { id: `${fixturePrefix}-category`, name: '测试分类', icon: 'Code2', order: 1 })
+  const fixtureData = {
+    navigation: { ...common, url: 'https://example.com/tag-fixture', category: `${fixturePrefix}-category`, icon: 'letter' },
+    'ai-resources': { ...common, kind: 'prompt', install: '', content: '标签测试提示词', url: '' },
+    library: { ...common, kind: 'repo', url: 'https://example.com/tag-fixture', language: 'JavaScript' },
+    notes: { title: '标签测试手册', summary: '', body: '# 标签测试', kind: 'note', projectId: fixtureIds.projects, cfgIds: [fixtureIds.cfgs], tags: [], enabled: true, order: 1, updated: common.updated },
+    projects: project({ kind: 'desktop', download, platform: 'windows-x64', cfgIds: [fixtureIds.cfgs] }),
+    'ai-workflows': workflow({ steps: [{ title: '测试步骤', description: '', resourceId: fixtureIds['ai-resources'] }] }),
+    cfgs: { name: '标签测试 CFG', filename: 'tag-fixture.cfg', description: '', category: '测试', tags: [], order: 1, updated: common.updated, version: 1, changelog: '', history: [] },
+  }
+  for (const key of fixtureKeys) await append(join(root, 'src/data', `${key}.json`), { ...fixtureData[key], id: fixtureIds[key] })
+  const manifest = { name: '标签测试工具', description: '', category: 'development', version: '1.0.0', enabled: true, order: 1, keywords: [], tags: [], status: 'active', author: 'test', updated: common.updated, readme: '标签测试工具', license: 'MIT' }
+  await append(join(root, 'src/tools/manifests/core.json'), { ...manifest, id: coreFixtureId, type: 'react', entry: 'react' })
+  await appendFile(join(root, 'src/tools/registry.ts'), `\nexport const tagApiFixture = { id: '${coreFixtureId}', path: '/tools/${coreFixtureId}' }\n`)
+  await mkdir(join(root, 'public/tools', staticFixtureId), { recursive: true })
+  await writeFile(join(root, 'public/tools', staticFixtureId, 'manifest.json'), JSON.stringify({ ...manifest, id: staticFixtureId, type: 'html', runtime: 'static', entry: 'index.html' }))
+  await writeFile(join(root, 'public/tools', staticFixtureId, 'index.html'), '<!doctype html><title>Tag fixture</title>')
   server = spawn(process.execPath, [join(root, 'scripts/admin-server.mjs')], { cwd: root, env: { ...process.env, ADMIN_PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] })
   origin = await new Promise((resolve, reject) => {
     let output = ''
@@ -114,13 +151,79 @@ it('rejects cross-origin writes before changing project data', async () => {
   expect(await readFile(join(root, 'src/data/projects.json'), 'utf8')).toBe(before)
 })
 
+it('aggregates, merges and deletes tags across every collection without changing CFG or EXE files', async () => {
+  const sourceTag = `${fixturePrefix}-old`, targetTag = `${fixturePrefix}-merged`
+  const chosen = []
+  for (const key of fixtureKeys) {
+    const item = (await api(key)).data.find(item => item.id === fixtureIds[key])
+    expect(item, key).toBeTruthy()
+    expect((await api(`${key}/${item.id}`, 'PUT', { ...item, tags: [...item.tags, sourceTag, targetTag] })).status, key).toBe(200)
+    chosen.push([key, item.id])
+  }
+  const tools = (await api('tools')).data
+  const core = tools.find(item => item.id === coreFixtureId)
+  const staticTool = tools.find(item => item.id === staticFixtureId)
+  for (const item of [core, staticTool]) {
+    expect(item).toBeTruthy()
+    expect((await api(`tools/${item.id}`, 'PUT', { tags: [...(item.tags || []), sourceTag, targetTag], keywords: [...(item.keywords || []), sourceTag] })).status).toBe(200)
+  }
+  expect((await api('tags', 'POST', { name: sourceTag })).status).toBe(201)
+  const usage = (await api('tags')).data.items.find(item => item.name === sourceTag)
+  expect(usage).toMatchObject({ total: 9, navigationCount: 1, toolCount: 2, aiResourceCount: 1, libraryCount: 1, noteCount: 1, projectCount: 1, aiWorkflowCount: 1, cfgCount: 1, catalog: true })
+  expect(usage.sources.map(item => item.type)).toEqual(expect.arrayContaining(['catalog', 'navigation', 'tool', 'ai-resource', 'library', 'note', 'project', 'ai-workflow', 'cfg']))
+  expect((await api('tags/rename', 'POST', { from: sourceTag, to: 'invalid\u0085tag' })).status).toBe(400)
+  expect((await api('tags')).data.items.find(item => item.name === sourceTag)).toEqual(usage)
+  const cfg = (await api('cfgs')).data.find(item => item.id === fixtureIds.cfgs)
+  const originalCfg = await readFile(join(root, 'public/cfgs', `${cfg.id}.cfg`))
+  const projects = (await api('projects')).data
+  const desktop = projects.find(item => item.id === fixtureIds.projects)
+  const exePath = join(root, 'public/downloads', desktop.id, `${desktop.download.sha256}.exe`)
+  const exe = await readFile(exePath)
+  const renamed = await api('tags/rename', 'POST', { from: sourceTag, to: targetTag })
+  expect(renamed.status).toBe(200)
+  expect(renamed.data).toMatchObject({ affected: 9, navigation: 1, tools: 2, aiResources: 1, library: 1, notes: 1, projects: 1, aiWorkflows: 1, cfgs: 1 })
+  for (const [key, id] of chosen) {
+    const item = (await api(key)).data.find(item => item.id === id)
+    expect(item.tags).not.toContain(sourceTag)
+    expect(item.tags.filter(tag => tag === targetTag)).toHaveLength(1)
+  }
+  expect((await api('tags')).data.items.some(item => item.name === sourceTag)).toBe(false)
+  expect((await api(`tags/${targetTag}`, 'DELETE')).status).toBe(200)
+  expect((await api('tags')).data.items.some(item => item.name === targetTag)).toBe(false)
+  const updatedCfg = (await api('cfgs')).data.find(item => item.id === cfg.id)
+  expect({ ...updatedCfg, tags: cfg.tags }).toEqual(cfg)
+  expect(await readFile(join(root, 'public/cfgs', `${cfg.id}.cfg`))).toEqual(originalCfg)
+  expect((await api('projects')).data.find(item => item.id === desktop.id).download).toEqual(desktop.download)
+  expect((await readFile(exePath)).equals(exe)).toBe(true)
+  expect((await api('validate')).data.ok).toBe(true)
+})
+
+it('rolls back global tag edits when a later metadata file cannot be written', async () => {
+  const tag = `${fixturePrefix}-rollback`
+  for (const key of ['navigation', 'projects']) {
+    const item = (await api(key)).data.find(item => item.id === fixtureIds[key])
+    expect((await api(`${key}/${item.id}`, 'PUT', { ...item, tags: [...item.tags, tag] })).status).toBe(200)
+  }
+  expect((await api('tags', 'POST', { name: tag })).status).toBe(201)
+  const paths = ['tags', 'navigation', 'projects'].map(key => join(root, 'src/data', `${key}.json`))
+  const before = await Promise.all(paths.map(path => readFile(path)))
+  const obstruction = join(root, 'src/data/projects.json.tmp')
+  await mkdir(obstruction)
+  try {
+    const result = await api('tags/rename', 'POST', { from: tag, to: 'audit-new-tag' })
+    expect(result.status).toBe(400)
+    expect(await Promise.all(paths.map(path => readFile(path)))).toEqual(before)
+    expect((await api('tags')).data.items.find(item => item.name === tag)).toMatchObject({ navigationCount: 1, projectCount: 1, catalog: true })
+  } finally { await rm(obstruction, { recursive: true, force: true }) }
+})
+
 it('keeps only three recoverable backup previews and accepts a newly selected backup immediately', async () => {
   const backup = await api('backup')
   expect(backup.status).toBe(200)
   const previews = []
   for (let index = 0; index < 4; index++) {
     const result = await api('backup/preview', 'POST', { content: backup.data.content })
-    expect(result.status).toBe(200); previews.push(result.data)
+    expect(result.status, JSON.stringify(result.data)).toBe(200); previews.push(result.data)
   }
   expect((await readdir(root)).filter(name => name.startsWith('.admin-restore-'))).toHaveLength(3)
   expect((await api('backup/restore', 'POST', { token: previews[0].token })).status).toBe(400)

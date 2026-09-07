@@ -1,8 +1,13 @@
-.ui-modal-backdrop, .ui-drawer-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; overflow: auto; padding: max(16px, 15vh) 16px 16px; background: color-mix(in srgb, var(--surface-page) 72%, transparent); backdrop-filter: blur(8px); animation: overlay-in .22s var(--ease); }
+.ui-modal-backdrop, .ui-drawer-backdrop { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; overflow: auto; padding: max(16px, 15vh) 16px 16px; background: color-mix(in srgb, var(--surface-page) 72%, transparent); backdrop-filter: blur(8px); animation: overlay-in .22s var(--ease); }
 .ui-modal-backdrop[hidden], .ui-drawer-backdrop[hidden] { display: none; }
-.ui-modal { width: min(560px, calc(100% - 32px)); max-height: min(86dvh, calc(100dvh - max(16px, 15vh) - 32px), 760px); padding: 22px; overflow: auto; background: var(--surface-overlay); animation: modal-in .34s var(--ease); }
+.ui-modal-backdrop { --dialog-inset: max(16px, 15vh, calc(var(--dialog-header-bottom, 0px) + 12px)); padding-block-start: var(--dialog-inset); }
+.ui-modal { width: min(560px, calc(100% - 32px)); max-height: min(86dvh, calc(100dvh - var(--dialog-inset) - 32px), 760px); padding: 22px; overflow: auto; background: var(--surface-overlay); animation: modal-in .34s var(--ease); }
 .ui-modal h2 { margin: 0 0 12px; font-size: 18px; }
 .ui-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.ui-modal.command-palette { max-height: min(72dvh, calc(100dvh - var(--dialog-inset) - 32px), 560px); }
+.ui-modal.command-palette > div { display: flex; flex-direction: column; min-height: 0; }
+.ui-modal.command-palette :is(.command-palette-search, .command-hint) { flex-shrink: 0; }
+.ui-modal.command-palette .command-list { min-height: 0; }
 .ui-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 30; display: flex; flex-direction: column; width: min(420px, calc(100vw - 24px)); padding: 0; overflow: hidden; background: var(--surface-overlay); border-left: 1px solid var(--border-default); box-shadow: var(--shadow-lg); animation: drawer-in .32s var(--ease); }
 .ui-drawer[hidden] { display: none; }
 .ui-drawer-head, .ui-drawer-foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 22px; }
@@ -10,6 +15,10 @@
 .ui-drawer-body { flex: 1; overflow: auto; padding: 18px 22px; }
 .ui-drawer-foot { border-top: 1px solid var(--border-subtle); justify-content: flex-end; }
 .ui-drawer-head h2 { margin: 0; font-size: 18px; }
+.ui-modal-backdrop.is-closing, .ui-drawer-backdrop.is-closing { animation: overlay-in .18s var(--ease) reverse both; }
+.ui-modal-backdrop.is-closing .ui-modal { animation: modal-in .18s var(--ease) reverse both; }
+.ui-drawer-backdrop.is-closing .ui-drawer { animation: drawer-in .18s var(--ease) reverse both; }
+.is-closing :is(.ui-modal, .ui-drawer) { pointer-events: none; }
 @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: none; } }
 @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }

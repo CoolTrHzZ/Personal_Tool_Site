@@ -1,0 +1,130 @@
+import { test, expect } from '@playwright/test'
+
+async function mockBridgeTool(page, mode = 'embedded') {
+  await page.route('**/tools-manifests.json', route => route.fulfill({ json: [{
+    id: 'e2e-toast', name: '提示测试工具', description: 'Bridge 回归', runtime: 'static', format: 'single-html', entry: 'index.html', category: 'development', version: '1.0.0', enabled: true, icon: 'Code2', keywords: [], tags: [], author: 'test', status: 'active', display: { mode, height: 180 }, permissions: {},
+  }] }))
+  await page.route('**/tools/e2e-toast/index.html', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><meta charset="utf-8"><button id="notify">显示提示</button><script>document.getElementById('notify').onclick = () => { for (const [id, level, message] of [[1, 'success', '配置保存完成'], [2, 'error', '上传失败，请重新选择文件后重试']]) parent.postMessage({ source: 'toolbox-bridge', type: 'toast.show', id, payload: { level, message } }, '*') }</script>` }))
+}
+
+test('命令面板隔离背景、限制焦点并在退场后恢复操作入口', async ({ page }) => {
+  await page.goto('/#/')
+  await expect(page.getByTestId('boot-layer')).toBeHidden()
+  const trigger = page.getByRole('button', { name: '打开命令面板', exact: true }).first()
+  await trigger.click()
+  const dialog = page.getByRole('dialog', { name: '命令面板' })
+  const search = dialog.getByRole('combobox')
+  await expect(search).toBeFocused()
+  await expect(page.locator('#root')).toHaveAttribute('inert', '')
+  await page.locator('.brand').evaluate(node => node.focus())
+  await expect(search).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(dialog.getByRole('button', { name: '关闭命令面板' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(search).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(page.locator('#root')).not.toHaveAttribute('inert', '')
+  await expect(trigger).toBeFocused()
+  await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden')
+})
+
+for (const preference of ['manual', 'system']) {
+  test(`${preference} 关闭动效后悬停和键盘选择均不位移`, async ({ page }) => {
+    if (preference === 'manual') await page.addInitScript(() => localStorage.setItem('devos-motion', 'off'))
+    else await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/#/')
+    await expect(page.getByTestId('boot-layer')).toBeHidden()
+    const row = page.locator('.resource-row').first()
+    await row.hover()
+    await expect(row).toHaveCSS('transform', 'none')
+    await expect(row.locator('.mark-tile')).toHaveCSS('transform', 'none')
+    const card = page.locator('.tool-card').first()
+    await card.locator('.tool-card-link').focus()
+    await expect(card.locator('.tool-icon')).toHaveCSS('transform', 'none')
+    await page.locator('.brand').hover()
+    await expect(page.locator('.brand-symbol').first()).toHaveCSS('transform', 'none')
+    await page.getByRole('button', { name: '打开命令面板', exact: true }).first().click()
+    const dialog = page.getByRole('dialog', { name: '命令面板' })
+    await page.keyboard.press('ArrowDown')
+    await expect(dialog.locator('.command-item[aria-selected="true"]')).toHaveCSS('transform', 'none')
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+  })
+}
+
+test('触屏按钮命中区足够且触摸后无悬停位移，弹窗保持在导航下方', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 760 }, hasTouch: true, isMobile: true })
+  const page = await context.newPage()
+  try {
+    await page.goto('http://127.0.0.1:5173/#/tools/json')
+    const format = page.getByRole('button', { name: '格式化', exact: true })
+    await expect(page.getByTestId('boot-layer')).toBeHidden()
+    await format.tap()
+    await expect(format).toHaveCSS('transform', 'none')
+    expect((await format.boundingBox()).height).toBeGreaterThanOrEqual(44)
+    await page.getByRole('button', { name: '打开命令面板', exact: true }).first().tap()
+    const dialog = page.getByRole('dialog', { name: '命令面板' })
+    await expect(dialog).toBeVisible()
+    await expect.poll(async () => {
+      const panel = await dialog.boundingBox()
+      const header = await page.locator('.topbar').boundingBox()
+      return panel.y >= header.y + header.height && panel.y + panel.height <= 760 && panel.x >= 0 && panel.x + panel.width <= 390
+    }).toBe(true)
+    await dialog.getByRole('button', { name: '关闭命令面板' }).tap()
+    await expect(dialog).toHaveCount(0)
+  } finally { await context.close() }
+})
+
+test('真实 iframe Bridge 提示独立计时、保留级别并支持暂停和手动关闭', async ({ page }) => {
+  const errors = []
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 390, height: 760 })
+  await mockBridgeTool(page)
+  await page.goto('/#/tools/e2e-toast')
+  await expect(page.getByTestId('boot-layer')).toBeHidden()
+  await page.clock.install()
+  await page.frameLocator('[data-testid="tool-frame"]').getByRole('button', { name: '显示提示' }).click()
+  const success = page.locator('.tool-toast-success')
+  const error = page.locator('.tool-toast-error')
+  await expect(success).toContainText('配置保存完成')
+  await expect(error).toContainText('上传失败')
+  for (const toast of [success, error]) {
+    const box = await toast.boundingBox()
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+  }
+  await success.getByRole('button', { name: '关闭提示：配置保存完成' }).focus()
+  await page.clock.fastForward(6000)
+  await expect(success).toBeVisible()
+  await expect(error).toHaveCount(0)
+  await success.getByRole('button').click()
+  await expect(success).toHaveCount(0)
+  await expect(page.locator('#main-content')).toBeFocused()
+  expect(errors).toEqual([])
+})
+
+test('全屏工具上方可操作命令面板，Escape 逐层退出', async ({ page }) => {
+  await mockBridgeTool(page, 'fullscreen')
+  await page.goto('/#/tools/e2e-toast')
+  await expect(page.getByTestId('boot-layer')).toBeHidden()
+  const fullscreen = page.getByTestId('tool-fullscreen')
+  await expect(fullscreen).toBeVisible()
+  const trigger = fullscreen.getByRole('button', { name: '重新加载', exact: true })
+  await trigger.focus()
+  await page.keyboard.press('Control+k')
+  const dialog = page.getByRole('dialog', { name: '命令面板' })
+  await expect(dialog).toBeVisible()
+  await expect(fullscreen).toHaveAttribute('inert', '')
+  await dialog.getByRole('combobox').click()
+  await expect(dialog.getByRole('combobox')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(fullscreen).toBeVisible()
+  await expect(fullscreen).not.toHaveAttribute('inert', '')
+  await expect(trigger).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(fullscreen).toHaveCount(0)
+  await expect(page.locator('html')).not.toHaveClass(/tool-fullscreen-lock/)
+})

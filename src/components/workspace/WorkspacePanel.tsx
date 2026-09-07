@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { CheckCheck, Coffee, ListTodo, Pause, Play, Plus, RotateCcw, StickyNote, Timer, Trash2 } from 'lucide-react'
+import { CheckCheck, Coffee, ListTodo, Pause, Play, Plus, RotateCcw, StickyNote, Timer, Trash2, Undo2 } from 'lucide-react'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 import '../../styles/pages/workspace.css'
 
-import { emptyTodos, initialTimer, isTodoList, isTimer, isWorkspaceNote, MINUTE, type Todo } from './storage'
+import { emptyTodos, initialTimer, isTodoList, isTimer, isWorkspaceNote, MINUTE, MAX_TODOS, type Todo } from './storage'
 import { hasPersonalPending, readPersonalRaw, rememberPersonalPending, writePersonalRaw } from '../../utils/personal-storage'
 import PersonalDataPanel from './PersonalDataPanel'
 
@@ -48,18 +48,33 @@ function useLocalValue<T>(key: string, fallback: T, validate: (value: unknown) =
     return () => { window.removeEventListener('storage', sync); window.removeEventListener('devos:personal-data-restored', restored) }
   }, [key, fallback, validate])
 
-  function update(value: T, retry = false) {
-    if (!validate(value)) { setState(current => ({ ...current, error: '内容超出限制，本次修改未应用。' })); return }
+  function update(next: T | ((current: T) => T), retry = false) {
+    let current = state.value
+    if (typeof next === 'function' && !protectedValue.current) {
+      try {
+        const raw = readPersonalRaw(key)
+        const stored: unknown = raw === null ? fallback : JSON.parse(raw)
+        if (!validate(stored)) throw new Error('Invalid stored value')
+        current = stored
+      } catch {
+        protectedValue.current = true
+        setState(previous => ({ ...previous, error: '无法读取最新记录，本次修改未应用；请先备份或重试。' }))
+        return false
+      }
+    }
+    const value = typeof next === 'function' ? (next as (current: T) => T)(current) : next
+    if (!validate(value)) { setState(current => ({ ...current, error: '内容超出限制，本次修改未应用。' })); return false }
     const raw = JSON.stringify(value)
     if (protectedValue.current && !retry) {
       rememberPersonalPending(key, raw)
       setState(current => ({ value, error: current.error || '修改尚未保存，请重试或先备份。' }))
-      return
+      return true
     }
     let error = ''
     try { writePersonalRaw(key, raw); protectedValue.current = false }
     catch { protectedValue.current = true; error = '保存失败，修改仅保留在当前页面；请先备份或重试。' }
     setState({ value, error })
+    return true
   }
   return [state.value, update, state.error] as const
 }
@@ -69,6 +84,8 @@ export default function WorkspacePanel() {
   const [note, saveNote, noteError] = useLocalValue('devos.workspace.note', '', isWorkspaceNote)
   const [timer, saveTimer, timerError] = useLocalValue('devos.workspace.timer', initialTimer, isTimer)
   const [draft, setDraft] = useState('')
+  const [deletedTodo, setDeletedTodo] = useState<{ todo: Todo; index: number } | null>(null)
+  const todoInput = useRef<HTMLInputElement>(null)
   const [now, setNow] = useState(Date.now)
   const duration = (timer.phase === 'focus' ? timer.minutes : 5) * MINUTE
   const remaining = timer.deadline === null ? timer.remainingMs : Math.min(duration, Math.max(0, timer.deadline - now))
@@ -94,9 +111,29 @@ export default function WorkspacePanel() {
   function addTodo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const text = draft.trim()
-    if (!text) return
-    saveTodos([...todos, { id: crypto.randomUUID(), text, done: false }])
-    setDraft('')
+    if (!text || todos.length >= MAX_TODOS) return
+    if (saveTodos(current => [...current, { id: crypto.randomUUID(), text, done: false }])) { setDraft(''); todoInput.current?.focus() }
+  }
+
+  function deleteTodo(todo: Todo) {
+    let removed: { todo: Todo; index: number } | null = null
+    if (saveTodos(current => {
+      const index = current.findIndex(item => item.id === todo.id)
+      if (index !== -1) removed = { todo: current[index], index }
+      return current.filter(item => item.id !== todo.id)
+    }) && removed) {
+      setDeletedTodo(removed)
+      todoInput.current?.focus({ preventScroll: true })
+    }
+  }
+
+  function undoDelete() {
+    if (!deletedTodo) return
+    if (saveTodos(current => {
+      const next = [...current]
+      if (!next.some(item => item.id === deletedTodo.todo.id)) next.splice(Math.min(deletedTodo.index, next.length), 0, deletedTodo.todo)
+      return next
+    })) { setDeletedTodo(null); todoInput.current?.focus({ preventScroll: true }) }
   }
 
   function resetTimer(phase = timer.phase, minutes = timer.minutes) {
@@ -127,20 +164,21 @@ export default function WorkspacePanel() {
         </div>
         <form className="workspace-todo-form" onSubmit={addTodo}>
           <label className="sr-only" htmlFor="workspace-todo-input">新增待办</label>
-          <Input id="workspace-todo-input" value={draft} onChange={event => setDraft(event.target.value)} maxLength={160} placeholder="下一件要完成的事…" autoComplete="off" />
-          <Button type="submit" iconOnly icon={<Plus size={16} aria-hidden="true" />} disabled={!draft.trim()}>添加待办</Button>
+          <Input ref={todoInput} id="workspace-todo-input" value={draft} onChange={event => setDraft(event.target.value)} maxLength={160} placeholder="下一件要完成的事…" autoComplete="off" aria-describedby="workspace-todo-status" />
+          <Button type="submit" iconOnly icon={<Plus size={16} aria-hidden="true" />} disabled={!draft.trim() || todos.length >= MAX_TODOS}>添加待办</Button>
         </form>
         {todos.length === 0 ? <p className="workspace-empty"><CheckCheck size={16} aria-hidden="true" />清空脑袋，从一件小事开始。</p> : (
           <ul className="workspace-todos">
             {todos.map(todo => (
               <li key={todo.id} className={todo.done ? 'is-complete' : ''}>
-                <label><input type="checkbox" checked={todo.done} onChange={() => saveTodos(todos.map(item => item.id === todo.id ? { ...item, done: !item.done } : item))} /><span>{todo.text}</span></label>
-                <Button type="button" size="sm" iconOnly icon={<Trash2 size={13} aria-hidden="true" />} onClick={() => saveTodos(todos.filter(item => item.id !== todo.id))}>删除待办：{todo.text}</Button>
+                <label><input type="checkbox" checked={todo.done} onChange={event => { const done = event.target.checked; saveTodos(current => current.map(item => item.id === todo.id ? { ...item, done } : item)) }} /><span>{todo.text}</span></label>
+                <Button type="button" size="sm" iconOnly icon={<Trash2 size={13} aria-hidden="true" />} onClick={() => deleteTodo(todo)}>删除待办：{todo.text}</Button>
               </li>
             ))}
           </ul>
         )}
-        <p className={`workspace-save-status ${todoError ? 'has-error' : ''}`} role="status">{todoError || (todos.length > 0 && completedTodos === todos.length ? '今日事项全部完成。做得不错！' : '保存在此浏览器 · 未完成事项持续保留')}</p>
+        {deletedTodo && <div className="workspace-undo"><span role="status">已删除「{deletedTodo.todo.text}」</span><Button size="sm" icon={<Undo2 size={13} aria-hidden="true" />} onClick={undoDelete}>撤销删除</Button></div>}
+        <p id="workspace-todo-status" className={`workspace-save-status ${todoError ? 'has-error' : ''}`} role="status">{todoError || (todos.length >= MAX_TODOS ? `待办已达到 ${MAX_TODOS} 条上限，请先删除不需要的事项；输入内容已保留。` : todos.length > 0 && completedTodos === todos.length ? '今日事项全部完成。做得不错！' : '保存在此浏览器 · 未完成事项持续保留')}</p>
         {todoError && <Button size="sm" onClick={() => saveTodos(todos, true)}>重试保存待办</Button>}
       </section>
 
@@ -151,8 +189,8 @@ export default function WorkspacePanel() {
         </div>
         <div className="workspace-focus-settings">
           <div className="workspace-focus-modes" role="group" aria-label="计时模式">
-            <button type="button" aria-pressed={timer.phase === 'focus'} disabled={timer.deadline !== null} onClick={() => resetTimer('focus')}>专注</button>
-            <button type="button" aria-pressed={timer.phase === 'break'} disabled={timer.deadline !== null} onClick={() => resetTimer('break')}><Coffee size={12} aria-hidden="true" />休息</button>
+            <button type="button" aria-pressed={timer.phase === 'focus'} disabled={timer.deadline !== null} onClick={() => { if (timer.phase !== 'focus') resetTimer('focus') }}>专注</button>
+            <button type="button" aria-pressed={timer.phase === 'break'} disabled={timer.deadline !== null} onClick={() => { if (timer.phase !== 'break') resetTimer('break') }}><Coffee size={12} aria-hidden="true" />休息</button>
           </div>
           <label className="sr-only" htmlFor="workspace-focus-duration">专注时长</label>
           <select id="workspace-focus-duration" aria-label="专注时长" value={timer.minutes} disabled={timer.deadline !== null} onChange={event => resetTimer('focus', Number(event.target.value))}>

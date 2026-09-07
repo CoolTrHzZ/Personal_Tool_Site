@@ -5,6 +5,7 @@ export function mountContentCollections({ request, el, button, toast, openModal,
     'ai-workflows': { title: 'AI 工作流', category: ['code-review', 'requirements', 'incident'], defaults: { category: 'code-review', steps: [{ title: '准备上下文', description: '', resourceId: '' }] } },
   }
   const hosts = new Map()
+  let opening = 0
   const describeFile = download => `${download.filename} · ${(download.size / 1024 / 1024).toFixed(2)} MiB`
   function field(form, name, label, value, { options, type = 'text', rows, required = false } = {}) {
     const wrapper = el('label', 'ui-field'), caption = el('span', 'ui-field-label', label)
@@ -16,10 +17,14 @@ export function mountContentCollections({ request, el, button, toast, openModal,
   }
   async function edit(key, item) {
     if (!protectForm.mayLeave()) return
-    hideEditorForms()
+    const attempt = ++opening
+    const wasOpen = !document.querySelector('#editor-drawer').hidden
+    const previousForm = document.querySelector('#editor-drawer-body form:not([hidden])')
     const config = configs[key], state = getState()
     let cfgs
-    try { cfgs = await request('cfgs') } catch (error) { toast(error.message, 'error'); return }
+    try { cfgs = key === 'projects' ? await request('cfgs') : [] } catch (error) { if (attempt === opening) { if (previousForm) protectForm.resume(previousForm); toast(error.message, 'error') } return }
+    if (attempt !== opening || (wasOpen && document.querySelector('#editor-drawer').hidden) || !document.querySelector(`[data-view-panel="${key}"]`)?.classList.contains('active') || !protectForm.mayLeave()) return
+    hideEditorForms()
     const record = { ...config.defaults, id: '', name: '', description: '', tags: [], order: 10, enabled: true, updated: new Date().toISOString().slice(0, 10), ...item }
     const old = document.querySelector('#content-collection-form'); old?.remove()
     const form = el('form', 'drawer-form'); form.id = 'content-collection-form'; document.querySelector('#editor-drawer-body').append(form)
@@ -85,7 +90,7 @@ export function mountContentCollections({ request, el, button, toast, openModal,
       const refs = el('details', 'admin-resource-ids'); refs.append(el('summary', '', '查看可关联的 AI 资源 ID'))
       const list = el('ul', 'admin-file-list'); for (const resource of state.aiResources) list.append(el('li', '', `${resource.id} · ${resource.name}`)); refs.append(list); form.append(refs)
     }
-    field(form, 'tags', '标签（逗号分隔）', record.tags.join(', '))
+    field(form, 'tags', '标签', record.tags.join(', '))
     field(form, 'order', '排序', record.order, { type: 'number' }); field(form, 'updated', '更新日期', record.updated, { type: 'date' })
     const enabled = field(form, 'enabled', '启用并公开', '', { type: 'checkbox' }); enabled.checked = record.enabled
     const errorHost = el('p', 'cfg-admin-error'); errorHost.setAttribute('role', 'alert'); form.append(errorHost)
@@ -132,6 +137,7 @@ export function mountContentCollections({ request, el, button, toast, openModal,
     }
   }
   async function load(key) {
+    opening++
     try { hosts.get(key).items = await request(key); render(key) } catch (error) { hosts.get(key).list.replaceChildren(el('p', 'cfg-admin-error', error.message)) }
   }
   return { load, titles: Object.fromEntries(Object.entries(configs).map(([key, value]) => [key, value.title])) }

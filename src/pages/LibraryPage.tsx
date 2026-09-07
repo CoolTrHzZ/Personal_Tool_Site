@@ -19,13 +19,14 @@ export default function LibraryPage() {
   const [params, setParams] = useSearchParams()
   const kind = params.get('kind') || 'all'
   const query = params.get('q') || ''
-  const language = params.get('language') || 'all'
-  const tag = params.get('tag') || 'all'
-  const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || value === 'all') next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
+  const language = params.get('language') || ''
+  const tag = params.get('tag') || ''
+  const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || (key === 'kind' && value === 'all')) next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
   const enabled = items.filter(item => item.enabled).sort((a, b) => a.order - b.order)
   const languages = [...new Set(enabled.map(item => item.language).filter(Boolean))].sort()
   const tags = [...new Set(enabled.flatMap(item => item.tags))].sort((a, b) => a.localeCompare(b, 'zh'))
-  const shown = enabled.filter(item => (kind === 'all' || item.kind === kind) && (language === 'all' || item.language === language) && (tag === 'all' || item.tags.includes(tag)) && [item.name, item.description, item.language, ...item.tags].join(' ').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+  const hasFilters = Boolean(query || kind !== 'all' || language || tag)
+  const shown = enabled.filter(item => (kind === 'all' || item.kind === kind) && (!language || item.language === language) && (!tag || item.tags.includes(tag)) && [item.name, item.description, item.language, ...item.tags].join(' ').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
   return (
     <main className="page nav-page library-page">
       <PageHero
@@ -42,9 +43,10 @@ export default function LibraryPage() {
         {([['all', '全部'], ['repo', '仓库'], ['skill', 'Skill']] as const).map(([value, label]) => (
           <button type="button" key={value} className={kind === value ? 'active' : ''} aria-pressed={kind === value} onClick={() => setFilter('kind', value)}>{label}</button>
         ))}
+        {!['all', 'repo', 'skill'].includes(kind) && <button type="button" className="active" aria-pressed="true" disabled>已失效：{kind}</button>}
       </nav>
-      <div className="content-toolbar"><Input aria-label="搜索收藏" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索仓库、Skill 或说明…" /><label>技术语言<Select aria-label="收藏语言" value={language} onChange={event => setFilter('language', event.target.value)}><option value="all">全部语言</option>{languages.map(value => <option key={value}>{value}</option>)}</Select></label><label>标签<Select aria-label="收藏标签" value={tag} onChange={event => setFilter('tag', event.target.value)}><option value="all">全部标签</option>{tags.map(value => <option key={value}>{value}</option>)}</Select></label></div><p className="content-count" role="status">{shown.length} 项收藏</p>
-      {shown.length ? <div className="nav-grid">{shown.map(item => <LibraryCard key={item.id} item={item} />)}</div> : <><EmptyState title={enabled.length ? '没有匹配的收藏' : '暂无收藏'} />{enabled.length > 0 && <Button onClick={() => setParams({})}>清除筛选</Button>}</>}
+      <div className="content-toolbar"><Input aria-label="搜索收藏" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索仓库、Skill 或说明…" /><label>技术语言<Select aria-label="收藏语言" value={language} onChange={event => setFilter('language', event.target.value)}><option value="">全部语言</option>{language && !languages.includes(language) && <option value={language} disabled>已失效：{language}</option>}{languages.map(value => <option key={value}>{value}</option>)}</Select></label><label>标签<Select aria-label="收藏标签" value={tag} onChange={event => setFilter('tag', event.target.value)}><option value="">全部标签</option>{tag && !tags.includes(tag) && <option value={tag} disabled>已失效：{tag}</option>}{tags.map(value => <option key={value}>{value}</option>)}</Select></label>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div><p className="content-count" role="status">{shown.length} 项收藏</p>
+      {shown.length ? <div className="nav-grid">{shown.map(item => <LibraryCard key={item.id} item={item} />)}</div> : <EmptyState title={enabled.length ? '没有匹配的收藏' : '暂无收藏'} />}
     </main>
   )
 }

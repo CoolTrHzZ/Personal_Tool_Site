@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import notes from '../data/notes.json'
 import projects from '../data/projects.json'
@@ -19,18 +19,25 @@ export default function NotePage() {
   const { id } = useParams()
   const [params] = useSearchParams()
   const [message, setMessage] = useState('')
+  const revision = useRef(0)
   const note = items.find(item => item.id === id && item.enabled)
+  useEffect(() => { revision.current++; setMessage(''); return () => { revision.current++ } }, [note?.id, note?.body])
   useEffect(() => {
     document.title = note ? `${note.title} | ${siteConfig.name}` : siteConfig.title
     return () => { document.title = siteConfig.title }
   }, [note])
   if (!note) return <NotFound />
+  const copy = async () => {
+    const request = ++revision.current
+    try { await navigator.clipboard.writeText(note.body); if (request === revision.current) setMessage('已复制 Markdown') }
+    catch { if (request === revision.current) setMessage('复制失败，可下载 Markdown 文件。') }
+  }
   const project = (projects as ProjectItem[]).find(item => item.id === note.projectId && item.enabled)
   const relatedCfgs = (cfgs as CfgEntry[]).filter(cfg => note.cfgIds?.includes(cfg.id))
   return (
     <main className="page note-page">
       <p className="note-back"><Link to={`/notes${params.size ? `?${params}` : ''}`}>← 全部笔记</Link></p>
-      <div className="project-actions"><span className="runbook-kind">{noteKinds[note.kind || 'note']}</span><Button size="sm" onClick={async () => { try { await navigator.clipboard.writeText(note.body); setMessage('已复制 Markdown') } catch { setMessage('复制失败，可下载 Markdown 文件。') } }}>复制 Markdown</Button><Button size="sm" onClick={() => downloadText(`${note.id}.md`, note.body, 'text/markdown;charset=utf-8')}>下载手册</Button><span role="status">{message}</span></div>
+      <div className="project-actions"><span className="runbook-kind">{noteKinds[note.kind || 'note']}</span><Button size="sm" onClick={copy}>复制 Markdown</Button><Button size="sm" onClick={() => downloadText(`${note.id}.md`, note.body, 'text/markdown;charset=utf-8')}>下载手册</Button><span role="status">{message}</span></div>
       <nav className="note-related-bar" aria-label="手册关联资料">{project && <Link to={`/projects/${project.id}`}>项目：{project.name}</Link>}{relatedCfgs.map(cfg => <Link key={cfg.id} to={`/cfg/${cfg.id}`}>CFG：{cfg.name}</Link>)}</nav>
       <article className="md-article">
         {note.updated && <p className="note-meta">{note.updated}</p>}

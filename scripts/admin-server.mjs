@@ -48,7 +48,7 @@ const send = (res, status, value, type = 'application/json') => { res.writeHead(
 const body = (req, limit = MAX_BODY_SIZE) => new Promise((resolveBody, reject) => { const chunks = []; let size = 0; req.on('data', chunk => { size += chunk.length; if (size > limit) { reject(new Error(`请求体不能超过 ${Math.round(limit / 1024 / 1024)}MB`)); req.destroy(); return } chunks.push(chunk) }); req.on('end', () => { try { const bytes = Buffer.concat(chunks); const value = bytes.toString('utf8'); if (!Buffer.from(value, 'utf8').equals(bytes)) throw new Error('UTF-8'); resolveBody(value ? JSON.parse(value) : {}) } catch { reject(new Error('请求 JSON 或 UTF-8 无效')) } }); req.on('error', reject) })
 let navigationCache = [], categoryCache = []
 const normalizeTag = value => String(value ?? '').trim()
-const hasUnsafeTagChar = value => [...value].some(char => { const code = char.charCodeAt(0); return code < 32 || code === 127 })
+const hasUnsafeTagChar = value => [...value].some(char => { const code = char.charCodeAt(0); return code < 32 || (code >= 127 && code <= 159) })
 const assertTagName = value => {
   const name = normalizeTag(value)
   if (!name || name.length > 64 || name.includes(',') || hasUnsafeTagChar(name)) throw new Error('标签名无效')
@@ -503,55 +503,72 @@ async function exportTool(id) {
   } finally { await rm(temp, { recursive: true, force: true }) }
 }
 
-// ---------------- Tag Domain API（Source of Truth = navigation + core manifests + static manifests）----------------
+// All published collections participate in the same tag catalog.
+const tagCollections = [
+  ['navigation', 'navigation', 'navigation'], ['ai-resources', 'ai-resource', 'aiResource'],
+  ['library', 'library', 'library'], ['notes', 'note', 'note'], ['projects', 'project', 'project'],
+  ['ai-workflows', 'ai-workflow', 'aiWorkflow'], ['cfgs', 'cfg', 'cfg'],
+]
+const readTagCollection = key => key === 'cfgs' ? validateCfgLibrary(cfgIndexPath, cfgDir) : json(key)
 
 async function collectTagUsage() {
-  const [navigation, core, catalog, aiResources] = await Promise.all([json('navigation'), readJsonFile(coreManifestPath, []), json('tags'), json('ai-resources')])
+  const [collections, core, catalog] = await Promise.all([Promise.all(tagCollections.map(([key]) => readTagCollection(key))), readJsonFile(coreManifestPath, []), json('tags')])
   const statics = await staticToolManifests()
   const map = new Map()
   const add = (name, source) => {
     const tag = normalizeTag(name)
     if (!tag) return
-    const item = map.get(tag) || { name: tag, total: 0, navigationCount: 0, toolCount: 0, aiResourceCount: 0, catalog: false, sources: [] }
+    const item = map.get(tag) || { name: tag, total: 0, toolCount: 0, ...Object.fromEntries(tagCollections.map(([, , count]) => [`${count}Count`, 0])), catalog: false, sources: [] }
     if (source.type === 'catalog') item.catalog = true
     else item.total += 1
-    if (source.type === 'navigation') item.navigationCount += 1
-    else if (source.type === 'tool') item.toolCount += 1
-    else if (source.type === 'ai-resource') item.aiResourceCount += 1
+    const count = source.type === 'tool' ? 'tool' : tagCollections.find(([, type]) => type === source.type)?.[2]
+    if (count) item[`${count}Count`] += 1
     item.sources.push(source)
     map.set(tag, item)
   }
   for (const tag of catalog) add(tag, { type: 'catalog', id: tag, name: tag })
-  for (const item of navigation) for (const tag of item.tags || []) add(tag, { type: 'navigation', id: item.id, name: item.name })
+  for (const [index, [, type]] of tagCollections.entries()) {
+    for (const item of collections[index]) for (const tag of new Set(item.tags || [])) add(tag, { type, id: item.id, name: item.name || item.title })
+  }
   for (const manifest of [...core, ...statics]) {
-    const tags = (manifest.tags || []).length ? manifest.tags : (manifest.keywords || [])
+    const tags = new Set([...(manifest.tags || []), ...(manifest.keywords || [])])
     for (const tag of tags) add(tag, { type: 'tool', id: manifest.id, name: manifest.name })
   }
-  for (const item of aiResources) for (const tag of item.tags || []) add(tag, { type: 'ai-resource', id: item.id, name: item.name })
   const items = [...map.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
   return {
     items,
-    navigationTagCount: items.filter(item => item.navigationCount > 0).length,
     toolTagCount: items.filter(item => item.toolCount > 0).length,
-    aiResourceTagCount: items.filter(item => item.aiResourceCount > 0).length,
+    ...Object.fromEntries(tagCollections.map(([, , count]) => [`${count}TagCount`, items.filter(item => item[`${count}Count`] > 0).length])),
     catalogCount: catalog.length,
   }
 }
 
-// to 传空字符串 = 删除该标签；写回三个数据源并重建索引
+// Empty `to` removes the tag. Preserve file bytes and roll back all metadata on failure.
 async function rewriteTagEverywhere(from, to) {
   const source = assertTagName(from)
   const target = to ? assertTagName(to) : ''
   const rewrite = list => [...new Set((list || []).map(tag => (tag === source ? target : tag)).filter(Boolean))]
+  const changes = new Map()
+  const stage = async (path, value) => {
+    const before = await readFile(path, 'utf8')
+    const after = JSON.stringify(value, null, 2) + '\n'
+    if (before !== after) changes.set(path, { before, after })
+  }
   const catalog = await json('tags')
   const nextCatalog = [...new Set(catalog.map(tag => tag === source ? target : tag).filter(Boolean))]
-  if (nextCatalog.length !== catalog.length || nextCatalog.some((tag, index) => tag !== catalog[index])) await save('tags', nextCatalog)
-  const navigation = await json('navigation')
-  let navigationAffected = 0
-  for (const item of navigation) {
-    if ((item.tags || []).includes(source)) { item.tags = rewrite(item.tags); navigationAffected += 1 }
+  if (nextCatalog.length !== catalog.length || nextCatalog.some((tag, index) => tag !== catalog[index])) await stage(resolve(dataDir, files.tags), nextCatalog)
+  const counts = {}
+  for (const [key] of tagCollections) {
+    const items = await readTagCollection(key)
+    counts[key] = 0
+    for (const item of items) {
+      if ((item.tags || []).includes(source)) { item.tags = rewrite(item.tags); counts[key] += 1 }
+    }
+    if (counts[key]) {
+      if (key !== 'cfgs') { validate(key, items); await validateRelations(key, items) }
+      await stage(key === 'cfgs' ? cfgIndexPath : resolve(dataDir, files[key]), items)
+    }
   }
-  if (navigationAffected) await save('navigation', navigation)
 
   let toolsAffected = 0
   const core = await readJsonFile(coreManifestPath, [])
@@ -562,7 +579,7 @@ async function rewriteTagEverywhere(from, to) {
       toolsAffected += 1
     }
   }
-  if (toolsAffected) await writeFileAtomic(coreManifestPath, JSON.stringify(core, null, 2) + '\n')
+  if (toolsAffected) await stage(coreManifestPath, core)
 
   if (existsSync(toolsDir)) {
     for (const name of await readdir(toolsDir)) {
@@ -572,19 +589,27 @@ async function rewriteTagEverywhere(from, to) {
       if (manifest && ((manifest.tags || []).includes(source) || (manifest.keywords || []).includes(source))) {
         manifest.tags = rewrite(manifest.tags)
         manifest.keywords = rewrite(manifest.keywords)
-        await writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
+        await stage(manifestPath, manifest)
         toolsAffected += 1
       }
     }
   }
-  const aiResources = await json('ai-resources')
-  let aiResourcesAffected = 0
-  for (const item of aiResources) {
-    if ((item.tags || []).includes(source)) { item.tags = rewrite(item.tags); aiResourcesAffected += 1 }
+  if (toolsAffected) {
+    const before = await readFile(indexManifestPath, 'utf8')
+    changes.set(indexManifestPath, { before, after: before })
   }
-  if (aiResourcesAffected) await save('ai-resources', aiResources)
-  await rebuildToolIndex()
-  return { ok: true, affected: navigationAffected + toolsAffected + aiResourcesAffected, navigation: navigationAffected, tools: toolsAffected, aiResources: aiResourcesAffected }
+  const written = []
+  try {
+    for (const [path, { after }] of changes) { await writeFileAtomic(path, after); written.push(path) }
+    if (toolsAffected) await rebuildToolIndex()
+    await refresh()
+  } catch (error) {
+    const recovered = await Promise.allSettled(written.map(path => writeFileAtomic(path, changes.get(path).before)))
+    await refresh()
+    if (recovered.some(result => result.status === 'rejected')) throw new Error('标签更新及部分回滚失败，请检查项目目录写入权限并从备份恢复。')
+    throw error
+  }
+  return { ok: true, affected: Object.values(counts).reduce((sum, value) => sum + value, toolsAffected), navigation: counts.navigation, tools: toolsAffected, aiResources: counts['ai-resources'], library: counts.library, notes: counts.notes, projects: counts.projects, aiWorkflows: counts['ai-workflows'], cfgs: counts.cfgs }
 }
 
 async function renameTag(payload) {

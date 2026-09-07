@@ -1,36 +1,39 @@
 // 标签管理核心：聚合 / 搜索 / 来源筛选 / 排序 / 分页（纯函数，供 admin.js 与 Vitest 共用）。
-// 数据源来自服务端 GET /api/tags（catalog + navigation + tools + AI resources）。
+// 数据源来自服务端 GET /api/tags，覆盖全站带标签的内容。
 
 export const TAG_PAGE_SIZES = [20, 50, 100]
 export const DEFAULT_TAG_PAGE_SIZE = 20
 
 // 兜底聚合：服务端不可用时按本地 state 计算（结构与 /api/tags items 一致）
-export function collectTagItems({ navigation = [], tools = [], aiResources = [], tags = [] }) {
+export const TAG_SOURCES = [
+  ['navigation', 'navigation', 'navigationCount'], ['tools', 'tool', 'toolCount'], ['aiResources', 'ai-resource', 'aiResourceCount'],
+  ['library', 'library', 'libraryCount'], ['notes', 'note', 'noteCount'], ['projects', 'project', 'projectCount'], ['aiWorkflows', 'ai-workflow', 'aiWorkflowCount'], ['cfgs', 'cfg', 'cfgCount'],
+]
+export function collectTagItems(data = {}) {
   const map = new Map()
   const add = (name, source) => {
-    if (!name) return
-    const item = map.get(name) || { name, total: 0, navigationCount: 0, toolCount: 0, aiResourceCount: 0, catalog: false, sources: [] }
+    if (typeof name !== 'string' || !name) return
+    const item = map.get(name) || { name, total: 0, ...Object.fromEntries(TAG_SOURCES.map(([, , count]) => [count, 0])), catalog: false, sources: [] }
     if (source.type === 'catalog') item.catalog = true
     else item.total += 1
-    if (source.type === 'navigation') item.navigationCount += 1
-    else if (source.type === 'tool') item.toolCount += 1
-    else if (source.type === 'ai-resource') item.aiResourceCount += 1
+    const count = TAG_SOURCES.find(([, type]) => type === source.type)?.[2]
+    if (count) item[count] += 1
     item.sources.push(source)
     map.set(name, item)
   }
-  for (const name of tags) add(name, { type: 'catalog', id: name, name })
-  for (const item of navigation) for (const tag of item.tags || []) add(tag, { type: 'navigation', id: item.id, name: item.name })
-  for (const tool of tools) for (const tag of tool.tags || tool.keywords || []) add(tag, { type: 'tool', id: tool.id, name: tool.name })
-  for (const item of aiResources) for (const tag of item.tags || []) add(tag, { type: 'ai-resource', id: item.id, name: item.name })
+  for (const entry of data.tags || []) { const name = typeof entry === 'string' ? entry : entry.catalog ? entry.name : ''; add(name, { type: 'catalog', id: name, name }) }
+  for (const [key, type] of TAG_SOURCES) for (const item of data[key] || []) {
+    for (const tag of new Set([...(item.tags || []), ...(type === 'tool' ? item.keywords || [] : [])])) add(tag, { type, id: item.id, name: item.name || item.title })
+  }
   return [...map.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
 }
 
 export function filterTagItems(items, { query = '', source = 'all', sort = 'usage' } = {}) {
   const keyword = String(query).trim().toLowerCase()
   let matched = items.filter(item => {
-    if (source === 'navigation' && item.navigationCount === 0) return false
-    if (source === 'tools' && item.toolCount === 0) return false
-    if (source === 'ai-resources' && item.aiResourceCount === 0) return false
+    const key = { 'ai-resources': 'aiResources', 'ai-workflows': 'aiWorkflows' }[source] || source
+    const count = TAG_SOURCES.find(([name]) => name === key)?.[2]
+    if (count && !item[count]) return false
     if (source === 'catalog' && !item.catalog) return false
     return !keyword || item.name.toLowerCase().includes(keyword)
   })
@@ -48,12 +51,10 @@ export function paginateTagItems(items, page, pageSize = DEFAULT_TAG_PAGE_SIZE) 
 }
 
 export const tagSourceLabel = item => {
-  if (item.navigationCount > 0 && item.toolCount > 0 && !item.aiResourceCount) return 'both'
-  const used = [item.navigationCount > 0, item.toolCount > 0, item.aiResourceCount > 0].filter(Boolean).length
-  if (used > 1) return 'multiple'
-  if (item.aiResourceCount > 0) return 'ai-resources'
-  if (item.navigationCount > 0) return 'navigation'
-  if (item.toolCount > 0) return 'tools'
+  const used = TAG_SOURCES.filter(([, , count]) => item[count] > 0)
+  if (used.length === 2 && item.navigationCount > 0 && item.toolCount > 0) return 'both'
+  if (used.length > 1) return 'multiple'
+  if (used.length) return { aiResources: 'ai-resources', aiWorkflows: 'ai-workflows' }[used[0][0]] || used[0][0]
   if (item.catalog) return 'catalog'
   return 'none'
 }

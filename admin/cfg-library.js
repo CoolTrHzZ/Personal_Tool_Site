@@ -21,6 +21,7 @@ export function mountCfgLibrary({ request, openModal, showEditorModal, closeEdit
     $('#cfg-download').disabled = saving || content === undefined
     $('#cfg-save').disabled = reading || saving || content === undefined
     historyBox.querySelectorAll('[data-history-ready]').forEach(node => { node.disabled = saving || node.dataset.historyReady !== 'true' })
+    form.dispatchEvent(new Event('devos:picker-sync'))
   }
   const saveDownload = (filename, text) => {
     const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }))

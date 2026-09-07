@@ -60,9 +60,10 @@ export default function ProjectsPage() {
   const kind = params.get('kind') || 'all'
   const status = params.get('status') || 'all'
   const pinnedOnly = params.get('pinned') === '1'
+  const hasFilters = Boolean(query || kind !== 'all' || status !== 'all' || pinnedOnly)
   const listSuffix = params.size ? `?${params}` : ''
   const listUrl = `/projects${listSuffix}`
-  const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || value === 'all') next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
+  const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || (key !== 'q' && value === 'all')) next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
   useEffect(() => {
     document.title = `${item?.name || '桌面工具库'} | ${site.name}`
     return () => { document.title = site.title }
@@ -107,7 +108,7 @@ export default function ProjectsPage() {
   const shown = items.filter(project => (kind === 'all' || project.kind === kind) && (status === 'all' || project.status === status) && (!pinnedOnly || pins.includes(project.id)) && [project.name, project.description, project.version || '', project.platform || '', project.download?.filename || '', ...project.tags].join(' ').toLocaleLowerCase().includes(q)).sort((a, b) => Number(pins.includes(b.id)) - Number(pins.includes(a.id)) || a.order - b.order || a.name.localeCompare(b.name, 'zh'))
   return <main className="page projects-page">
     <PageHero eyebrow="DESKTOP / TOOL LIBRARY" title="桌面工具库" subtitle="我做的工具，随时带走。" description="收纳自己的桌面工具与发布文件。查看用途、版本和使用说明，再下载到需要的电脑。" stats={[{ value: items.length, label: '件作品' }, { value: items.filter(project => project.download).length, label: '份可下载文件' }]} icon={Monitor} code=".EXE" caption="BUILT FOR YOUR WORKFLOW" note={<><Download size={15} />版本信息 · 文件下载</>} />
-    <div className="content-toolbar"><Input aria-label="搜索桌面工具" placeholder="搜索工具、文件名或标签…" value={query} onChange={event => setFilter('q', event.target.value)} /><label>类型<Select aria-label="项目类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{Object.entries(kinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>状态<Select aria-label="维护状态" value={status} onChange={event => setFilter('status', event.target.value)}><option value="all">全部状态</option>{Object.entries(statuses).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</Select></label><Button type="button" aria-pressed={pinnedOnly} icon={<Pin size={14} />} onClick={() => setFilter('pinned', pinnedOnly ? '' : '1')}>我的置顶</Button></div>
+    <div className="content-toolbar"><Input aria-label="搜索桌面工具" placeholder="搜索工具、文件名或标签…" value={query} onChange={event => setFilter('q', event.target.value)} /><label>类型<Select aria-label="项目类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{kind !== 'all' && !Object.keys(kinds).includes(kind) && <option value={kind} disabled>已失效：{kind}</option>}{Object.entries(kinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>状态<Select aria-label="维护状态" value={status} onChange={event => setFilter('status', event.target.value)}><option value="all">全部状态</option>{status !== 'all' && !Object.keys(statuses).includes(status) && <option value={status} disabled>已失效：{status}</option>}{Object.entries(statuses).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</Select></label><Button type="button" aria-pressed={pinnedOnly} icon={<Pin size={14} />} onClick={() => setFilter('pinned', pinnedOnly ? '' : '1')}>我的置顶</Button>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
     {feedbackBlock}<div className="project-list-heading"><h2>作品与发布</h2><p className="content-count" role="status">{shown.length} 个结果 · 置顶仅保存在你的浏览器</p></div>
     {shown.length ? <div className="project-grid">{shown.map((project, index) => <article className={`project-card${project.kind === 'desktop' && index === 0 ? ' project-card-featured' : ''}`} key={project.id}>
       <div className="project-card-content">
@@ -118,6 +119,6 @@ export default function ProjectsPage() {
         <footer>{pinButton(project)}<Link className="ui-button ui-button-ghost ui-button-sm" to={`/projects/${project.id}${listSuffix}`}>查看详情<ArrowUpRight size={14} /></Link><DownloadLink item={project} /></footer>
       </div>
       {project.kind === 'desktop' || project.download ? <ReleaseInfo item={project} /> : <p className="project-card-updated">更新于 <time dateTime={project.updated}>{project.updated}</time></p>}
-    </article>)}</div> : <div className="project-empty"><EmptyState title={items.length ? '没有匹配的工具或项目' : '第一件作品，正在路上'} />{items.length ? <Button onClick={() => setParams({})}>清除筛选</Button> : <><p>这里将展示自己的桌面工具、使用说明与下载文件。</p>{import.meta.env.DEV && <a className="ui-button ui-button-primary" href={`${site.adminUrl.replace(/#.*$/, '')}#projects`} target="_blank" rel="noreferrer">在 Admin 添加桌面工具</a>}</>}</div>}
+    </article>)}</div> : <div className="project-empty"><EmptyState title={items.length ? '没有匹配的工具或项目' : '第一件作品，正在路上'} />{!items.length && <><p>这里将展示自己的桌面工具、使用说明与下载文件。</p>{import.meta.env.DEV && <a className="ui-button ui-button-primary" href={`${site.adminUrl.replace(/#.*$/, '')}#projects`} target="_blank" rel="noreferrer">在 Admin 添加桌面工具</a>}</>}</div>}
   </main>
 }

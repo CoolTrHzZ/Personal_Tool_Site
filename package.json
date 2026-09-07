@@ -6,6 +6,8 @@
   "author": "CoolTrHzZ",
   "type": "module",
   "scripts": {
+    "deploy": "node deploy.mjs",
+    "deploy:update": "node deploy.mjs update",
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",

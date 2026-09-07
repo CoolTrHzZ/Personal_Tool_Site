@@ -17,6 +17,13 @@ const items = collectTagItems({
 })
 
 describe('collectTagItems 聚合', () => {
+  it('includes all content sources and the union of tool tags and keywords', () => {
+    const all = collectTagItems({ library: [nav('lib', '收藏', ['common'])], notes: [{ id: 'note', title: '笔记', tags: ['common'] }], projects: [nav('exe', '桌面工具', ['common'])], aiWorkflows: [nav('flow', '流程', ['common'])], cfgs: [nav('cfg', 'CFG', ['common'])], tools: [{ id: 'tool', name: '工具', tags: ['common'], keywords: ['common', 'keyword'] }] })
+    expect(all.find(item => item.name === 'common')).toMatchObject({ total: 6, libraryCount: 1, noteCount: 1, projectCount: 1, aiWorkflowCount: 1, cfgCount: 1, toolCount: 1 })
+    for (const source of ['library', 'notes', 'projects', 'ai-workflows', 'cfgs']) expect(filterTagItems(all, { source }).map(item => item.name)).toEqual(['common'])
+    expect(all.find(item => item.name === 'keyword').toolCount).toBe(1)
+    expect(tagSourceLabel({ cfgCount: 1 })).toBe('cfgs')
+  })
   it('合并 navigation + tools 两个来源并统计使用数', () => {
     const byName = new Map(items.map(item => [item.name, item]))
     expect(byName.get('assistant')).toMatchObject({ total: 2, navigationCount: 2, toolCount: 0 })

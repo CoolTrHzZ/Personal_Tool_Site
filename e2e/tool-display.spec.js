@@ -18,7 +18,9 @@ test('静态工具全屏后 iframe 铺满视口剩余区域', async ({ page }) =
     const url = response.url()
     if (url.startsWith('http://127.0.0.1:5173/') && response.status() >= 400) failed.push(`${response.status()} ${url}`)
   })
-  await page.goto(`/#/tools/${TOOL_ID}`)
+  await page.goto('/#/tools?q=彩虹')
+  const listUrl = page.url()
+  await page.locator(`.tool-card-link[href="#/tools/${TOOL_ID}"]`).click()
   await expect.poll(async () => {
     const response = await page.request.get('/tools-manifests.json')
     if (!response.ok()) return false
@@ -43,6 +45,10 @@ test('静态工具全屏后 iframe 铺满视口剩余区域', async ({ page }) =
   expect(overlayBox.height).toBeGreaterThan((viewport?.height || 720) - 8)
   expect(frameBox.height).toBeGreaterThan(400)
   expect(frameBox.y + frameBox.height).toBeGreaterThan((viewport?.height || 720) - 8)
+  await page.getByRole('button', { name: '退出全屏 (Esc)', exact: true }).click()
+  await page.getByRole('link', { name: '← 返回工具中心', exact: true }).click()
+  await expect(page).toHaveURL(listUrl)
+  await expect(page.getByRole('textbox', { name: '搜索工具', exact: true })).toHaveValue('彩虹')
   expect(errors, errors.join('\n')).toEqual([])
   expect(failed, failed.join('\n')).toEqual([])
 })

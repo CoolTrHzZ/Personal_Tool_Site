@@ -14,10 +14,17 @@
 .mark-tile, .tool-icon, .letter-icon {
   transition: transform var(--duration) var(--ease), border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease), background var(--duration) var(--ease), color var(--duration) var(--ease);
 }
-.ui-button:hover, .hero-search:hover, .resource-row:hover { transform: translateY(-2px); }
-.dash-meter:hover, .dash-module:hover, .dash-kpi:hover, .tool-card:hover, .nav-card:hover, .ai-resource-card:hover, .note-card:hover { transform: translateY(-3px); }
-.dash-module:hover, .dash-meter:hover, .tool-card:hover, .resource-row:hover, .nav-card:hover, .ai-resource-card:hover, .note-card:hover { border-color: var(--border-hover); box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 12%, transparent); }
-.tool-card:hover .tool-icon, .resource-row:hover .mark-tile:not(.mark-tile-brand), .nav-card:hover .mark-tile:not(.mark-tile-brand), .ai-resource-card:hover .mark-tile:not(.mark-tile-brand), .note-card:hover .mark-tile:not(.mark-tile-brand) {
+@media (hover: hover) and (pointer: fine) {
+  .ui-button:hover, .hero-search:hover, .resource-row:hover { transform: translateY(-2px); }
+  .dash-meter:hover, .dash-module:hover, .dash-kpi:hover, .tool-card:hover, .nav-card:hover, .ai-resource-card:hover, .note-card:hover { transform: translateY(-3px); }
+  .dash-module:hover, .dash-meter:hover, .tool-card:hover, .resource-row:hover, .nav-card:hover, .ai-resource-card:hover, .note-card:hover { border-color: var(--border-hover); box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 12%, transparent); }
+  .tool-card:hover .tool-icon, .resource-row:hover .mark-tile:not(.mark-tile-brand), .nav-card:hover .mark-tile:not(.mark-tile-brand), .ai-resource-card:hover .mark-tile:not(.mark-tile-brand), .note-card:hover .mark-tile:not(.mark-tile-brand) {
+    transform: translateY(-1px) scale(1.03);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+}
+:is(.tool-card, .resource-row, .nav-card, .ai-resource-card, .note-card):focus-within { border-color: var(--border-hover); box-shadow: 0 0 0 2px var(--accent-soft); }
+.tool-card:has(:focus-visible) .tool-icon, .resource-row:has(:focus-visible) .mark-tile:not(.mark-tile-brand), .nav-card:has(:focus-visible) .mark-tile:not(.mark-tile-brand), .ai-resource-card:has(:focus-visible) .mark-tile:not(.mark-tile-brand), .note-card:has(:focus-visible) .mark-tile:not(.mark-tile-brand) {
   transform: translateY(-1px) scale(1.03);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
@@ -47,4 +54,5 @@
   .tool-card:hover .tool-icon, .resource-row:hover .mark-tile, .nav-card:hover .mark-tile, .ai-resource-card:hover .mark-tile, .note-card:hover .mark-tile,
   .kind-filters button:hover, .kind-filters button:active, .category-route button:hover, .category-route button:active,
   .ui-button:active, .primary:hover, .primary:active { transform: none; }
+  :is(.tool-card, .resource-row, .nav-card, .ai-resource-card, .note-card):has(:focus-visible) :is(.tool-icon, .mark-tile) { transform: none; }
 }

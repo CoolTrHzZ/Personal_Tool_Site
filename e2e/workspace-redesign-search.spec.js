@@ -30,7 +30,7 @@ test('命令面板支持完整键盘导航、滚动、输入法与空结果', as
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('searchHistory') || '[]'))).toContain('JSON 格式化')
 })
 
-test('命令面板搜索 AI 资源并进入筛选结果，关闭后恢复触发器焦点', async ({ page }) => {
+test('命令面板直达 AI 资源详情，关闭后恢复触发器焦点且再次打开清空搜索', async ({ page }) => {
   await page.goto('/#/')
   const trigger = page.getByRole('button', { name: '打开命令面板' }).first()
   await trigger.click()
@@ -42,18 +42,19 @@ test('命令面板搜索 AI 资源并进入筛选结果，关闭后恢复触发�
   await input.fill('Local Model')
   await expect(dialog.getByRole('option', { name: /Local Model/ })).toBeVisible()
   await input.press('Enter')
-  await expect(page).toHaveURL(/#\/ai\?q=Local%20Model$/)
-  await expect(page.getByRole('textbox', { name: '搜索 AI 资源' })).toHaveValue('Local Model')
-  await expect(page.getByRole('heading', { name: 'Local Model' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Code Review', exact: true })).toHaveCount(0)
+  await expect(page).toHaveURL(/#\/ai\?resource=local-model$/)
+  const resource = page.getByRole('dialog', { name: 'Local Model', exact: true })
+  await expect(resource).toBeVisible()
+  await resource.getByRole('button', { name: '关闭', exact: true }).click()
+  await expect(resource).toHaveCount(0)
   await page.getByRole('textbox', { name: '搜索 AI 资源' }).fill('Code Review')
   await trigger.click()
+  await expect(input).toHaveValue('')
   // Fill and submit immediately: reopening must not clear this input in a later effect.
   await input.fill('Local Model')
   await input.press('Enter')
-  await expect(page).toHaveURL(/#\/ai\?q=Local%20Model$/)
-  await expect(page.getByRole('textbox', { name: '搜索 AI 资源' })).toHaveValue('Local Model')
-  await expect(page.getByRole('heading', { name: 'Local Model' })).toBeVisible()
+  await expect(page).toHaveURL(/#\/ai\?resource=local-model$/)
+  await expect(resource).toBeVisible()
 })
 
 test('AI 类型标签可用方向键，卡片复制操作不会误开详情', async ({ page, context }) => {

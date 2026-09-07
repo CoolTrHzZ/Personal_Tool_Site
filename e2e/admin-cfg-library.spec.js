@@ -29,7 +29,7 @@ test('Admin 上传、替换、历史预览与回滚 CFG，原文下载保留 BOM
     await page.locator('#cfg-form [name="name"]').fill(fixtureName)
     await page.locator('#cfg-form [name="description"]').fill('用于验证公开 CFG 文件库。\n保留多行说明。')
     await page.locator('#cfg-form [name="changelog"]').fill('初始绑定版本')
-    await page.locator('#cfg-form [name="tags"]').fill('测试, CS2')
+    await page.locator('#cfg-form .picker-search').fill('测试, CS2')
     const created = page.waitForResponse(response => response.url().endsWith('/api/cfgs') && response.request().method() === 'POST')
     await page.locator('#cfg-save').click()
     const response = await created

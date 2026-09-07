@@ -56,7 +56,7 @@ test('CFG 库在手机可浏览和下载，空结果、缺失详情与文件失�
   await expect(page.locator('.cfg-library-card')).toHaveCount(2)
   await page.getByRole('textbox', { name: '搜索 CFG 配置' }).fill('no-result-123')
   await expect(page.getByRole('heading', { name: '没有找到匹配的配置' })).toBeVisible()
-  await page.getByRole('button', { name: '查看全部配置' }).click()
+  await page.getByRole('button', { name: '清除筛选' }).click()
   await expect(page.locator('.cfg-library-card')).toHaveCount(2)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await expect(page.locator('.route-stage')).toHaveCSS('opacity', '1')

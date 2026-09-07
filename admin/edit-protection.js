@@ -57,12 +57,13 @@ export function createEditProtection({ notify = () => {} } = {}) {
           if (!Array.isArray(saved.values)) throw new Error('草稿格式无效')
           for (const entry of saved.values) {
             const field = form.elements.namedItem(entry.name)
-            if (!field || field.readOnly || field.type === 'hidden' || field.type === 'file') continue
+            if (!field || field.readOnly || (field.type === 'hidden' && field.dataset.restoreValue !== 'true') || field.type === 'file') continue
             if (field.multiple) for (const option of field.options) option.selected = entry.selected?.includes(option.value) || false
             else if (field.type === 'checkbox' || field.type === 'radio') field.checked = Boolean(entry.checked)
             else field.value = entry.value
           }
           if (saved.extra !== undefined) extra?.set(saved.extra)
+          form.dispatchEvent(new Event('devos:picker-sync', { bubbles: true }))
           afterRestore?.(); removeActions(); changed(form)
         } catch (error) { notify(`草稿恢复失败：${error.message}`, 'error') }
       }

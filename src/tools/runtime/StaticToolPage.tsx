@@ -5,6 +5,8 @@ import { Maximize2, Minimize2, PanelTop, RefreshCw } from 'lucide-react'
 import type { DisplayMode, ToolDefinition } from '../types'
 import { buildSandbox } from './manifest'
 import IconButton from '../../components/ui/IconButton'
+import { useToolsReturnPath } from '../../components/tools/ToolShell'
+import { ToastMessage } from '../../components/ui/Toast'
 
 type ToastItem = { id: number; message: string; level: 'info' | 'success' | 'error' }
 
@@ -24,6 +26,7 @@ const themeColors = () => ({
 
 /** Static Web App Runtime：HTML / HTML Bundle / React/Vue/Svelte build / WASM 统一走这里 */
 export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
+  const returnTo = useToolsReturnPath()
   const [mode, setMode] = useState<DisplayMode>(tool.display.mode)
   const [height, setHeight] = useState<number>(tool.display.height === 'auto' ? FALLBACK_HEIGHT : tool.display.height)
   const autoHeight = tool.display.height === 'auto'
@@ -44,7 +47,6 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
   const pushToast = useCallback((message: string, level: ToastItem['level'] = 'info') => {
     const id = ++toastSeq.current
     setToasts(current => [...current, { id, message, level }])
-    setTimeout(() => setToasts(current => current.filter(toast => toast.id !== id)), 3200)
   }, [])
 
   const storageKey = useCallback((key: string) => `toolbox:${tool.id}:${String(key)}`, [tool.id])
@@ -147,7 +149,7 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
   useEffect(() => {
     if (mode !== 'fullscreen') return
     document.documentElement.classList.add('tool-fullscreen-lock')
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMode('embedded') }
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.isComposing && !event.defaultPrevented && !document.querySelector('[aria-modal="true"]')) setMode('embedded') }
     window.addEventListener('keydown', onKey)
     return () => {
       document.documentElement.classList.remove('tool-fullscreen-lock')
@@ -183,8 +185,8 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
   )
 
   const toastsView = (
-    <div className="tool-toast-stack" aria-live="polite">
-      {toasts.map(toast => <div key={toast.id} className={`tool-toast tool-toast-${toast.level}`}>{toast.message}</div>)}
+    <div className="tool-toast-stack ui-toast-stack" aria-live="polite" aria-relevant="additions">
+      {toasts.map(toast => <ToastMessage key={toast.id} message={toast.message} className={`tool-toast tool-toast-${toast.level}`} onRemove={() => setToasts(current => current.filter(item => item.id !== toast.id))} />)}
     </div>
   )
 
@@ -208,7 +210,7 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
     return (
       <main className="page tool-workspace">
         <header className="tool-workspace-bar">
-          <Link className="back-link" to="/tools">← 工具中心</Link>
+          <Link className="back-link" to={returnTo}>← 工具中心</Link>
           <strong>{tool.name}</strong>
           <span className="tool-mode-label">v{tool.version} · {tool.format}</span>
           {modeBar}
@@ -221,7 +223,7 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
 
   return (
     <main className="page tool-page">
-      <Link className="back-link" to="/tools">← 返回工具中心</Link>
+      <Link className="back-link" to={returnTo}>← 返回工具中心</Link>
       <section className="page-heading">
         <p className="eyebrow">{tool.category.toUpperCase()} / TOOL</p>
         <h1>{tool.name}</h1>

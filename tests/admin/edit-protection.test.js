@@ -2,6 +2,16 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { createEditProtection } from '../../admin/edit-protection.js'
 beforeEach(() => { document.body.innerHTML = '<form id="editor"><input name="originalId" type="hidden" value="one"><input name="id" value="one" readonly><textarea name="body">original</textarea><button type="submit">save</button></form>'; localStorage.clear(); vi.restoreAllMocks() })
+it('restores explicitly marked picker values and notifies the UI without changing identity fields', () => {
+  const form = document.querySelector('form'), guard = createEditProtection(), sync = vi.fn()
+  form.insertAdjacentHTML('beforeend', '<input name="tags" type="hidden" data-restore-value="true" value="old"><input name="icon" type="hidden" data-restore-value="true" value="Code2">')
+  guard.begin(form); form.elements.tags.value = 'custom'; form.elements.icon.value = 'Folder'; form.elements.tags.dispatchEvent(new Event('change', { bubbles: true }))
+  vi.spyOn(window, 'confirm').mockReturnValue(true); expect(guard.mayLeave(form)).toBe(true)
+  const key = 'devos-admin-draft:editor:one', draft = JSON.parse(localStorage.getItem(key)); draft.values.find(item => item.name === 'originalId').value = 'forged'; localStorage.setItem(key, JSON.stringify(draft))
+  form.elements.tags.value = 'old'; form.elements.icon.value = 'Code2'; guard.begin(form); form.addEventListener('devos:picker-sync', sync)
+  ;[...form.querySelectorAll('button')].find(button => button.textContent === '恢复草稿').click()
+  expect(form.elements.tags.value).toBe('custom'); expect(form.elements.icon.value).toBe('Folder'); expect(form.elements.originalId.value).toBe('one'); expect(sync).toHaveBeenCalledOnce()
+})
 it('keeps unsaved input on cancel, restores a draft without changing a readonly id, and cleans after saving', () => {
   const form = document.querySelector('form'), guard = createEditProtection(), confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
   guard.begin(form); form.elements.body.value = 'unsaved'; guard.changed(form)

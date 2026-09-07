@@ -18,6 +18,9 @@
 .workspace-todos .ui-button:hover { color: var(--danger); }
 .workspace-save-status { min-height: 15px; margin: 9px 0 0; color: var(--text-faint); font-size: 10px; line-height: 1.5; }
 .workspace-save-status.has-error { color: var(--danger); }
+.workspace-undo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding: 8px; border: 1px solid var(--border-default); border-radius: 6px; background: color-mix(in srgb, var(--workspace-accent) 5%, var(--surface-card)); }
+.workspace-undo > span { flex: 1 1 120px; min-width: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.workspace-undo .ui-button { flex: none; color: var(--workspace-accent); }
 .workspace-focus-settings { display: flex; align-items: center; justify-content: space-between; gap: 7px; }
 .workspace-focus-modes { display: flex; gap: 3px; padding: 2px; border: 1px solid var(--border-subtle); border-radius: 5px; }
 .workspace-focus-modes button { display: flex; align-items: center; gap: 4px; min-height: 27px; padding: 0 8px; border: 0; border-radius: 3px; background: transparent; color: var(--text-faint); font-size: 11px; cursor: pointer; }

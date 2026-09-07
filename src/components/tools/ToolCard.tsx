@@ -2,7 +2,7 @@ import '../../styles/components/favorite-status.css'
 import { ArrowUpRight, Code2, Globe2, Palette, Star, Wrench } from 'lucide-react'
 import { useContext, useState } from 'react'
 import { m, useReducedMotion } from 'motion/react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import type { ToolDefinition } from '../../tools/types'
 import { addRecentTool, retryFavoriteTools, toggleFavoriteTool, useUserTools } from '../../utils/user-state'
 import Button from '../ui/Button'
@@ -13,6 +13,7 @@ import { MotionContext } from '../layout/Layout'
 const iconMap = { Code2, Globe2, Palette, Wrench }
 
 export default function ToolCard({ tool, pathIndex }: { tool: ToolDefinition; pathIndex?: number }) {
+  const location = useLocation()
   const Icon = tool.iconComponent || iconMap[tool.icon as keyof typeof iconMap] || Code2
   const [saveError, setSaveError] = useState(false)
   const favorite = useUserTools('favoriteTools').includes(tool.id)
@@ -23,7 +24,7 @@ export default function ToolCard({ tool, pathIndex }: { tool: ToolDefinition; pa
   const reducedMotion = useReducedMotion()
   return (
     <Card className={`tool-card ${pathIndex ? 'path-node' : 'directory-row'}`}>
-      <Link className="tool-card-link" to={tool.path} aria-label={`${unavailable ? '暂不可用' : '打开'} ${tool.name}`} aria-disabled={unavailable || undefined} tabIndex={unavailable ? -1 : undefined} onClick={event => { if (unavailable) event.preventDefault(); else addRecentTool(tool.id) }}>
+      <Link className="tool-card-link" to={tool.path} state={location.pathname === '/tools' ? { returnTo: `${location.pathname}${location.search}` } : undefined} aria-label={`${unavailable ? '暂不可用' : '打开'} ${tool.name}`} aria-disabled={unavailable || undefined} tabIndex={unavailable ? -1 : undefined} onClick={event => { if (unavailable) event.preventDefault(); else addRecentTool(tool.id) }}>
         {pathIndex && <span className="path-index">{String(pathIndex).padStart(2, '0')}</span>}
         <span className="mark-tile tool-icon"><Icon size={18} /></span>
         <span className="tool-card-copy">
