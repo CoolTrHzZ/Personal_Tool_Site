@@ -1,1 +1,31 @@
-[]
+[
+  {
+    "id": "modlink",
+    "name": "ModLink",
+    "kind": "desktop",
+    "description": "为 CS2 社区服制作的模型处理工具，集中整理 EXG / ZED 人物模型适配工作。",
+    "body": "## 关于 ModLink\n\nModLink 是我制作的 CS2 社区服模型处理工具，用于 EXG / ZED 人物模型适配。这里提供当前 EXE 文件，方便在其他电脑上下载取用。\n\n## 当前下载\n\n- 版本：3.5 Flow\n- 平台：Windows x64\n- 文件名：`ModLink-3.5-Flow.exe`\n\n## 使用方式\n\n1. 点击“下载 EXE”，将程序保存到 Windows 电脑。\n2. 在本机打开程序，按工具界面完成模型处理。\n3. 需要确认文件完整性时，将本机文件的 SHA-256 与本页显示的值进行比对。\n\n网页提供程序展示与下载，模型处理在 Windows 程序内完成。",
+    "repository": "",
+    "docs": "",
+    "url": "",
+    "status": "active",
+    "version": "3.5 Flow",
+    "platform": "windows-x64",
+    "download": {
+      "filename": "ModLink-3.5-Flow.exe",
+      "size": 7091712,
+      "sha256": "1b310b77388edc46b458e4462c9fe0c3547535ce616b269493460823a451daa1"
+    },
+    "tags": [
+      "CS2",
+      "社区服",
+      "模型处理",
+      "EXG",
+      "ZED"
+    ],
+    "cfgIds": [],
+    "enabled": true,
+    "order": 10,
+    "updated": "2026-09-07"
+  }
+]

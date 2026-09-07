@@ -1,6 +1,6 @@
 export function mountSiteManagement({ request, el, button, toast, openModal, downloadBase64, fileToPayload, reload }) {
   function backup(host) {
-    host.append(el('p', 'muted', '完整备份包含站点全部公开 JSON、CFG（含历史）、静态工具文件、内置工具配置与工具索引。恢复会替换这些内容；不包含浏览器个人数据、草稿或应用源码。'))
+    host.append(el('p', 'muted', '完整备份包含站点全部公开 JSON、桌面工具 EXE、CFG（含历史）、静态工具文件、内置工具配置与工具索引。恢复会替换这些内容；不包含浏览器个人数据、草稿或应用源码。'))
     const exportButton = button('导出完整站点备份', {}, 'ui-button ui-button-primary')
     const upload = document.createElement('input'); upload.type = 'file'; upload.accept = '.gz,.devos.gz'; upload.className = 'ui-input'; upload.setAttribute('aria-label', '选择完整站点备份')
     const result = el('div', 'admin-management-result'); result.setAttribute('aria-live', 'polite')

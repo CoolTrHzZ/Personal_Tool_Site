@@ -22,7 +22,15 @@ export function assertProjects(items, cfgs) {
   records(items, '项目')
   for (const item of items) {
     common(item, '项目')
-    if (!['project', 'service'].includes(item.kind) || !['active', 'paused', 'archived'].includes(item.status) || !text(item.body, 200000)) throw new Error(`项目类型、状态或正文无效：${item.id}`)
+    if (!['desktop', 'project', 'service'].includes(item.kind) || !['active', 'paused', 'archived'].includes(item.status) || !text(item.body, 200000)) throw new Error(`项目类型、状态或正文无效：${item.id}`)
+    if (item.version !== undefined && !text(item.version, 40)) throw new Error('项目版本号无效（最多 40 字符）')
+    if (item.platform !== undefined && !['windows-x64', 'windows-x86', 'windows-arm64'].includes(item.platform)) throw new Error('项目运行平台无效')
+    if (item.download !== undefined) {
+      const file = item.download
+      if (item.kind !== 'desktop' || !item.platform || !file || typeof file !== 'object' || Array.isArray(file) || Object.keys(file).some(key => !['filename', 'size', 'sha256'].includes(key))) throw new Error('项目下载元数据无效')
+      if (!text(file.filename, 120, true) || /[\\/:*?"<>|]/.test(file.filename) || [...file.filename].some(char => char.charCodeAt(0) < 32 || (char.charCodeAt(0) >= 127 && char.charCodeAt(0) <= 159)) || file.filename !== file.filename.trim() || file.filename.startsWith('.') || !/\.exe$/i.test(file.filename) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(file.filename)) throw new Error('项目文件名必须是安全的 .exe 名称，不能包含路径或特殊字符')
+      if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > 20 * 1024 * 1024 || typeof file.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(file.sha256)) throw new Error('项目下载文件大小或 SHA-256 无效')
+    }
     for (const key of ['repository', 'docs', 'url']) {
       if (!text(item[key], 2048)) throw new Error(`项目 ${key} 无效`)
       if (item[key]) {

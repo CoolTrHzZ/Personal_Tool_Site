@@ -28,4 +28,12 @@ describe('project, runbook and workflow content validation', () => {
     expect(runbookTemplates.incident).toContain('## 恢复验证')
     expect(runbookTemplates.rollback).toContain('## 回滚验证')
   })
+  it('accepts desktop tool drafts and downloads while rejecting unsafe download metadata', () => {
+    const desktop = { ...project, kind: 'desktop', version: '3.5 Flow', platform: 'windows-x64', download: { filename: '模型处理工具.exe', size: 1024, sha256: 'a'.repeat(64) } }
+    expect(() => assertProjects([{ ...project, kind: 'desktop' }])).not.toThrow()
+    expect(() => assertProjects([desktop])).not.toThrow()
+    for (const patch of [{ kind: 'service' }, { version: 'a'.repeat(41) }, { platform: 'linux' }, { platform: undefined }, { download: null }]) expect(() => assertProjects([{ ...desktop, ...patch }])).toThrow()
+    for (const filename of ['../app.exe', 'C:\\app.exe', 'aux.exe', '.app.exe', 'app.exe ', 'app\n.exe', 'app.exe:stream', 'app.zip']) expect(() => assertProjects([{ ...desktop, download: { ...desktop.download, filename } }])).toThrow()
+    for (const patch of [{ path: 'other.exe' }, { size: -1 }, { size: 20 * 1024 * 1024 + 1 }, { size: 1.2 }, { sha256: 'not-a-hash' }]) expect(() => assertProjects([{ ...desktop, download: { ...desktop.download, ...patch } }])).toThrow()
+  })
 })

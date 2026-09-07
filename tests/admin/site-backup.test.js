@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Buffer } from 'node:buffer'
+import { createHash } from 'node:crypto'
 import { gzipSync, gunzipSync } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
 import { BACKUP_ROOTS, exportSiteBackup, decodeSiteBackup, previewSiteRestore, restoreSiteBackup } from '../../scripts/site-backup.mjs'
@@ -15,8 +16,18 @@ beforeEach(async () => {
   root = await fs.mkdtemp(join(tmpdir(), 'admin-backup-test-'))
   for (const path of [...BACKUP_ROOTS, 'scripts', 'shared', 'src/tools/registry.ts']) {
     await fs.mkdir(dirname(join(root, path)), { recursive: true })
-    await fs.cp(join(source, path), join(root, path), { recursive: true }).catch(async error => { if (error.code !== 'ENOENT' || path !== 'public/cfgs') throw error; await fs.mkdir(join(root, path), { recursive: true }) })
+    await fs.cp(join(source, path), join(root, path), { recursive: true }).catch(async error => { if (error.code !== 'ENOENT' || !['public/cfgs', 'public/downloads'].includes(path)) throw error; await fs.mkdir(join(root, path), { recursive: true }) })
   }
+  const bytes = Buffer.alloc(1024)
+  bytes.write('MZ'); bytes.writeUInt32LE(128, 60); bytes.writeUInt32LE(0x4550, 128)
+  bytes.writeUInt16LE(0x8664, 132); bytes.writeUInt16LE(1, 134); bytes.writeUInt16LE(240, 148); bytes.writeUInt16LE(2, 150)
+  bytes.writeUInt16LE(0x20b, 152); bytes.writeUInt16LE(3, 220); bytes.writeUInt32LE(512, 408); bytes.writeUInt32LE(512, 412)
+  const download = { filename: 'backup.exe', size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') }
+  const projects = JSON.parse(await fs.readFile(join(root, 'src/data/projects.json'), 'utf8'))
+  projects.unshift({ id: 'backup-exe', name: '备份测试工具', kind: 'desktop', description: '', body: '', repository: '', docs: '', url: '', status: 'active', version: '1.0', platform: 'windows-x64', download, tags: [], cfgIds: [], enabled: true, order: 1, updated: '2026-09-07' })
+  await fs.writeFile(join(root, 'src/data/projects.json'), JSON.stringify(projects))
+  await fs.mkdir(join(root, 'public/downloads/backup-exe'), { recursive: true })
+  await fs.writeFile(join(root, 'public/downloads/backup-exe', `${download.sha256}.exe`), bytes)
 })
 afterEach(async () => { fs.rename.mockImplementation((await vi.importActual('node:fs/promises')).rename); await fs.rm(root, { recursive: true, force: true }) })
 const rewrite = (content, change) => { const archive = JSON.parse(gunzipSync(Buffer.from(content, 'base64')).toString()); change(archive); return gzipSync(Buffer.from(JSON.stringify(archive))).toString('base64') }
@@ -32,11 +43,16 @@ it('preserves every public tool byte including hidden and .tmp assets, previews 
   await fs.writeFile(join(root, 'public/tools/.theme'), Buffer.from([0, 1, 255]))
   await fs.writeFile(join(root, 'public/tools/template.tmp'), '\ufeffecho hi\r\n')
   const original = await fs.readFile(join(root, 'src/data/site.json'))
+  const project = JSON.parse(await fs.readFile(join(root, 'src/data/projects.json'), 'utf8')).find(item => item.download)
+  const executablePath = join(root, 'public/downloads', project.id, `${project.download.sha256}.exe`)
+  const executable = await fs.readFile(executablePath)
   const backup = await exportSiteBackup(root)
   expect(decodeSiteBackup(backup.content).files.map(file => file.path)).toContain('public/tools/.theme')
+  expect(decodeSiteBackup(backup.content).files.map(file => file.path)).toContain(`public/downloads/${project.id}/${project.download.sha256}.exe`)
   await fs.writeFile(join(root, 'src/data/site.json'), '{}\n')
   await fs.writeFile(currentPath, 'echo replacement\n')
   await fs.writeFile(historicPath, 'echo replacement history\n')
+  await fs.writeFile(executablePath, Buffer.from('damaged exe'))
   await fs.writeFile(join(root, 'public/tools/removed-on-restore.txt'), 'extra')
   const preview = await previewSiteRestore(root, backup.content)
   expect(preview.changes).toEqual(expect.arrayContaining([{ path: 'src/data/site.json', action: 'replace' }, { path: 'public/tools/removed-on-restore.txt', action: 'delete' }]))
@@ -46,11 +62,18 @@ it('preserves every public tool byte including hidden and .tmp assets, previews 
   expect(await fs.readFile(join(root, 'public/tools/template.tmp'), 'utf8')).toBe('\ufeffecho hi\r\n')
   expect(await fs.readFile(currentPath)).toEqual(Buffer.from(currentContent))
   expect(await fs.readFile(historicPath)).toEqual(Buffer.from(cfgContent))
+  expect(await fs.readFile(executablePath)).toEqual(executable)
   await expect(fs.stat(join(root, 'public/tools/removed-on-restore.txt'))).rejects.toThrow()
 })
 it('rejects corrupt bytes, path traversal, duplicate paths, missing metadata and invalid public content before replacing anything', async () => {
   const backup = await exportSiteBackup(root), original = await fs.readFile(join(root, 'src/data/site.json'))
   for (const change of [a => { a.files[0].content = 'ZGFtYWdlZA==' }, a => { a.files[0].path = '../escape' }, a => { a.files.push(a.files[0]) }, a => { a.files = a.files.filter(file => file.path !== 'src/data/notes.json') }]) expect(() => decodeSiteBackup(rewrite(backup.content, change))).toThrow()
+  const invalidExe = rewrite(backup.content, archive => {
+    const file = archive.files.find(file => file.path.startsWith('public/downloads/') && file.path.endsWith('.exe'))
+    const bytes = Buffer.from('invalid PE file')
+    file.content = bytes.toString('base64'); file.size = bytes.length; file.sha256 = createHash('sha256').update(bytes).digest('hex')
+  })
+  await expect(previewSiteRestore(root, invalidExe)).rejects.toThrow('校验')
   await fs.writeFile(join(root, 'src/data/projects.json'), '[{"id":"invalid"}]')
   const invalid = await exportSiteBackup(root)
   await expect(previewSiteRestore(root, invalid.content)).rejects.toThrow('校验')

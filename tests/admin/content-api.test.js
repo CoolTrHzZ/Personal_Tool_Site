@@ -12,10 +12,10 @@ const source = fileURLToPath(new URL('../../', import.meta.url))
 let root, server, origin
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'admin-content-api-'))
-  for (const path of ['scripts', 'shared', 'src/data', 'public/cfgs', 'public/tools', 'src/tools/manifests/core.json', 'public/tools-manifests.json', 'src/tools/registry.ts', 'package.json']) {
+  for (const path of ['scripts', 'shared', 'src/data', 'public/cfgs', 'public/downloads', 'public/tools', 'src/tools/manifests/core.json', 'public/tools-manifests.json', 'src/tools/registry.ts', 'package.json']) {
     await mkdir(dirname(join(root, path)), { recursive: true })
     await cp(join(source, path), join(root, path), { recursive: true }).catch(async error => {
-      if (error.code !== 'ENOENT' || path !== 'public/cfgs') throw error
+      if (error.code !== 'ENOENT' || !['public/cfgs', 'public/downloads'].includes(path)) throw error
       await mkdir(join(root, path), { recursive: true })
     })
   }

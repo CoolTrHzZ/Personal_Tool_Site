@@ -51,8 +51,8 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       ...configurations.filter(item => matches([item.name, item.filename, item.description, item.category, ...item.tags])).slice(0, 6).map(item => ({
         id: `cfg-${item.id}`, group: 'CFG 配置库', name: item.name, hint: item.filename, run: () => navigate(`/cfg/${item.id}`),
       })),
-      ...projectItems.filter(item => item.enabled && matches([item.name, item.description, item.kind, item.body, ...item.tags])).slice(0, 6).map(item => ({
-        id: `project-${item.id}`, group: '项目与服务', name: item.name, hint: item.kind === 'service' ? '服务' : '项目', run: () => navigate(`/projects/${item.id}`),
+      ...projectItems.filter(item => item.enabled && matches([item.name, item.description, item.kind, item.body, item.version || '', item.platform || '', item.download?.filename || '', ...item.tags])).slice(0, 6).map(item => ({
+        id: `project-${item.id}`, group: '桌面工具库', name: item.name, hint: item.kind === 'desktop' ? `EXE${item.version ? ' · ' + item.version : ''}` : item.kind === 'service' ? '服务' : '项目', run: () => navigate(`/projects/${item.id}`),
       })),
       ...workflowItems.filter(item => item.enabled && matches([item.name, item.description, item.category, ...item.tags])).slice(0, 6).map(item => ({
         id: `workflow-${item.id}`, group: 'AI 工作流', name: item.name, hint: '工作流', run: () => navigate(`/ai?workflow=${encodeURIComponent(item.id)}`),
@@ -64,7 +64,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         { id: 'notes', name: '打开笔记', hint: '笔记', path: '/notes' },
         { id: 'ai', name: '打开 AI Hub', hint: 'AI 资源', path: '/ai' },
         { id: 'cfg', name: '打开 CFG 配置库', hint: 'CFG 文件', path: '/cfg' },
-        { id: 'projects', name: '打开项目与服务', hint: '项目', path: '/projects' },
+        { id: 'projects', name: '打开桌面工具库', hint: 'EXE 项目', path: '/projects' },
       ].filter(item => matches([item.name, item.hint])).map(item => ({ ...item, group: '命令', run: () => navigate(item.path) })),
     ]
   }, [tools, q, navigate])

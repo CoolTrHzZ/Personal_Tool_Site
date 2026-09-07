@@ -7,6 +7,8 @@ import { dirname, extname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
 import { chromium, expect } from '@playwright/test'
+import { createHash } from 'node:crypto'
+import { Buffer } from 'node:buffer'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const temporary = await mkdtemp(join(tmpdir(), 'devos-pages-'))
@@ -18,7 +20,8 @@ const cfgFixture = { id: '11111111-1111-4111-8111-111111111111', name: 'Pages �
 const cfgContent = '\ufeff// 跨机器原文\r\nbind "SPACE" "+jump"\r\nbind x say \u0006社区\u0007ffffff彩字\u000b保留\u000e原文\u0010\r\n'
 const projectIndexPath = join(root, 'src/data/projects.json')
 const noteIndexPath = join(root, 'src/data/notes.json')
-const projectFixture = { id: 'pages-project-check', name: 'Pages 项目检查', kind: 'service', description: '静态服务档案', body: '# 项目说明\n\n项目、手册和配置的静态关联。', repository: '', docs: '', url: 'https://example.com', status: 'active', tags: ['静态测试'], cfgIds: [cfgFixture.id], enabled: true, order: 9999, updated: '2026-09-05' }
+const executableContent = Buffer.from('MZ\u0000\u0001\u00ff\r\nStatic download fixture, never executed.\u0000', 'latin1')
+const projectFixture = { id: 'pages-project-check', name: 'Pages 项目检查', kind: 'desktop', description: '桌面工具静态下载', body: '# 项目说明\n\n项目、手册和配置的静态关联。', repository: '', docs: '', url: '', status: 'active', version: '1.0', platform: 'windows-x64', download: { filename: 'Pages 测试.exe', size: executableContent.length, sha256: createHash('sha256').update(executableContent).digest('hex') }, tags: ['静态测试'], cfgIds: [cfgFixture.id], enabled: true, order: 9999, updated: '2026-09-05' }
 const noteFixture = { id: 'pages-runbook-check', title: 'Pages 部署手册', summary: '检查静态手册', body: '# Pages 部署手册\n\n## 验证\n\n确认配置可下载。', kind: 'deploy', projectId: projectFixture.id, cfgIds: [cfgFixture.id], tags: [], enabled: true, order: 9999, updated: '2026-09-05' }
 const projectItems = JSON.parse(await readFile(projectIndexPath, 'utf8'))
 const noteItems = JSON.parse(await readFile(noteIndexPath, 'utf8'))
@@ -32,6 +35,8 @@ try {
     await build({ root, base, logLevel: 'error', plugins: [{ name: 'pages-content-fixtures', enforce: 'pre', load(id) { const value = fixtureModules.get(id.split('?')[0]); if (value) return JSON.stringify(value) } }], build: { outDir, emptyOutDir: true } })
     await mkdir(join(outDir, 'cfgs'), { recursive: true })
     await writeFile(join(outDir, 'cfgs', `${cfgFixture.id}.cfg`), cfgContent)
+    await mkdir(join(outDir, 'downloads', projectFixture.id), { recursive: true })
+    await writeFile(join(outDir, 'downloads', projectFixture.id, `${projectFixture.download.sha256}.exe`), executableContent)
     const cname = await readFile(join(outDir, 'CNAME'), 'utf8').catch(() => '')
     const publicUrl = site.publicUrl ? new URL(site.publicUrl) : null
     const customDomain = publicUrl && !publicUrl.hostname.endsWith('.github.io') && !publicUrl.port && publicUrl.hostname !== 'localhost'
@@ -59,9 +64,11 @@ try {
     await writeFile(join(outDir, 'tools-manifests.json'), JSON.stringify([...manifests, fixture]))
 
     // Deliberately no API handlers and no SPA fallback: GitHub Pages serves files.
+    const paths = new Set()
     const server = createServer(async (request, response) => {
       try {
         const pathname = decodeURIComponent(new URL(request.url, 'http://static.test').pathname)
+        paths.add(pathname)
         const file = resolve(outDir, pathname.slice(mount.length) || 'index.html')
         if (!pathname.startsWith(mount) || !file.startsWith(`${outDir}${sep}`)) throw new Error('outside artifact')
         response.setHeader('Content-Type', mime[extname(file)] || 'application/octet-stream')
@@ -73,7 +80,6 @@ try {
     const context = await browser.newContext({ reducedMotion: 'reduce' })
     const page = await context.newPage()
     const failures = []
-    const paths = new Set()
     page.on('pageerror', error => failures.push(error.message))
     page.on('response', response => { if (response.url().startsWith(origin) && response.status() >= 400) failures.push(`${response.status()} ${response.url()}`) })
     await page.route('**/*', route => {
@@ -103,6 +109,12 @@ try {
       await page.goto(`${origin}${mount}#/projects/${projectFixture.id}`)
       await page.reload()
       await expect(page.getByRole('heading', { name: projectFixture.name, exact: true })).toBeVisible()
+      const exeDownloadEvent = page.waitForEvent('download')
+      await page.locator(`a[download="${projectFixture.download.filename}"]`).first().click()
+      const exeDownload = await exeDownloadEvent
+      assert.equal(exeDownload.suggestedFilename(), projectFixture.download.filename)
+      assert.deepEqual(await readFile(await exeDownload.path()), executableContent)
+      assert(paths.has(`${mount}downloads/${projectFixture.id}/${projectFixture.download.sha256}.exe`), 'EXE files must download below the deployment base')
       await page.getByRole('link', { name: /Pages 部署手册/ }).click()
       await expect(page.getByRole('heading', { name: noteFixture.title, exact: true })).toBeVisible()
       await page.getByRole('navigation', { name: '手册关联资料' }).getByRole('link', { name: /CFG/ }).click()
@@ -143,7 +155,7 @@ try {
       assert(paths.has(`${mount}tools-manifests.json`), 'Tool manifests must load below the deployment base')
       assert(paths.has(`${mount}toolbox-bridge.js`), 'The SDK must load below the deployment base')
       assert.deepEqual(failures, [])
-      console.log(`PASS ${name}: build, hash reload, eight pages, project/runbook relations, CFG preview/download, ${staticTools.length} static tools, bridge, no backend`)
+      console.log(`PASS ${name}: build, hash reload, eight pages, EXE byte-exact download, project/runbook relations, CFG preview/download, ${staticTools.length} static tools, bridge, no backend`)
     } finally {
       await context.close()
       await new Promise(resolve => server.close(resolve))

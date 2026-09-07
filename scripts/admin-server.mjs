@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { CFG_ID, validateCfgLibrary, readCfgContent, saveCfgRecord, deleteCfgRecord, rollbackCfgRecord } from './cfg-library.mjs'
 import { assertProjects, assertNoteRelations, assertAIWorkflows } from '../shared/content-validation.js'
+import { MAX_PROJECT_BODY_BYTES, prepareProjectUpload, validateProjectDownloads, commitProjectDownload } from './project-downloads.mjs'
 import { exportSiteBackup, previewSiteRestore, restoreSiteBackup, publishingStatus, MAX_BACKUP_BYTES } from './site-backup.mjs'
 import {
   IMPORT_LIMITS, assertManifest, detectFormat, extractHtmlMeta, inspectTool,
@@ -24,6 +25,7 @@ const publicDir = resolve(root, 'public')
 const toolsDir = join(publicDir, 'tools')
 const cfgDir = join(publicDir, 'cfgs')
 const cfgIndexPath = join(dataDir, 'cfgs.json')
+const downloadsDir = join(publicDir, 'downloads')
 // staging 必须在 public 之外：public 是正式静态资源目录，暂存文件不允许暴露（含 ../ 穿越兜底由 servePreviewAsset 负责）
 const stagingDir = resolve(root, '.tool-staging')
 const legacyStagingDir = join(toolsDir, '.staging')
@@ -168,6 +170,7 @@ async function runValidation() {
   try { validate('ai-resources', await json('ai-resources')) } catch (error) { issues.push(error.message) }
   try { validate('notes', await json('notes')) } catch (error) { issues.push(error.message) }
   try { validate('projects', await json('projects')); validate('ai-workflows', await json('ai-workflows')); await validateRelations() } catch (error) { issues.push(error.message) }
+  try { await validateProjectDownloads(await json('projects'), downloadsDir) } catch (error) { issues.push(error.message) }
   try { validate('tags', await json('tags')) } catch (error) { issues.push(error.message) }
   try { await withCfgQueue(() => validateCfgLibrary(cfgIndexPath, cfgDir)) } catch (error) { issues.push(error.message) }
   for (const manifest of await tools()) {
@@ -733,6 +736,26 @@ async function handleRequest(req, res) {
       const match = url.pathname.match(/^\/api\/(navigation|categories|site|library|ai-resources|notes|projects|ai-workflows)(?:\/([^/]+))?$/); if (!match) return send(res, 404, { error: 'Not found' })
       const key = match[1], id = match[2]; let value = await json(key)
       if (req.method === 'GET') return send(res, 200, value)
+      if (key === 'projects') {
+        if ((!id && req.method !== 'POST') || (id && !['PUT', 'DELETE'].includes(req.method))) return send(res, 405, { error: 'Method not allowed' })
+        const previous = id ? value.find(item => item.id === id) : undefined
+        if (id && !previous) return send(res, 404, { error: 'Not found' })
+        if (req.method === 'DELETE') {
+          if ((await json('notes')).some(note => note.projectId === id)) return send(res, 409, { error: '项目仍被笔记引用，请先解除关联' })
+          value = value.filter(item => item.id !== id)
+          await validateRelations(key, value)
+          await commitProjectDownload(resolve(dataDir, files.projects), downloadsDir, value, previous)
+          return send(res, 200, value)
+        }
+        if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) return send(res, 415, { error: '项目写请求必须使用 application/json' })
+        const payload = await body(req, MAX_PROJECT_BODY_BYTES)
+        if (id && payload?.id !== undefined && payload.id !== id) throw new Error('已有 ID 为固定地址，不能更改')
+        const { item, bytes } = prepareProjectUpload(payload, previous)
+        value = id ? value.map(record => record.id === id ? item : record) : [...value, item]
+        validate(key, value); await validateRelations(key, value)
+        await commitProjectDownload(resolve(dataDir, files.projects), downloadsDir, value, previous, item, bytes)
+        return send(res, id ? 200 : 201, id ? value : item)
+      }
       if (key === 'site' && req.method === 'PUT') { await save(key, { ...(await json(key)), ...(await body(req)) }); return send(res, 200, await json(key)) }
       if (key !== 'site' && req.method === 'POST') { const item = await body(req); value.push(item); await save(key, value); return send(res, 201, item) }
       if (key !== 'site' && id && (req.method === 'PUT' || req.method === 'DELETE')) {
@@ -740,7 +763,6 @@ async function handleRequest(req, res) {
         if (index < 0) return send(res, 404, { error: 'Not found' })
         if (req.method === 'DELETE') {
           if (key === 'categories' && navigationCache.some(item => item.category === id)) return send(res, 409, { error: '分类仍被网址使用' })
-          if (key === 'projects' && (await json('notes')).some(note => note.projectId === id)) return send(res, 409, { error: '项目仍被笔记引用，请先解除关联' })
           if (key === 'ai-resources' && (await json('ai-workflows')).some(workflow => workflow.steps.some(step => step.resourceId === id))) return send(res, 409, { error: 'AI 资源仍被工作流引用，请先解除关联' })
           value.splice(index, 1)
         } else {
@@ -761,6 +783,18 @@ async function handleRequest(req, res) {
     if (url.pathname.startsWith('/__tool_preview/')) return servePreviewAsset(req.url || '/', res)
     if (url.pathname === '/toolbox-bridge.js') return send(res, 200, await readFile(join(toolsDir, 'toolbox-bridge.js')), MIME_TYPES['.js'])
     if (url.pathname.startsWith('/tools/')) return serveToolAsset(req.url || '/', res)
+    if (url.pathname === '/downloads' || url.pathname.startsWith('/downloads/')) {
+      const asset = url.pathname.match(/^\/downloads\/([a-z0-9][a-z0-9-]{0,79})\/([a-f0-9]{64})\.exe$/)
+      if (!asset) return send(res, 404, { error: 'Not found' })
+      if (!['GET', 'HEAD'].includes(req.method)) return send(res, 405, { error: 'Method not allowed' })
+      const items = await json('projects'); assertProjects(items)
+      const item = items.find(item => item.id === asset[1] && item.download?.sha256 === asset[2])
+      if (!item) return send(res, 404, { error: 'Not found' })
+      await validateProjectDownloads([item], downloadsDir)
+      const filename = item.download.filename
+      res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': item.download.size, 'content-disposition': `attachment; filename="${filename.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(filename).replace(/['()]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)}`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' })
+      return res.end(req.method === 'HEAD' ? undefined : await readFile(join(downloadsDir, item.id, `${item.download.sha256}.exe`)))
+    }
     const cfgAsset = url.pathname.match(/^\/cfgs\/([a-f0-9-]+)(?:\.([a-f0-9-]+))?\.cfg$/)
     if (cfgAsset && CFG_ID.test(cfgAsset[1]) && (!cfgAsset[2] || CFG_ID.test(cfgAsset[2]))) return await withCfgQueue(async () => {
       const item = (await validateCfgLibrary(cfgIndexPath, cfgDir)).find(item => item.id === cfgAsset[1])

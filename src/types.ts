@@ -14,9 +14,11 @@ export type NoteItem = {
   kind?: 'note' | 'deploy' | 'incident' | 'rollback'; projectId?: string; cfgIds?: string[]
 }
 export type ProjectItem = {
-  id: string; name: string; kind: 'project' | 'service'; description: string; body: string
+  id: string; name: string; kind: 'desktop' | 'project' | 'service'; description: string; body: string
   repository: string; docs: string; url: string; status: 'active' | 'paused' | 'archived'
   tags: string[]; cfgIds: string[]; enabled: boolean; order: number; updated: string
+  version?: string; platform?: 'windows-x64' | 'windows-x86' | 'windows-arm64'
+  download?: { filename: string; size: number; sha256: string }
 }
 export type CfgRevision = { id: string; version: number; filename: string; updated: string; changelog: string }
 export type CfgEntry = {

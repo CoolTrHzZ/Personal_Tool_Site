@@ -46,7 +46,7 @@ export default function Header() {
       <Link className="brand" to="/"><span className="mark-tile mark-tile-brand brand-mark"><img className="brand-symbol" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" /></span><span>{siteConfig.name}<small>PERSONAL STATION</small></span></Link>
       <nav className="top-nav" aria-label="主导航">
         <Link className={location.pathname === '/' ? 'active' : ''} to="/">首页</Link>
-        <Link className={location.pathname.startsWith('/projects') ? 'active' : ''} to="/projects">项目</Link>
+        <Link className={location.pathname.startsWith('/projects') ? 'active' : ''} to="/projects">桌面工具</Link>
         <Link className={location.pathname.startsWith('/ai') ? 'active' : ''} to="/ai">AI Hub</Link>
         <Link className={location.pathname.startsWith('/tools') ? 'active' : ''} to="/tools">工具</Link>
         <Link className={location.pathname === '/cfg' || location.pathname.startsWith('/cfg/') ? 'active' : ''} to="/cfg">CFG 库</Link>

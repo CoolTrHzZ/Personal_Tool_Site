@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { URL } from 'node:url'
 import { validateManifest } from './tool-manifest.mjs'
 import { validateCfgLibrary } from './cfg-library.mjs'
+import { validateProjectDownloads } from './project-downloads.mjs'
 import { fileURLToPath } from 'node:url'
 import { assertProjects, assertNoteRelations, assertAIWorkflows } from '../shared/content-validation.js'
 
@@ -25,6 +26,7 @@ const tags = await load('tags')
 const site = await load('site')
 const cfgs = await validateCfgLibrary(fileURLToPath(new URL('../src/data/cfgs.json', import.meta.url)), fileURLToPath(new URL('../public/cfgs/', import.meta.url)))
 assertProjects(projects, cfgs)
+await validateProjectDownloads(projects, fileURLToPath(new URL('../public/downloads/', import.meta.url)))
 assertNoteRelations(notes, projects, cfgs)
 assertAIWorkflows(workflows, aiResources)
 const registry = await readFile(new URL('../src/tools/registry.ts', import.meta.url), 'utf8')

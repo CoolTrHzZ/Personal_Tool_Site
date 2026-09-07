@@ -7,12 +7,14 @@ import { execFile } from 'node:child_process'
 import { promisify, isDeepStrictEqual } from 'node:util'
 import { normalizeManifest, validateManifest } from './tool-manifest.mjs'
 
-export const BACKUP_ROOTS = ['src/data', 'public/cfgs', 'public/tools', 'src/tools/manifests/core.json', 'public/tools-manifests.json']
+const BACKUP_DIRECTORIES = ['src/data', 'public/cfgs', 'public/tools', 'public/downloads']
+const BACKUP_FILES = ['src/tools/manifests/core.json', 'public/tools-manifests.json']
+export const BACKUP_ROOTS = [...BACKUP_DIRECTORIES, ...BACKUP_FILES]
 export const MAX_BACKUP_BYTES = 128 * 1024 * 1024
 const MAX_ENVELOPE_BYTES = Math.ceil(MAX_BACKUP_BYTES * 1.5)
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
 const exec = promisify(execFile)
-const allowed = path => typeof path === 'string' && !path.includes('\\') && ![...path].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127) && !path.split('/').some(part => !part || part === '.' || part === '..') && (BACKUP_ROOTS.slice(0, 3).some(root => path.startsWith(`${root}/`)) || BACKUP_ROOTS.slice(3).includes(path))
+const allowed = path => typeof path === 'string' && !path.includes('\\') && ![...path].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127) && !path.split('/').some(part => !part || part === '.' || part === '..') && (BACKUP_DIRECTORIES.some(root => path.startsWith(`${root}/`)) || BACKUP_FILES.includes(path))
 
 async function snapshot(root) {
   const files = [], seen = new Set()
@@ -65,7 +67,7 @@ export function decodeSiteBackup(content) {
     bytes += decoded.length
     if (bytes > MAX_BACKUP_BYTES || decoded.toString('base64') !== file.content || decoded.length !== file.size || hash(decoded) !== file.sha256) throw new Error(`文件校验失败：${file.path}`)
   }
-  for (const path of ['src/data/site.json', 'src/data/navigation.json', 'src/data/categories.json', 'src/data/notes.json', 'src/data/library.json', 'src/data/ai-resources.json', 'src/data/tags.json', 'src/data/cfgs.json', 'src/data/projects.json', 'src/data/ai-workflows.json', ...BACKUP_ROOTS.slice(3)]) {
+  for (const path of ['src/data/site.json', 'src/data/navigation.json', 'src/data/categories.json', 'src/data/notes.json', 'src/data/library.json', 'src/data/ai-resources.json', 'src/data/tags.json', 'src/data/cfgs.json', 'src/data/projects.json', 'src/data/ai-workflows.json', ...BACKUP_FILES]) {
     if (!seen.has(path)) throw new Error(`完整备份缺少 ${path}`)
   }
   return { ...archive, bytes }
@@ -104,7 +106,7 @@ export async function previewSiteRestore(root, content, validate = staged => val
   const stage = await mkdtemp(join(root, '.admin-restore-'))
   try {
     const incoming = join(stage, 'incoming')
-    for (const path of BACKUP_ROOTS.slice(0, 3)) await mkdir(join(incoming, path), { recursive: true })
+    for (const path of BACKUP_DIRECTORIES) await mkdir(join(incoming, path), { recursive: true })
     for (const file of archive.files) {
       await mkdir(dirname(join(incoming, file.path)), { recursive: true })
       await writeFile(join(incoming, file.path), Buffer.from(file.content, 'base64'))

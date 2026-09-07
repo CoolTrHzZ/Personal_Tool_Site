@@ -120,12 +120,12 @@ export default function HomePage() {
             {starred.length > 0 && <div className="starred-shortcuts"><span className="manual-note-label">已收藏工具 · {starred.length}</span>{starred.slice(0, 4).map(tool => <Link key={tool.id} to={tool.path}>{tool.name}<ArrowUpRight size={12} /></Link>)}</div>}
           </> : <>
             <section className="visitor-about"><span className="visitor-eyebrow">BUILT FOR THE CURIOUS</span><h2>一个人的工作站，<br />也是你的工具箱。</h2><p>把日常用得上的工具和资源收集在一起，留出更多时间，做真正想做的事。</p>{siteConfig.github && <a href={siteConfig.github} target="_blank" rel="noreferrer"><Github size={14} />浏览项目源码<ArrowUpRight size={13} /></a>}</section>
-            <nav className="visitor-routes" aria-label="探索资源"><Link to="/projects"><Layers size={17} /><span><b>项目与服务</b><small>项目档案、服务入口与运维手册</small></span><ArrowUpRight size={13} /></Link><Link to="/cfg"><FileCode2 size={17} /><span><b>CS2 配置档案</b><small>预览配置、换机下载</small></span><ArrowUpRight size={13} /></Link><Link to="/tools"><Terminal size={17} /><span><b>随手用的小工具</b><small>格式化、转换、编码</small></span><ArrowUpRight size={13} /></Link><Link to="/ai"><Sparkles size={17} /><span><b>AI 灵感与资源</b><small>Skills、Prompts 与应用</small></span><ArrowUpRight size={13} /></Link><Link to="/nav"><Globe size={17} /><span><b>值得收藏的站点</b><small>开发、设计与效率</small></span><ArrowUpRight size={13} /></Link></nav>
+            <nav className="visitor-routes" aria-label="探索资源"><Link to="/projects"><Layers size={17} /><span><b>桌面工具库</b><small>我的 EXE 作品、版本说明与下载</small></span><ArrowUpRight size={13} /></Link><Link to="/cfg"><FileCode2 size={17} /><span><b>CS2 配置档案</b><small>预览配置、换机下载</small></span><ArrowUpRight size={13} /></Link><Link to="/tools"><Terminal size={17} /><span><b>随手用的小工具</b><small>格式化、转换、编码</small></span><ArrowUpRight size={13} /></Link><Link to="/ai"><Sparkles size={17} /><span><b>AI 灵感与资源</b><small>Skills、Prompts 与应用</small></span><ArrowUpRight size={13} /></Link><Link to="/nav"><Globe size={17} /><span><b>值得收藏的站点</b><small>开发、设计与效率</small></span><ArrowUpRight size={13} /></Link></nav>
             <section className="visitor-personal"><PanelRight size={19} /><h2>也给自己一个工作区</h2><p>记下待办，捕捉灵感，专注一会儿。每位访客都可以使用自己的工作区。</p><button type="button" onClick={() => chooseView(true)}>开启我的工作区<ArrowRight size={13} /></button></section>
           </>}
           <span className="manual-note-label">工作站笔记</span>
           {enabledNotes[0] && <Link className="manual-note-card" to={`/notes/${enabledNotes[0].id}`}><strong>{enabledNotes[0].title}</strong><span>{enabledNotes[0].summary}</span></Link>}
-          <nav className="manual-shortcuts" aria-label="快捷入口"><Link to="/projects">项目与服务</Link><Link to="/cfg">CFG 配置库</Link><Link to="/library">收藏</Link><Link to="/ai">AI Hub</Link></nav>
+          <nav className="manual-shortcuts" aria-label="快捷入口"><Link to="/projects">桌面工具库</Link><Link to="/cfg">CFG 配置库</Link><Link to="/library">收藏</Link><Link to="/ai">AI Hub</Link></nav>
         </aside>
       </div>
     </main>
