@@ -20,9 +20,10 @@ test('首页与 390px 导航完整可用', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /开发者工作台/ })).toBeVisible()
   await page.setViewportSize({ width: 390, height: 844 })
   const nav = page.getByRole('navigation', { name: '主导航' })
-  for (const name of ['首页', 'AI Hub', '工具', '导航', '收藏', '笔记']) {
-    const link = nav.getByRole('link', { name })
+  for (const [name, path] of [['首页', '/'], ['桌面工具', '/projects'], ['AI Hub', '/ai'], ['工具', '/tools'], ['CFG 库', '/cfg'], ['导航', '/nav'], ['收藏', '/library'], ['笔记', '/notes']]) {
+    const link = nav.getByRole('link', { name, exact: true })
     await expect(link).toBeVisible()
+    await expect(link).toHaveAttribute('href', `#${path}`)
     const box = await link.boundingBox()
     expect(box.x).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width).toBeLessThanOrEqual(390)

@@ -22,8 +22,8 @@ test('科幻首页保留资源目录和移动端章节导航', async ({ page }) 
   await page.locator('.manual-toc-toggle').click()
   await expect(page.getByRole('navigation', { name: '章节目录' }).getByRole('link', { name: /精选工具/ })).toBeVisible()
   const nav = page.getByRole('navigation', { name: '主导航' })
-  for (const name of ['首页', 'AI Hub', '工具', '导航', '收藏', '笔记']) {
-    const link = nav.getByRole('link', { name })
+  for (const name of ['首页', '桌面工具', 'AI Hub', '工具', 'CFG 库', '导航', '收藏', '笔记']) {
+    const link = nav.getByRole('link', { name, exact: true })
     await expect(link).toBeVisible()
     const box = await link.boundingBox()
     expect(box.x).toBeGreaterThanOrEqual(0)

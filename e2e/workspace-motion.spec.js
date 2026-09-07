@@ -67,7 +67,7 @@ test('首屏载入后可切换菜单并开关命令面板', async ({ page }) => 
   expect(await favicon.evaluate(element => ({ outer: element.getBoundingClientRect().width, inner: element.querySelector('.favicon').getBoundingClientRect().width }))).toEqual({ outer: 32, inner: 20 })
   const openWidths = await page.locator('.product-stage .tool-open').evaluateAll(elements => elements.map(element => Math.round(element.getBoundingClientRect().width)))
   expect(new Set(openWidths).size).toBe(1)
-  await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '工具' }).click()
+  await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '工具', exact: true }).click()
   await expect(page).toHaveURL(/#\/tools/)
   await expect(page.getByRole('heading', { name: /全部工具/ })).toBeVisible()
   await page.getByRole('button', { name: '打开命令面板' }).first().click()
