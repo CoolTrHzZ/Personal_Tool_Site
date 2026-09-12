@@ -24,14 +24,14 @@
 .tool-card .favorite-button[aria-pressed="true"] { color: var(--accent-secondary, var(--accent)); background: color-mix(in srgb, var(--accent-secondary, var(--accent)) 9%, transparent); }
 .tool-card .favorite-button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 .resource-list .tool-card { border: 0; border-bottom: 1px solid var(--border-subtle); border-radius: 0; }
-.tool-filters { display: grid; gap: 14px; margin-top: 24px; }
+.tool-filters { display: grid; grid-template-columns: minmax(240px, 1fr) auto; gap: 14px; margin-top: 24px; }
 .market-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .market-toolbar .ui-field { min-width: 160px; }
-.tool-filters > .ui-input { width: min(480px, 100%); min-height: 42px; }
+.tool-filters > .ui-input { width: 100%; min-height: 42px; }
 .empty, .not-found { padding: 90px 0; color: var(--text-secondary); text-align: center; }
 .empty h2, .not-found h1 { margin-top: 16px; color: var(--text-primary); font-size: 24px; }
 .page-heading h1 small { color: var(--text-faint); font: 14px var(--font-mono); }
-.category-route { display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid var(--border-default); border-bottom: 1px solid var(--border-default); }
+.category-route { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid var(--border-default); border-bottom: 1px solid var(--border-default); }
 .category-route button { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border: 0; border-right: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); cursor: pointer; transition: color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease); }
 .category-route button:hover { transform: translateY(-1px); }
 .category-route button:active { transform: scale(.98); }
@@ -41,7 +41,9 @@
 .directory { display: grid; gap: 8px; margin-top: 28px; }
 .directory .tool-card-copy { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(180px, 2fr) auto; align-items: center; gap: 14px; }
 .directory .tool-badges { grid-column: 1 / -1; }
+.tools-quickstart { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-weight: 650; text-decoration: none; }
 @media (max-width: 767px) {
+  .tool-filters { grid-template-columns: 1fr; }
   .category-route { overflow-x: auto; flex-wrap: nowrap; }
   .directory .tool-card-copy { display: flex; align-items: stretch; gap: 4px; }
   .tool-card, .product-stage .tool-card { gap: 4px; padding-right: 8px; padding-left: 12px; }
@@ -50,6 +52,7 @@
   .tool-open { min-width: 28px; }
   .tool-open > span { display: none; }
   .tool-card .favorite-button { flex-basis: 40px; width: 40px; height: 40px; }
+  .directory .tool-card-copy small { display: -webkit-box; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 }
 
 :root[data-motion="off"] .tool-card::before, :root[data-motion="off"] .tool-card-link .card-arrow { transition: none; transform: none; }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ToolShell from '../../../components/tools/ToolShell'
+import Button from '../../../components/ui/Button'
 
 const localDate = (time: number) => {
   const date = new Date(time)
@@ -24,5 +25,5 @@ export default function TimestampTool() {
     if (next !== unit && value.trim() && Number.isFinite(Number(value))) setValue(String(next === 'seconds' ? Number(value) / 1000 : Math.round(Number(value) * 1000)))
     setUnit(next)
   }
-  return <ToolShell title="时间戳转换" category="development" description="Unix 时间戳与本地时间互转，保留秒和毫秒精度"><div className="inline-fields"><label>单位<select value={unit} onChange={e => changeUnit(e.target.value as 'seconds' | 'milliseconds')}><option value="seconds">秒</option><option value="milliseconds">毫秒</option></select></label><button onClick={now}>当前时间</button></div><label>时间戳<input inputMode="decimal" value={value} onChange={e => setValue(e.target.value)} /></label><button className="primary" onClick={timestampToDate}>时间戳转时间</button><label>本地时间<input type="datetime-local" step="0.001" min="0001-01-01T00:00" max="9999-12-31T23:59:59.999" value={date} onChange={e => setDate(e.target.value)} /></label><button onClick={dateToTimestamp}>时间转时间戳</button>{error && <p className="error" role="alert">{error}</p>}<div className="result">{date ? new Date(date).toLocaleString() : '选择时间后转换'}</div></ToolShell>
+  return <ToolShell title="时间戳转换" category="development" description="Unix 时间戳与本地时间互转，保留秒和毫秒精度"><div className="inline-fields"><label>单位<select value={unit} onChange={e => changeUnit(e.target.value as 'seconds' | 'milliseconds')}><option value="seconds">秒</option><option value="milliseconds">毫秒</option></select></label><Button onClick={now}>使用当前时间</Button></div><label>时间戳<input inputMode="decimal" value={value} onChange={e => setValue(e.target.value)} /></label><Button variant="primary" onClick={timestampToDate}>时间戳转时间</Button><label>本地时间<input type="datetime-local" step="0.001" min="0001-01-01T00:00" max="9999-12-31T23:59:59.999" value={date} onChange={e => setDate(e.target.value)} /></label><Button onClick={dateToTimestamp}>时间转时间戳</Button>{error && <p className="error" role="alert">{error}</p>}<div className="result">{date ? new Date(date).toLocaleString() : '选择时间后转换'}</div></ToolShell>
 }

@@ -4,9 +4,9 @@ export const MAX_CONTEXT_BYTES = 1024 * 1024
 export const MAX_MATERIALS = 20
 export const contextFields = [
   { key: 'project', label: '项目名称', maxLength: 120, placeholder: '例如：个人工作站' },
+  { key: 'goal', label: '任务目标', maxLength: 20000, placeholder: '本次希望 AI 完成什么？' },
   { key: 'stack', label: '技术栈', maxLength: 2000, placeholder: 'React、TypeScript、GitHub Pages…' },
   { key: 'background', label: '项目背景', maxLength: 20000, placeholder: '项目解决什么问题，目前进展如何？' },
-  { key: 'goal', label: '任务目标', maxLength: 20000, placeholder: '本次希望 AI 完成什么？' },
   { key: 'constraints', label: '约束条件', maxLength: 20000, placeholder: '兼容性、依赖、部署环境，以及需要保留的行为…' },
   { key: 'acceptance', label: '验收标准', maxLength: 20000, placeholder: '怎样判断任务完成？列出关键场景与检查方法。' },
 ] as const

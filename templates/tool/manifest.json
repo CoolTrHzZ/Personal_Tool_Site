@@ -1,0 +1,23 @@
+{
+  "id": "my-tool",
+  "name": "工具开发模板",
+  "description": "支持独立使用、透明嵌入和主题同步的文本工具模板",
+  "version": "1.0.0",
+  "runtime": "static",
+  "format": "single-html",
+  "entry": "index.html",
+  "category": "development",
+  "tags": [],
+  "display": { "mode": "embedded", "height": "auto" },
+  "permissions": {
+    "clipboard": true,
+    "download": true,
+    "storage": false,
+    "network": false,
+    "notifications": false,
+    "modals": false,
+    "externalLinks": false,
+    "sameOrigin": false,
+    "popups": false
+  }
+}

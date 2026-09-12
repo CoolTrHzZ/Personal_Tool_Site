@@ -197,7 +197,7 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
           <strong>{tool.name}</strong>
           <span>v{tool.version}</span>
           {modeBar}
-          <button type="button" className="tool-exit-fullscreen" onClick={() => setMode('embedded')}>退出全屏 (Esc)</button>
+          <button type="button" className="tool-exit-fullscreen" aria-label="退出全屏 (Esc)" title="退出全屏 (Esc)" onClick={() => setMode('embedded')}>退出</button>
         </header>
         <div className="tool-fullscreen-stage">{frame}</div>
         {toastsView}
@@ -228,11 +228,11 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
         <p className="eyebrow">{tool.category.toUpperCase()} / TOOL</p>
         <h1>{tool.name}</h1>
         <p>{tool.description}</p>
-        <div className="tool-meta"><span>v{tool.version}</span><span>{tool.category}</span><span>{tool.format}</span></div>
+        <div className="tool-meta"><span>v{tool.version}</span><span>{tool.category === 'development' ? '开发' : tool.category === 'game' ? '游戏' : tool.category}</span><span>{tool.format}</span></div>
       </section>
       {modeBar}
+      <details className="tool-docs"><summary>使用说明</summary><p>{tool.readme || '在浏览器中完成操作；数据只保存在当前浏览器。'}</p></details>
       <div className="tool-panel">{frame}</div>
-      <section className="tool-docs"><h2>使用说明</h2><p>{tool.readme || '在浏览器中完成操作；数据只保存在当前浏览器。'}</p></section>
       {toastsView}
     </main>
   )

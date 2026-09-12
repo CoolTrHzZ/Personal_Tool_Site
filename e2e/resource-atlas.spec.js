@@ -139,6 +139,6 @@ test('工具页用类别路线和目录行', async ({ page }) => {
   await page.goto('/#/tools')
   await expect(page.getByRole('heading', { name: /全部工具/ })).toBeVisible()
   await expect(page.getByRole('navigation', { name: '工具类别' })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: '工具类别' }).getByRole('button', { name: /development/ })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: '工具类别' }).getByRole('button', { name: /开发/ })).toBeVisible()
   await expect(page.locator('.directory .tool-card').first()).toBeVisible()
 })

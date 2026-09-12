@@ -50,6 +50,68 @@ async function mockAdmin(page, override) {
   return { collections, errors }
 }
 
+test('Admin 首次新增自动填写 ID，保存失败保留输入并支持重试', async ({ page }) => {
+  let fail = true
+  const { collections, errors } = await mockAdmin(page, async (route, url) => {
+    if (fail && url.pathname === '/api/navigation' && route.request().method() === 'POST') {
+      await route.fulfill({ status: 500, json: { error: '暂时无法保存，请重试' } }); return true
+    }
+    return false
+  })
+  await page.locator('#dashboard-add-website').click()
+  const form = page.locator('#nav-form')
+  await form.locator('[name="name"]').fill('我的第一个网址')
+  await form.locator('[name="url"]').fill('https://example.com')
+  const id = await form.locator('[name="id"]').inputValue()
+  expect(id).toMatch(/^item-[a-f0-9]{8}$/)
+  await form.getByRole('button', { name: '保存修改', exact: true }).click()
+  await expect(form.locator('.form-error')).toHaveText('暂时无法保存，请重试')
+  await expect(form.locator('[name="url"]')).toHaveValue('https://example.com')
+  await expect(form.locator('[name="id"]')).toHaveValue(id)
+  fail = false
+  await form.getByRole('button', { name: '保存修改', exact: true }).click()
+  await expect(page.locator('#editor-drawer')).toBeHidden()
+  expect(collections.navigation.find(item => item.id === id)).toMatchObject({ name: '我的第一个网址', url: 'https://example.com', enabled: true })
+  expect(errors).toEqual([])
+})
+
+test('Admin 切换编辑条目不残留上一条的可选字段', async ({ page }) => {
+  const records = [
+    { id: 'with-language', name: 'First', kind: 'repo', url: 'https://example.com/first', description: 'First description', language: 'TypeScript', tags: [], order: 1, enabled: true },
+    { id: 'without-language', name: 'Second', kind: 'repo', url: 'https://example.com/second', tags: [], order: 2, enabled: true },
+  ]
+  const { errors } = await mockAdmin(page, async (route, url) => {
+    if (url.pathname !== '/api/library') return false
+    await route.fulfill({ json: records }); return true
+  })
+  await page.locator('.nav-item[data-view="library"]').click()
+  await page.locator('#library tr').first().locator('.kebab-toggle').click()
+  await page.locator('.kebab-menu:not([hidden]) [data-edit-library]').click()
+  await expect(page.locator('#library-form [name="language"]')).toHaveValue('TypeScript')
+  await page.locator('#editor-drawer-close').click()
+  await page.locator('#library tr').nth(1).locator('.kebab-toggle').click()
+  await page.locator('.kebab-menu:not([hidden]) [data-edit-library]').click()
+  await expect(page.locator('#library-form [name="language"]')).toHaveValue('')
+  await expect(page.locator('#library-form [name="description"]')).toHaveValue('')
+  expect(errors).toEqual([])
+})
+
+test('Admin 原始 JSON 保存失败保留编辑内容', async ({ page }) => {
+  const { errors } = await mockAdmin(page, async (route, url) => {
+    if (url.pathname !== '/api/notes' || route.request().method() !== 'POST') return false
+    await route.fulfill({ status: 500, json: { error: '暂时无法保存笔记' } }); return true
+  })
+  await page.locator('.nav-item[data-view="notes"]').click()
+  await page.locator('[data-add-note]').click()
+  await page.locator('#note-studio-form [name="title"]').fill('保留 JSON')
+  await page.locator('[data-note-tab="json"]').click()
+  const json = await page.locator('#note-json').inputValue()
+  await page.locator('#note-save').click()
+  await expect(page.locator('#note-studio-form .form-error')).toHaveText('暂时无法保存笔记')
+  await expect(page.locator('#note-json')).toHaveValue(json)
+  expect(errors).toEqual([])
+})
+
 test('Admin 项目、工作流与运维笔记表单联动，草稿与固定 ID 保持正确', async ({ page }) => {
   const { collections, errors } = await mockAdmin(page)
   await page.locator('.nav-item[data-view="projects"]').click()
@@ -110,6 +172,14 @@ test('Admin 新内容编辑与发布清单在手机屏幕内可操作', async ({
   await page.locator('.nav-item[data-view="projects"]').click()
   await page.getByRole('button', { name: '新增桌面工具' }).click()
   await expect(page.locator('#content-collection-form [name="id"]')).toBeFocused()
+  const form = page.locator('#content-collection-form')
+  await expect(form.locator('.admin-draft')).toContainText('修改后将自动保存浏览器草稿')
+  await expect(form.locator(':scope > .ui-modal-actions')).toBeInViewport()
+  await expect(form.locator('[name="body"]')).toHaveCSS('padding-top', '10px')
+  expect(await form.locator('[name="id"]').evaluate(node => window.getComputedStyle(node.closest('.ui-field').querySelector('.ui-field-label'), '::after').content)).toContain('*')
+  await form.getByRole('button', { name: '保存到项目', exact: true }).click()
+  const danger = await page.evaluate(() => { const sample = document.body.appendChild(document.createElement('span')); sample.style.color = 'var(--danger)'; const color = window.getComputedStyle(sample).color; sample.remove(); return color })
+  await expect(form.locator('[name="id"]')).toHaveCSS('border-color', danger)
   const dialog = await page.locator('.editor-modal').boundingBox(); expect(dialog.x).toBeGreaterThanOrEqual(0); expect(dialog.x + dialog.width).toBeLessThanOrEqual(391)
   await page.screenshot({ path: 'e2e/screenshots/admin-content-project-mobile.png' })
   await page.locator('#editor-drawer-close').click()
@@ -180,16 +250,20 @@ test('Admin 完整备份传输、校验错误、恢复确认与失败重试可�
 test('Admin 延迟初始聚焦不会抢走已输入字段、确认按钮或已关闭弹窗之外的焦点', async ({ page }) => {
   const { errors } = await mockAdmin(page)
   await page.locator('.nav-item[data-view="websites"]').click()
-  await page.evaluate(() => {
+  const initialStatus = await page.evaluate(() => {
     const original = window.requestAnimationFrame, callbacks = []
     window.requestAnimationFrame = callback => { callbacks.push(callback); return callbacks.length }
     document.querySelector('[data-add-website]').click()
+    const status = document.querySelector('#nav-form .admin-draft').textContent
     const url = document.querySelector('#nav-form [name="url"]')
     url.focus(); url.value = 'https://example.com'; url.dispatchEvent(new Event('input', { bubbles: true }))
     window.requestAnimationFrame = original
     callbacks.forEach(callback => callback(window.performance.now()))
+    return status
   })
   const form = page.locator('#nav-form')
+  expect(initialStatus).toContain('修改后将自动保存浏览器草稿')
+  expect(initialStatus).not.toContain('所有修改已保存')
   await expect(form.locator('[name="url"]')).toBeFocused()
   await page.keyboard.press('End')
   await page.keyboard.insertText('/continued')
@@ -249,10 +323,13 @@ test('Admin 全部内容标签支持候选、自定义与草稿恢复，笔记 J
   await note.locator('.picker-search').fill('')
   expect(JSON.parse(await page.locator('#note-json').inputValue()).tags).toEqual(['笔记标签'])
   await page.locator('[data-note-tab="json"]').click()
-  const content = JSON.parse(await page.locator('#note-json').inputValue()); content.tags = ['JSON 标签']
-  await page.locator('#note-json').fill(JSON.stringify(content)); await page.locator('#note-json-apply').click()
+  await page.locator('#note-json').fill('{'); await page.locator('[data-note-tab="write"]').click()
+  await expect(page.locator('#note-json')).toBeFocused(); await expect(page.locator('#note-tab-json')).toBeVisible()
+  const content = JSON.parse(JSON.stringify(collections.notes[0] || { id: 'tag-sync', kind: 'note', enabled: true })); content.title = 'JSON 切换笔记'; content.tags = ['JSON 标签']
+  await page.locator('#note-json').fill(JSON.stringify(content)); await page.locator('[data-note-tab="write"]').click()
+  await expect(note.locator('[name="title"]')).toHaveValue('JSON 切换笔记')
   await expect(note.getByRole('button', { name: '移除标签 JSON 标签', exact: true })).toBeVisible()
-  await page.locator('#note-save').click(); expect(collections.notes[0].tags).toEqual(['JSON 标签'])
+  await page.locator('#note-save').click(); expect(collections.notes[0]).toMatchObject({ title: 'JSON 切换笔记', tags: ['JSON 标签'] })
   await expect(page.locator('[data-view-panel="notes"]')).toHaveClass(/active/)
   await page.locator('#notes .kebab-toggle').first().click(); await page.locator('[data-edit-note="tag-sync"]').click()
   await expect(note.getByRole('button', { name: '移除标签 JSON 标签', exact: true })).toBeVisible()
@@ -299,13 +376,21 @@ test('Admin 工具编辑与导入向导共享标签选择，手机页面不溢�
   expect(writes).toHaveLength(1); expect(writes[0].tags).toEqual(['工具标签'])
   await page.locator('.nav-item[data-view="import"]').click()
   await page.locator('#tool-file-input').setInputFiles({ name: 'demo.html', mimeType: 'text/html', buffer: Buffer.from('<p>test</p>') })
-  await page.locator('#wizard-next').click(); await selectTags(page.locator('#wizard-body .wizard-form'), '向导标签')
+  await page.locator('#wizard-next').click(); const metadata = page.locator('#wizard-body .wizard-form'); await selectTags(metadata, '向导标签')
+  await metadata.locator('[name="name"]').fill('保留的向导名称')
   const wizardSearch = page.locator('#wizard-body .picker-search')
   await wizardSearch.fill('x'.repeat(65)); await wizardSearch.press('Enter'); await page.locator('#wizard-next').click()
   await expect(wizardSearch).toBeFocused(); await expect(page.locator('#wizard-steps [data-step="2"]')).toHaveClass(/active/)
   await wizardSearch.fill('')
-  await page.locator('#wizard-next').click(); await page.locator('#wizard-prev').click()
+  await page.locator('#wizard-prev').click(); await expect(page.locator('#wizard-steps [data-step="1"]')).toHaveClass(/active/)
+  await page.locator('#wizard-next').click()
+  await expect(page.locator('#wizard-body [name="name"]')).toHaveValue('保留的向导名称')
   await expect(page.locator('#wizard-body [name="tags"]')).toHaveValue('向导标签')
+  await page.locator('#wizard-next').click()
+  const notifications = page.locator('#wizard-body [name="perm.notifications"]'); await notifications.check()
+  await page.locator('#wizard-prev').click(); await page.locator('#wizard-next').click()
+  await expect(page.locator('#wizard-body [name="perm.notifications"]')).toBeChecked()
+  await page.locator('#wizard-prev').click()
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.locator('#wizard-body .picker-search')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

@@ -29,9 +29,9 @@ export default function ToolShell({ title = 'Developer Tool', description = '', 
         <h1>{title}</h1>
         <p>{description}</p>
         <dl>
-          <div><dt>version</dt><dd>{version}</dd></div>
-          <div><dt>分类</dt><dd>{category}</dd></div>
-          <div><dt>运行环境</dt><dd>Native React</dd></div>
+          <div><dt>版本</dt><dd>{version}</dd></div>
+          <div><dt>分类</dt><dd>{category === 'development' ? '开发' : category === 'game' ? '游戏' : category}</dd></div>
+          <div><dt>处理方式</dt><dd>浏览器本地</dd></div>
         </dl>
       </aside>
       <div className="tool-native-workspace"><div className="tool-panel">{children}</div></div>

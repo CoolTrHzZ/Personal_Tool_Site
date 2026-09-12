@@ -1,7 +1,7 @@
 import '../../styles/components/favorite-status.css'
 import { ArrowUpRight, Code2, Globe2, Palette, Star, Wrench } from 'lucide-react'
 import { useContext, useState } from 'react'
-import { m, useReducedMotion } from 'motion/react'
+import { m } from 'motion/react'
 import { Link, useLocation } from 'react-router-dom'
 import type { ToolDefinition } from '../../tools/types'
 import { addRecentTool, retryFavoriteTools, toggleFavoriteTool, useUserTools } from '../../utils/user-state'
@@ -21,7 +21,6 @@ export default function ToolCard({ tool, pathIndex }: { tool: ToolDefinition; pa
   const showStatus = status !== 'active'
   const unavailable = !tool.enabled || status === 'disabled'
   const { enabled: motionEnabled } = useContext(MotionContext)
-  const reducedMotion = useReducedMotion()
   return (
     <Card className={`tool-card ${pathIndex ? 'path-node' : 'directory-row'}`}>
       <Link className="tool-card-link" to={tool.path} state={location.pathname === '/tools' ? { returnTo: `${location.pathname}${location.search}` } : undefined} aria-label={`${unavailable ? '暂不可用' : '打开'} ${tool.name}`} aria-disabled={unavailable || undefined} tabIndex={unavailable ? -1 : undefined} onClick={event => { if (unavailable) event.preventDefault(); else addRecentTool(tool.id) }}>
@@ -30,13 +29,13 @@ export default function ToolCard({ tool, pathIndex }: { tool: ToolDefinition; pa
         <span className="tool-card-copy">
           <strong>{tool.name}</strong>
           <small>{tool.description}</small>
-          <span className="tool-meta-line">{tool.category} · v{tool.version}</span>
+          <span className="tool-meta-line">{tool.category === 'development' ? '开发' : tool.category === 'game' ? '游戏' : tool.category} · v{tool.version}</span>
           {showStatus && <span className="tool-badges"><Badge tone="accent">{status}</Badge></span>}
         </span>
         <span className="tool-open"><span>{unavailable ? '暂不可用' : '打开'}</span><ArrowUpRight size={16} className="card-arrow" aria-hidden="true" /></span>
       </Link>
       <Button type="button" variant="ghost" size="sm" className="favorite-button" onClick={() => setSaveError(!toggleFavoriteTool(tool.id))} disabled={unavailable} aria-pressed={favorite} aria-label={favorite ? '取消收藏' : '收藏工具'} title={`${favorite ? '取消收藏' : '收藏'} ${tool.name}`}>
-        <m.span initial={false} animate={{ scale: favorite ? [1, 1.3, 1] : [1, .85, 1], rotate: favorite ? [0, -15, 0] : 0 }} transition={{ duration: motionEnabled && !reducedMotion ? .3 : 0 }}>
+        <m.span initial={false} animate={{ scale: favorite ? [1, 1.3, 1] : [1, .85, 1], rotate: favorite ? [0, -15, 0] : 0 }} transition={{ duration: motionEnabled ? .3 : 0 }}>
           <Star size={16} strokeWidth={1.7} fill={favorite ? 'currentColor' : 'none'} aria-hidden="true" />
         </m.span>
       </Button>

@@ -15,7 +15,9 @@
 
 :where(.tool-card, .nav-card, .market-card, .ai-resource-card, .note-card, .resource-row, .dash-meter, .dash-module, .dash-kpi, .dashboard-config-card) { position: relative; overflow: hidden; isolation: isolate; }
 :where(.tool-card, .nav-card, .market-card, .ai-resource-card, .note-card, .resource-row, .dash-meter, .dash-module, .dash-kpi, .dashboard-config-card)::before { position: absolute; inset: 0; z-index: 0; pointer-events: none; content: ''; background: linear-gradient(110deg, transparent 36%, color-mix(in srgb, var(--accent) 13%, transparent) 50%, transparent 64%); transform: translateX(-120%); transition: transform var(--duration-slow) var(--ease); }
-:where(.tool-card, .nav-card, .market-card, .ai-resource-card, .note-card, .resource-row, .dash-meter, .dash-module, .dash-kpi, .dashboard-config-card):hover::before { transform: translateX(120%); }
+@media (hover: hover) and (pointer: fine) {
+  :where(.tool-card, .nav-card, .market-card, .ai-resource-card, .note-card, .resource-row, .dash-meter, .dash-module, .dash-kpi, .dashboard-config-card):hover::before { transform: translateX(120%); }
+}
 :where(.tool-card, .nav-card, .market-card, .ai-resource-card, .note-card, .resource-row, .dash-meter, .dash-module, .dash-kpi, .dashboard-config-card) > * { position: relative; z-index: 1; }
 
 .manual-intro h1, .page-heading h1, .content-header h1 { background: linear-gradient(100deg, var(--text-primary) 0 42%, color-mix(in srgb, var(--accent) 82%, var(--text-primary)) 50%, var(--text-primary) 58% 100%); background-size: 220% auto; background-clip: text; -webkit-background-clip: text; color: transparent; animation: title-signal 6s linear infinite; }

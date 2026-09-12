@@ -141,7 +141,7 @@ export default function CfgWorkbench() {
       {pending && <section className="workbench-card cfg-import-preview" aria-label="CFG 导入预览"><div className="workbench-card-head"><h3>{pending.source} · {pending.name}</h3><span>{new TextEncoder().encode(pending.content).length} B</span></div><p className="workbench-note">先查看内容，再决定是否替换编辑区。已有保存版本会保留。</p><pre>{pending.content}</pre><div className="workbench-toolbar"><Button variant="primary" onClick={() => { changeDraft({ name: pending.name, content: pending.content }); showPreview(null) }}>载入到编辑器</Button><Button onClick={() => downloadText(cfgFilename(pending.name), pending.content)}>直接下载此 CFG</Button><Button onClick={() => showPreview(null)}>取消载入</Button></div></section>}
       <div className="workbench-toolbar cfg-file-toolbar">
         <label className="workbench-file"><Upload size={15} />导入 CFG<input aria-label="导入 CFG 文件" type="file" accept=".cfg,.txt,text/plain" onChange={event => { void proposeFile(event.target.files?.[0]); event.target.value = '' }} /></label>
-        <Button onClick={() => showPreview({ ...example, source: '配置示例' })}>载入示例</Button>
+        <Button onClick={() => { if (draft.content.trim()) showPreview({ ...example, source: '配置示例' }); else if (changeDraft(example)) showPreview(null) }}>载入示例</Button>
         <Button icon={<Save size={14} />} disabled={!draft.content.trim() || Boolean(storageError)} onClick={saveVersion}>保存版本</Button>
         <Button icon={<Download size={14} />} disabled={!draft.content.trim()} onClick={() => downloadText(cfgFilename(draft.name), draft.content)}>下载 CFG</Button>
         <Button variant="primary" icon={<Share2 size={14} />} loading={sharing} disabled={!draft.content.trim()} onClick={generateShare}>生成分享链接</Button>

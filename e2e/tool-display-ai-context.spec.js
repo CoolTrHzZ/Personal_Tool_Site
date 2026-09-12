@@ -16,6 +16,14 @@ async function downloadContents(download) {
 test('AI 上下文包保留代码原文，恢复草稿，并可复制、下载和迁移', async ({ page, context }, testInfo) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.goto(URL)
+  await expect(page.getByText('先写任务目标，其余按需。', { exact: true })).toBeVisible()
+  await expect(page.locator('#context-task-heading ~ label').nth(0)).toContainText('项目名称')
+  await expect(page.locator('#context-task-heading ~ label').nth(1)).toContainText('任务目标')
+  await expect(page.getByLabel('任务目标', { exact: true })).toBeInViewport()
+  expect(await page.locator('#context-preview-heading').evaluate(heading => {
+    const button = [...document.querySelectorAll('button')].find(item => item.textContent?.trim() === '导出任务包 JSON')
+    return Boolean(button && (heading.compareDocumentPosition(button) & window.Node.DOCUMENT_POSITION_FOLLOWING))
+  })).toBe(true)
   await page.getByLabel('项目名称', { exact: true }).fill('个人工作站')
   await page.getByLabel('技术栈', { exact: true }).fill('React / TypeScript')
   await page.getByLabel('任务目标', { exact: true }).fill('修复构建失败，保留现有功能。')

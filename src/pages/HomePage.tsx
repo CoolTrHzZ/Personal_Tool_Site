@@ -1,7 +1,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, ArrowUpRight, Bot, Box, Compass, Cpu, FileCode2, FileText, Github, Globe, Layers, MessageSquareText, PanelRight, Search, Sparkles, Terminal, Zap } from 'lucide-react'
-import { m, useReducedMotion } from 'motion/react'
+import { m } from 'motion/react'
 import library from '../data/library.json'
 import navigation from '../data/navigation.json'
 import notes from '../data/notes.json'
@@ -36,7 +36,6 @@ const aiKindIcons = { skill: Sparkles, agent: Bot, prompt: MessageSquareText, mo
 export default function HomePage() {
   const { openPalette } = useContext(SearchContext)
   const { enabled: motionEnabled } = useContext(MotionContext)
-  const reducedMotion = useReducedMotion()
   const tools = useTools()
   const [personal, setPersonal] = useState(() => { try { return localStorage.getItem('devos-home-view') === 'personal' } catch { return false } })
   const focusWorkspace = useRef(false)
@@ -60,6 +59,7 @@ export default function HomePage() {
   const recentIds = useUserTools('recentTools')
   const favoriteIds = useUserTools('favoriteTools')
   const enabledTools = tools.filter(tool => tool.enabled && tool.status !== 'disabled')
+  const starterTool = enabledTools.find(tool => tool.id === 'json')
   const starred = enabledTools.filter(tool => favoriteIds.includes(tool.id)).sort((a, b) => a.order - b.order)
   const recent = useMemo(() => recentIds.map(id => tools.find(tool => tool.id === id && tool.enabled && tool.status !== 'disabled')).filter((tool): tool is ToolDefinition => Boolean(tool)), [recentIds, tools])
   const configuredLimit = siteConfig.todayContinueLimit
@@ -68,7 +68,7 @@ export default function HomePage() {
   const pathTools = (personal ? [...recent, ...recommended.filter(tool => !recentIds.includes(tool.id))] : recommended).slice(0, todayContinueLimit)
   const enabledNav = navItems.filter(item => item.enabled).sort((a, b) => a.order - b.order)
   const toolsById = new Set(pathTools.map(tool => tool.id))
-  const reveal = { initial: motionEnabled && !reducedMotion ? { opacity: 0, y: 16 } : false as const, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '0px 0px 40px 0px' } }
+  const reveal = { initial: motionEnabled ? { opacity: 0, y: 16 } : false as const, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '0px 0px 40px 0px' } }
 
   return (
     <main className="page home-page">
@@ -82,13 +82,21 @@ export default function HomePage() {
           <div className="toc-foot"><span className="status-dot" />本地优先<span>你的工具，你的空间。</span></div>
         </details>
         <div className="manual-main">
-          <div className="home-viewbar"><span>{personal ? '回到自己的节奏' : '探索，让好工具被发现'}</span><div className="home-view-switch" role="group" aria-label="首页视图"><m.span className="home-view-indicator" aria-hidden="true" initial={false} animate={{ x: personal ? '100%' : '0%' }} transition={{ duration: motionEnabled && !reducedMotion ? .3 : 0, ease: [.22, 1, .36, 1] }} /><button type="button" aria-pressed={!personal} onClick={() => chooseView(false)}><Compass size={13} />资源浏览</button><button type="button" aria-pressed={personal} onClick={() => chooseView(true)}><PanelRight size={13} />我的工作区</button></div></div>
+          <div className="home-viewbar"><span>{personal ? '回到自己的节奏' : '探索，让好工具被发现'}</span><div className="home-view-switch" role="group" aria-label="首页视图"><m.span className="home-view-indicator" aria-hidden="true" initial={false} animate={{ x: personal ? '100%' : '0%' }} transition={{ duration: motionEnabled ? .3 : 0, ease: [.22, 1, .36, 1] }} /><button type="button" aria-pressed={!personal} onClick={() => chooseView(false)}><Compass size={13} />资源浏览</button><button type="button" aria-pressed={personal} onClick={event => { focusWorkspace.current = !personal && event.detail > 0; chooseView(true) }}><PanelRight size={13} />我的工作区</button></div></div>
           <m.section className="manual-intro" {...reveal}>
             <div className="intro-topline"><p className="atlas-kicker"><span className="status-dot" /> DEVOS / MISSION CONTROL</p><time dateTime={now.toISOString()}>{now.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', weekday: 'short' })}</time></div>
             <div className="intro-content">
-              <div className="intro-copy"><span className="hero-eyebrow">{personal ? '想法就绪 · 即刻启程' : '开放工具 · 自由探索'}</span><h1>开发者工作台<span>{personal ? '让创造，进入轨道。' : '发现工具，保持创造。'}</span></h1><p>{personal ? <>工具、灵感与专注，在此汇合。<br />为你的下一次创造，准备就绪。</> : <>精选开发工具、实用站点与 AI 资源。<br />打开即用，让每一次探索都有收获。</>}</p><Link className="station-launch" to="/tools"><Zap size={15} />{personal ? '启动工具箱' : '探索工具箱'}<ArrowUpRight size={15} /></Link></div>
+              <div className="intro-copy">
+                <span className="hero-eyebrow">{personal ? '想法就绪 · 即刻启程' : '无需注册 · 打开即用'}</span>
+                <h1>开发者工作台<span>{personal ? '让创造，进入轨道。' : '发现工具，保持创造。'}</span></h1>
+                <p>{personal ? <>工具、灵感与专注，在此汇合。<br />为你的下一次创造，准备就绪。</> : <>先用示例试一试，再换成自己的内容。<br />处理完成，即可复制或下载结果。</>}</p>
+                <div className="intro-actions">
+                  <Link className="station-launch" to={!personal && starterTool ? starterTool.path : '/tools'}><Zap size={15} />{personal ? '启动工具箱' : starterTool ? '试用 JSON 工具' : '探索工具箱'}<ArrowUpRight size={15} /></Link>
+                  {!personal && starterTool && <Link className="intro-all-tools" to="/tools">浏览全部工具<ArrowRight size={13} /></Link>}
+                </div>
+              </div>
               <div className="orbital-display" aria-hidden="true">
-                <svg viewBox="0 0 240 240" fill="none"><path className="orbital-crosshair" d="M120 0v35m0 170v35M0 120h35m170 0h35M25 25l13 13m164 164 13 13M25 215l13-13M202 38l13-13" /><circle cx="120" cy="120" r="107" className="orbital-outer" /><g className="orbital-ring"><circle cx="120" cy="120" r="90" strokeDasharray="2 7" /><path d="M120 30a90 90 0 0 1 90 90M120 210a90 90 0 0 1-90-90" strokeWidth="3" /><circle cx="210" cy="120" r="4" fill="currentColor" /></g><g className="orbital-inner"><ellipse cx="120" cy="120" rx="72" ry="36" transform="rotate(-35 120 120)" /><ellipse cx="120" cy="120" rx="72" ry="36" transform="rotate(35 120 120)" /></g><circle className="orbital-core" cx="120" cy="120" r="45" /><m.path className="orbital-terminal" d="m99 106 14 14-14 14m23 0h20" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: motionEnabled && !reducedMotion ? 0 : 1 }} animate={{ pathLength: 1 }} transition={{ duration: motionEnabled && !reducedMotion ? 1.1 : 0, delay: motionEnabled && !reducedMotion ? .25 : 0 }} /><circle cx="120" cy="13" r="3" fill="currentColor" /></svg>
+                <svg viewBox="0 0 240 240" fill="none"><path className="orbital-crosshair" d="M120 0v35m0 170v35M0 120h35m170 0h35M25 25l13 13m164 164 13 13M25 215l13-13M202 38l13-13" /><circle cx="120" cy="120" r="107" className="orbital-outer" /><g className="orbital-ring"><circle cx="120" cy="120" r="90" strokeDasharray="2 7" /><path d="M120 30a90 90 0 0 1 90 90M120 210a90 90 0 0 1-90-90" strokeWidth="3" /><circle cx="210" cy="120" r="4" fill="currentColor" /></g><g className="orbital-inner"><ellipse cx="120" cy="120" rx="72" ry="36" transform="rotate(-35 120 120)" /><ellipse cx="120" cy="120" rx="72" ry="36" transform="rotate(35 120 120)" /></g><circle className="orbital-core" cx="120" cy="120" r="45" /><m.path className="orbital-terminal" d="m99 106 14 14-14 14m23 0h20" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: motionEnabled ? 0 : 1 }} animate={{ pathLength: 1 }} transition={{ duration: motionEnabled ? 1.1 : 0, delay: motionEnabled ? .25 : 0 }} /><circle cx="120" cy="13" r="3" fill="currentColor" /></svg>
                 <span className="orbital-caption">CREATIVE CORE <i /> READY</span>
               </div>
             </div>
@@ -97,7 +105,7 @@ export default function HomePage() {
           <div className="station-metrics" aria-label="工作区概览">{[{ path: '/tools', value: enabledTools.length, label: '可用工具', icon: Terminal }, { path: '/nav', value: enabledNav.length, label: '导航站点', icon: Globe }, { path: '/ai', value: aiItems.length, label: 'AI 资源', icon: Layers }, { path: '/notes', value: enabledNotes.length, label: '知识笔记', icon: FileText }].map(({ path, value, label, icon: Icon }) => <Link to={path} key={path}><Icon size={16} /><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span><ArrowUpRight size={12} /></Link>)}</div>
           <m.section id="today" tabIndex={-1} className="manual-section" aria-label={personal ? '今天继续' : '精选工具'} {...reveal}>
             <div className="manual-heading"><span>01 /</span><h2>{personal ? '今天继续' : '精选工具'}</h2><small>{personal && recent.length ? '最近打开的工具' : '从常用工具开始'}</small></div>
-            <div className="product-stage">{pathTools.length ? pathTools.map((tool, index) => <m.div key={tool.id} {...reveal} transition={{ delay: motionEnabled && !reducedMotion ? index * .06 : 0, duration: motionEnabled && !reducedMotion ? .3 : 0 }}><ToolCard tool={tool} pathIndex={index + 1} /></m.div>) : <EmptyState title="暂无工具" />}</div>
+            <div className="product-stage">{pathTools.length ? pathTools.map((tool, index) => <m.div key={tool.id} {...reveal} transition={{ delay: motionEnabled ? index * .06 : 0, duration: motionEnabled ? .3 : 0 }}><ToolCard tool={tool} pathIndex={index + 1} /></m.div>) : <EmptyState title="暂无工具" />}</div>
           </m.section>
           <m.section id="tools" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>02</span><h2>工具</h2><Link to="/tools">查看全部</Link></div>

@@ -69,6 +69,15 @@
             <h2 id="dashboard-site-name">DevOS</h2>
             <p id="dashboard-site-description" class="muted"></p>
           </div>
+          <div class="admin-get-started" aria-labelledby="get-started-title">
+            <h3 id="get-started-title" data-i18n="dash.getStarted">第一次使用，从这里开始</h3>
+            <p class="muted" data-i18n="dash.getStartedHint">先添加一项内容，保存后打开本地预览。确认效果后再发布站点。</p>
+            <div class="admin-start-actions">
+              <button type="button" class="ui-button ui-button-primary ui-button-sm" id="dashboard-add-website" data-i18n="dash.startWebsite">添加第一个网址</button>
+              <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="dashboard-import-tool" data-i18n="dash.startImport">导入 HTML / ZIP 工具</button>
+              <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-view="settings" data-i18n="dash.startSettings">修改站点信息</button>
+            </div>
+          </div>
           <button type="button" id="dashboard-health" class="dashboard-health" data-view="validate">
             <span class="dashboard-health-dot" aria-hidden="true"></span>
             <div><strong id="dashboard-health-title">—</strong><small id="dashboard-health-detail">—</small></div>
@@ -447,46 +456,61 @@
       <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="cfg-download">下载原文</button><button type="button" class="ui-button ui-button-ghost" id="cfg-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" id="cfg-save">保存到项目</button></div>
     </form>
     <form id="nav-form" class="drawer-form" hidden>
+      <p class="form-intro" data-i18n="form.websiteHint">填写名称与网址即可开始，分类已预选；带 * 的为必填项。</p>
       <input type="hidden" name="originalId">
+      <fieldset class="form-section"><legend data-i18n="form.basics">基本信息</legend>
       <label class="ui-field"><span class="ui-field-label">网站名称</span><input class="ui-input" name="name" required></label>
-      <label class="ui-field"><span class="ui-field-label">URL</span><input class="ui-input" name="url" type="url" required></label>
+      <label class="ui-field"><span class="ui-field-label">URL</span><input class="ui-input" name="url" type="url" required placeholder="https://example.com"></label>
       <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="4"></textarea></label>
       <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
+      </fieldset>
+      <fieldset class="form-section"><legend data-i18n="form.organization">分类与展示</legend>
       <div class="ui-field visual-picker-field"><span class="ui-field-label">分类</span><input type="hidden" name="category" required><div id="nav-category-picker" class="category-picker" role="group" aria-label="分类"></div><button type="button" class="ui-button ui-button-ghost ui-button-sm picker-manage" data-view="categories">管理分类</button></div>
       <div class="ui-field visual-picker-field"><span class="ui-field-label">标签</span><input type="hidden" name="tags"><div id="nav-tags-picker" class="tags-picker"></div><button type="button" class="ui-button ui-button-ghost ui-button-sm picker-manage" data-view="tags">管理标签</button></div>
       <div class="ui-field visual-picker-field"><span class="ui-field-label">图标</span><input type="hidden" name="icon" value="auto"><div id="nav-icon-picker" class="icon-picker" role="group" aria-label="网站图标"></div></div>
       <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
+      </fieldset>
       <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="nav-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveWebsite">保存更改</button></div>
     </form>
     <form id="library-form" class="drawer-form" hidden>
-      <p class="muted">收藏 GitHub 仓库或 Skill 链接，保存到 library.json。</p>
+      <p class="form-intro" data-i18n="form.libraryHint">填写名称与链接，保存后即可在收藏页打开。带 * 的为必填项。</p>
       <input type="hidden" name="originalId">
+      <fieldset class="form-section"><legend data-i18n="form.basics">基本信息</legend>
       <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required></label>
       <label class="ui-field"><span class="ui-field-label">类型</span><select class="ui-input" name="kind"><option value="repo">仓库</option><option value="skill">Skill</option></select></label>
       <label class="ui-field"><span class="ui-field-label">GitHub URL</span><input class="ui-input" name="url" type="url" required placeholder="https://github.com/owner/repo"></label>
       <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="3"></textarea></label>
       <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
+      </fieldset>
+      <fieldset class="form-section form-section-grid"><legend data-i18n="form.organization">分类与展示</legend>
       <label class="ui-field"><span class="ui-field-label">语言</span><input class="ui-input" name="language" placeholder="TypeScript"></label>
       <label class="ui-field"><span class="ui-field-label">标签</span><input class="ui-input" name="tags"></label>
       <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
+      </fieldset>
       <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="library-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveLibrary">保存收藏</button></div>
     </form>
     <form id="ai-resource-form" class="drawer-form" hidden>
       <p class="muted" data-i18n="aiResources.formHint">保存到 ai-resources.json；启用后随静态站发布。</p>
       <input type="hidden" name="originalId">
+      <fieldset class="form-section"><legend data-i18n="form.basics">基本信息</legend>
       <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required></label>
       <label class="ui-field"><span class="ui-field-label">类型</span><select class="ui-input" name="kind"><option value="skill">Skill</option><option value="agent">Agent</option><option value="prompt">Prompt</option><option value="model">模型</option><option value="app">应用 / 产品</option></select></label>
       <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="3"></textarea></label>
+      <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" pattern="[a-z0-9][a-z0-9-]*" required></label>
+      </fieldset>
+      <fieldset class="form-section"><legend data-i18n="form.resourceAction">使用方式 · 至少填写一项</legend>
       <label class="ui-field"><span class="ui-field-label" data-i18n="aiResources.install">安装方式</span><textarea class="ui-input" name="install" rows="4" placeholder="可复制的安装或配置方式"></textarea></label>
       <label class="ui-field"><span class="ui-field-label">配置内容</span><textarea class="ui-input" name="content" rows="6" placeholder="Skill、Agent、Prompt 或模型配置，可一键复制"></textarea></label>
       <label class="ui-field"><span class="ui-field-label">产品 URL</span><input class="ui-input" name="url" type="url" placeholder="https://..."></label>
-      <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" pattern="[a-z0-9][a-z0-9-]*" required></label>
+      </fieldset>
+      <fieldset class="form-section"><legend data-i18n="form.organization">分类与展示</legend>
       <div class="ui-field visual-picker-field"><span class="ui-field-label">标签</span><input type="hidden" name="tags"><div id="ai-tags-picker" class="tags-picker"></div><button type="button" class="ui-button ui-button-ghost ui-button-sm picker-manage" data-view="tags">管理标签</button></div>
       <label class="ui-field"><span class="ui-field-label">更新日期</span><input class="ui-input" name="updated" type="date"></label>
       <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
+      </fieldset>
       <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="ai-resource-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveAIResource">保存资源</button></div>
     </form>
     <form id="category-form" class="drawer-form" hidden>

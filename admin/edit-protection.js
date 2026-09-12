@@ -19,7 +19,7 @@ export function createEditProtection({ notify = () => {} } = {}) {
     if (!state || state.busy) return
     state.left = false
     state.dirty = capture(form, state) !== state.baseline
-    state.status.textContent = state.dirty ? '有未保存修改' : '所有修改已保存'
+    state.status.textContent = state.dirty ? '有未保存修改' : state.cleanText
     if (!state.dirty) { try { localStorage.removeItem(prefix + state.key) } catch { notify('未能清理浏览器旧草稿。', 'error') }; state.banner.querySelectorAll('button').forEach(button => button.remove()) }
     clearTimeout(state.timer)
     state.timer = setTimeout(() => write(form, state), 250)
@@ -38,8 +38,9 @@ export function createEditProtection({ notify = () => {} } = {}) {
     for (const [node] of states) if (!node.isConnected) end(node)
     end(form)
     const banner = document.createElement('div'); banner.className = 'admin-draft'; banner.setAttribute('role', 'status')
-    const status = document.createElement('span'); status.textContent = '所有修改已保存'; banner.append(status)
-    const state = { key, extra, status, banner, dirty: false, busy: false, listener: () => changed(form) }
+    const cleanText = '修改后将自动保存浏览器草稿'
+    const status = document.createElement('span'); status.textContent = cleanText; banner.append(status)
+    const state = { key, extra, status, banner, cleanText, dirty: false, busy: false, listener: () => changed(form) }
     states.set(form, state); state.baseline = capture(form, state)
     form.prepend(banner); form.addEventListener('input', state.listener); form.addEventListener('change', state.listener)
     let draft
@@ -71,7 +72,7 @@ export function createEditProtection({ notify = () => {} } = {}) {
   }
   const clean = form => {
     const state = states.get(form); if (!state) return
-    clearTimeout(state.timer); state.dirty = false; state.busy = false; state.baseline = capture(form, state); state.status.textContent = '所有修改已保存'; state.banner.querySelectorAll('button').forEach(button => button.remove())
+    clearTimeout(state.timer); state.dirty = false; state.busy = false; state.baseline = capture(form, state); state.cleanText = '所有修改已保存'; state.status.textContent = state.cleanText; state.banner.querySelectorAll('button').forEach(button => button.remove())
     try { localStorage.removeItem(prefix + state.key) } catch { notify('内容已保存，但浏览器旧草稿未能清理。', 'error') }
   }
   const busy = (form, value) => {

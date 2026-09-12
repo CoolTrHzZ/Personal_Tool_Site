@@ -7,6 +7,7 @@ import { createDiffReport, diffLines, FORMAT_LABELS, FORMAT_NOTES, inspectConfig
 import type { ConfigFormat, ConfigIssue, DiffLine } from './diff'
 
 type Comparison = { lines: DiffLine[]; beforeIssues: ConfigIssue[]; afterIssues: ConfigIssue[] }
+const example = { before: '{\n  "name": "toolbox",\n  "theme": "dark"\n}', after: '{\n  "name": "toolbox",\n  "theme": "light",\n  "autosave": true\n}' }
 
 function Issues({ label, issues, format }: { label: string; issues: ConfigIssue[]; format: ConfigFormat }) {
   return <section className="workbench-card"><h3>{label}检查</h3>{issues.length ? <ul className="workbench-issues">{issues.map((issue, index) => <li key={index} className={`issue-${issue.level}`}><strong>{issue.level === 'error' ? '错误' : issue.level === 'warning' ? '提醒' : '提示'}{issue.line ? ` · 第 ${issue.line} 行` : ''}</strong><span>{issue.message}</span></li>)}</ul> : <p className="workbench-note">{format === 'text' ? '纯文本不进行格式校验。' : '未发现检查范围内的问题。'}</p>}</section>
@@ -33,10 +34,10 @@ export default function ConfigDiffTool() {
     try { const text = await readTextFile(file, MAX_BYTES); if (revisions.current[side] === revision) updateText(side, text) }
     catch (error) { if (revisions.current[side] === revision) setError(error instanceof Error ? error.message : '无法读取文件，原有内容已保留。') }
   }
-  const compare = () => {
+  const compare = (left = before, right = after, selectedFormat = format) => {
     try {
-      const lines = diffLines(before, after, ignoreTrailingSpace)
-      setComparison({ lines, beforeIssues: inspectConfig(before, format), afterIssues: inspectConfig(after, format) })
+      const lines = diffLines(left, right, ignoreTrailingSpace)
+      setComparison({ lines, beforeIssues: inspectConfig(left, selectedFormat), afterIssues: inspectConfig(right, selectedFormat) })
       setError('')
     } catch (error) { setComparison(null); setError(error instanceof Error ? error.message : '无法完成对比，请缩小内容后重试。') }
   }
@@ -50,6 +51,7 @@ export default function ConfigDiffTool() {
     <div className="tool-workbench">
       <p className="workbench-note">内容仅在当前浏览器处理，不上传、不自动保存。每侧最多 256 KiB / 2000 行。</p>
       <div className="workbench-toolbar">
+        <Button onClick={() => { updateText('before', example.before); updateText('after', example.after); setFormat('json'); compare(example.before, example.after, 'json') }}>填入示例并对比</Button>
         <div className="workbench-field"><label htmlFor="config-diff-format">配置格式</label><select id="config-diff-format" value={format} onChange={event => { setFormat(event.target.value as ConfigFormat); setComparison(null) }}>{Object.entries(FORMAT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
         <label className="workbench-check"><input type="checkbox" checked={ignoreTrailingSpace} onChange={event => { setIgnoreTrailingSpace(event.target.checked); setComparison(null) }} />忽略行尾空白</label>
       </div>
@@ -59,13 +61,13 @@ export default function ConfigDiffTool() {
           const label = side === 'before' ? '修改前' : '修改后'
           const value = side === 'before' ? before : after
           return <section className="workbench-card" key={side}>
-            <div className="workbench-field"><label htmlFor={`config-diff-${side}`}>{label}</label><textarea id={`config-diff-${side}`} value={value} onChange={event => updateText(side, event.target.value)} placeholder={`粘贴${label}的配置，或从下方导入文件…`} rows={14} spellCheck={false} autoCapitalize="off" /></div>
+            <div className="workbench-field"><label htmlFor={`config-diff-${side}`}>{label}</label><textarea id={`config-diff-${side}`} value={value} onChange={event => updateText(side, event.target.value)} placeholder={`粘贴${label}的配置，或从下方导入文件…`} rows={10} spellCheck={false} autoCapitalize="off" /></div>
             <label className="workbench-file">导入{label}文件<input type="file" accept=".json,.yaml,.yml,.env,.cfg,.txt,text/*" onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void importFile(side, file) }} /></label>
           </section>
         })}
       </div>
       <div className="workbench-toolbar">
-        <Button variant="primary" icon={<GitCompareArrows size={16} />} onClick={compare}>开始对比</Button>
+        <Button variant="primary" icon={<GitCompareArrows size={16} />} onClick={() => compare()}>开始对比</Button>
         <Button icon={<ArrowLeftRight size={16} />} onClick={() => { updateText('before', after); updateText('after', before) }}>左右交换</Button>
         <Button icon={<RotateCcw size={16} />} onClick={() => { updateText('before', ''); updateText('after', '') }}>清空内容</Button>
       </div>

@@ -1,9 +1,16 @@
-.ui-input, .ui-textarea, .ui-select { width: 100%; min-height: 38px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-panel); color: var(--text-primary); padding: 0 11px; outline: none; }
+.ui-input, .ui-textarea, .ui-select { width: 100%; min-width: 0; min-height: 40px; border: 1px solid var(--border-default); border-radius: 8px; background: var(--surface-panel); color: var(--text-primary); padding: 0 12px; outline: none; transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease), background var(--duration) var(--ease); }
 .ui-textarea { min-height: 92px; padding: 10px 11px; resize: vertical; }
 .ui-input::placeholder, .ui-textarea::placeholder { color: var(--text-faint); }
 .ui-input:focus, .ui-textarea:focus, .ui-select:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-soft); }
+:is(.ui-input, .ui-textarea, .ui-select)[aria-invalid="true"] { border-color: var(--danger); }
+:is(.ui-input, .ui-textarea, .ui-select)[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 15%, transparent); }
+:is(.ui-input, .ui-textarea, .ui-select):disabled { cursor: not-allowed; opacity: .55; }
 .ui-input-glass { background: var(--glass-bg); }
 .ui-field { display: grid; gap: 6px; }
 .ui-field-label { color: var(--text-secondary); font-size: 12px; font-weight: 700; }
-.ui-field-hint { color: var(--text-faint); font-size: 11px; }
+.ui-field-hint { color: var(--text-faint); font-size: 11px; line-height: 1.6; }
 .ui-field-error { color: var(--danger); font-size: 12px; }
+@media (pointer: coarse) {
+  :root input.ui-input, :root select.ui-select { min-height: 44px; }
+  :root :is(input.ui-input, textarea.ui-textarea, select.ui-select) { font-size: 16px; }
+}

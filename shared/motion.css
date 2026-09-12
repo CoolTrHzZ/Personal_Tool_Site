@@ -2,10 +2,7 @@
   from { opacity: 0; translate: 0 8px; }
   to { opacity: 1; translate: none; }
 }
-@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes boot-out { to { opacity: 0; visibility: hidden; } }
 @keyframes palette-in { from { opacity: 0; transform: translateY(-10px) scale(.99); } to { opacity: 1; transform: none; } }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .route-stage, .view.active { animation: motion-enter var(--duration-slow) var(--ease) both; }
 .title-swap { animation: motion-enter var(--duration) var(--ease) both; }
@@ -30,29 +27,17 @@
 }
 .atlas-search, .top-search-mini, .theme-select { transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease), color var(--duration) var(--ease); }
 .atlas-search:focus-visible, .top-search-mini:focus-visible, .theme-select:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), 0 0 22px color-mix(in srgb, var(--accent) 18%, transparent); }
-.boot-meter span { transform: scaleX(0); transform-origin: left; animation: meter-fill var(--duration-slow) var(--ease) var(--duration-fast) forwards; }
-@keyframes meter-fill { to { transform: scaleX(1); } }
 .manual-section, .ai-chapter, .directory .tool-card { animation: motion-enter var(--duration-slow) var(--ease) both; animation-timeline: view(); animation-range: entry 0% cover 20%; }
 .product-stage .tool-card { animation: motion-enter var(--duration-slow) var(--ease) both; }
 .product-stage .tool-card:nth-child(2) { animation-delay: 40ms; }
 .product-stage .tool-card:nth-child(3) { animation-delay: 80ms; }
 .product-stage .tool-card:nth-child(4) { animation-delay: 120ms; }
 
-.boot-layer { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: color-mix(in srgb, var(--surface-page) 94%, transparent); animation: overlay-in var(--duration) var(--ease); }
-.boot-layer.is-leaving { animation: boot-out var(--duration-slow) var(--ease) forwards; }
-.boot-panel { display: grid; justify-items: center; gap: 14px; min-width: 220px; }
-.boot-mark { flex-basis: 32px; }
-.boot-ring { width: 38px; height: 38px; border: 3px solid var(--accent-soft); border-top-color: var(--accent); border-radius: 50%; animation: spin .9s linear infinite; }
-.boot-panel p { margin: 0; color: var(--text-secondary); font-size: 13px; }
-.boot-meter { width: 180px; height: 3px; overflow: hidden; border-radius: 99px; background: var(--surface-raised); }
-.boot-meter span { display: block; height: 100%; width: 100%; background: var(--accent); }
-.boot-skeleton { display: none; }
-
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
-  .ui-button:hover, .hero-search:hover, .dash-meter:hover, .dash-module:hover, .tool-card:hover, .resource-row:hover, .nav-card:hover, .ai-resource-card:hover, .note-card:hover,
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  :root :is(.ui-button:hover, .hero-search:hover, .dash-meter:hover, .dash-module:hover, .tool-card:hover, .resource-row:hover, .nav-card:hover, .ai-resource-card:hover, .note-card:hover,
   .tool-card:hover .tool-icon, .resource-row:hover .mark-tile, .nav-card:hover .mark-tile, .ai-resource-card:hover .mark-tile, .note-card:hover .mark-tile,
   .kind-filters button:hover, .kind-filters button:active, .category-route button:hover, .category-route button:active,
-  .ui-button:active, .primary:hover, .primary:active { transform: none; }
+  .ui-button:active, .primary:hover, .primary:active) { transform: none; }
   :is(.tool-card, .resource-row, .nav-card, .ai-resource-card, .note-card):has(:focus-visible) :is(.tool-icon, .mark-tile) { transform: none; }
 }

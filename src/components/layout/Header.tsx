@@ -51,6 +51,8 @@ function useTheme() {
 export default function Header() {
   const { openPalette } = useContext(SearchContext)
   const motion = useContext(MotionContext)
+  const motionActive = motion.enabled && !motion.systemReduced
+  const motionLabel = motion.systemReduced ? '系统设置已减少动效' : motionActive ? '关闭动效' : '开启动效'
   const [theme, setTheme] = useTheme()
   return (
     <header className="topbar">
@@ -68,7 +70,7 @@ export default function Header() {
       <div className="topbar-end">
         {import.meta.env.DEV && <a className="local-admin-link" href={siteConfig.adminUrl} target="_blank" rel="noreferrer" aria-label="本地 Admin 管理" title="本地 Admin 管理"><Settings2 size={15} /><span>Admin</span></a>}
         <button type="button" className="top-search-mini" onClick={openPalette} aria-label="打开命令面板"><Search size={14} aria-hidden="true" /><span>搜索</span><kbd>⌘ K</kbd></button>
-        <button type="button" className="motion-toggle" onClick={motion.toggle} aria-pressed={motion.enabled} aria-label={motion.enabled ? '关闭动效' : '开启动效'} title={motion.enabled ? '关闭动效' : '开启动效'}>{motion.enabled ? <Activity size={16} /> : <Pause size={16} />}</button>
+        <button type="button" className="motion-toggle" onClick={motion.toggle} disabled={motion.systemReduced} aria-pressed={motionActive} aria-label={motionLabel} title={motionLabel}>{motionActive ? <Activity size={16} /> : <Pause size={16} />}</button>
         <label className="theme-control"><span className="sr-only">主题</span><select className="theme-select" value={theme} onChange={event => setTheme(event.target.value)} aria-label="选择主题"><option value="system">系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
       </div>
     </header>

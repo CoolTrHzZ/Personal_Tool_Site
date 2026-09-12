@@ -4,6 +4,7 @@ import { Buffer } from 'node:buffer'
 test('配置对比对齐插入、检查重复键并导出报告，输入不持久化', async ({ page }) => {
   await page.goto('/#/tools/config-diff')
   await expect(page.getByRole('heading', { name: '配置差异对比', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '开始对比', exact: true })).toBeInViewport()
   await page.getByRole('combobox', { name: '配置格式', exact: true }).selectOption('env')
   await page.getByLabel('修改前', { exact: true }).fill('PORT=8080\nNAME=app\nMODE=dev')
   await page.getByLabel('修改后', { exact: true }).fill('PORT=8080\nLOG=debug\nNAME=app\nMODE=dev\nPORT=9090')

@@ -52,3 +52,21 @@ test('静态工具全屏后 iframe 铺满视口剩余区域', async ({ page }) =
   expect(errors, errors.join('\n')).toEqual([])
   expect(failed, failed.join('\n')).toEqual([])
 })
+
+test.describe('手机触控布局', () => {
+  test.use({ hasTouch: true, viewport: { width: 320, height: 720 } })
+
+  test('静态工具在工作区和全屏模式保持单行紧凑顶栏', async ({ page }) => {
+    await page.goto(`/#/tools/${TOOL_ID}`)
+    const overlay = page.getByTestId('tool-fullscreen')
+    await expect(overlay).toBeVisible({ timeout: 15_000 })
+    const fullscreenBar = overlay.locator('.tool-fullscreen-bar')
+    expect(await fullscreenBar.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
+    await expect(page.getByRole('button', { name: '退出全屏 (Esc)', exact: true })).toBeInViewport()
+    await page.getByRole('button', { name: '工作区模式' }).click()
+    const workspaceBar = page.locator('.tool-workspace-bar')
+    await expect(workspaceBar).toBeVisible()
+    expect(await workspaceBar.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
+    expect((await workspaceBar.boundingBox())?.height).toBeLessThan(100)
+  })
+})

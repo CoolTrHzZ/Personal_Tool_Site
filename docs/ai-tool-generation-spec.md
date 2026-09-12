@@ -1,141 +1,94 @@
-# AI 工具生成规范（AI Tool Generation Spec）
+# AI 工具生成规范
 
-> 给 Luna / Codex 等 AI 的统一标准：按本规范生成的单文件 HTML 工具，无需任何改造即可拖入工具站 Admin 直接运行。规范版本：**1.0**（对应平台 Manifest V2 / Toolbox Bridge v1）。
+独立开发一个单文件 HTML 工具，再通过 Admin 导入。工具站负责标题、导航、背景和展示模式；工具只提供输入、操作、结果和必要说明。嵌入时背景透明，颜色通过 Toolbox Bridge 跟随站点；双击 HTML 也能独立使用。
 
-## 一句话要求
+代码起点：[index.html 模板](../templates/tool/index.html) · [manifest.json 模板](../templates/tool/manifest.json)。模板没有构建步骤或第三方依赖，默认把输入原文输出，提供处理、清空、复制和下载。
 
-生成一个**自包含的单文件 HTML**：相对路径资源、无构建依赖、可选接入 `toolbox-bridge.js` 获得剪贴板/存储/主题/高度自适应能力。
+## 可直接复制的 AI 提示词
 
-## 硬性规则（必须遵守）
+将下面的占位内容替换为你的需求；如果 AI 无法读取仓库，同时提供上面的两个模板文件。
 
-1. **单文件自包含**：CSS 写 `<style>`、JS 写 `<script>`，不依赖同包其它文件（除非按 ZIP 工具包形式交付，见下）。
-2. **必须声明**：
-   ```html
-   <!DOCTYPE html>
-   <html lang="zh-CN">
-   <head>
-     <meta charset="UTF-8">
-     <meta name="viewport" content="width=device-width, initial-scale=1">
-     <title>工具名（导入时自动成为工具 name）</title>
-     <meta name="description" content="一句话描述（导入时自动成为工具 description）">
-   </head>
-   ```
-3. **运行环境是 iframe sandbox**：默认只有 `allow-scripts allow-forms`。因此：
-   - ❌ 不要用 `localStorage` / `sessionStorage` / `document.cookie`（沙箱内抛异常）→ 用 `Toolbox.storage`
-   - ❌ 不要用 `alert` / `confirm` / `prompt`（默认被拦）→ 用 `Toolbox.toast`
-   - ❌ 不要用 `navigator.clipboard`（跨源被拒）→ 用 `Toolbox.clipboard`
-   - ❌ 不要 `target="_blank"` 直接跳外链（默认被拦）→ 用 `Toolbox.openExternal`
-4. **资源路径只用相对路径**，禁止以 `/` 开头的站根绝对路径（iframe 内会 404）。外部 CDN 可以引用，但导入时需要勾选 network 权限；**优先内联**。
-5. **布局自适应宽度**：工具可能以 embedded（卡片内）/ workspace（工作区）/ fullscreen（全屏）三种模式展示，不要写死页面宽度，用 `max-width` + `margin: auto` 或 100% 流式布局。
-6. **不要假设顶层窗口**：禁止 `window.top`、`parent.xxx` 直接访问；与宿主通信只走 Toolbox Bridge。
-7. **纯前端**：不发服务器请求、不写文件系统；需要网络 API 时明确标注“需要 network 权限”。
+```text
+请基于我提供的 templates/tool/index.html 和 manifest.json 开发一个个人工具站小工具。
 
-## 推荐结构（模板）
+工具名称：【例如：CS2 CFG 命令整理】
+工具 ID：【小写英文、数字、连字符，例如 cs2-cfg-cleaner】
+一句话说明：【这个工具解决什么问题】
+输入内容：【格式、示例、允许的大小】
+处理规则：【具体步骤；哪些字符、空行、顺序必须原样保留】
+输出结果：【格式、示例、下载文件名和扩展名】
+异常情况：【空输入、格式错误、超限时如何处理】
 
-```html
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Base64 编解码器</title>
-  <meta name="description" content="文本与 Base64 互转，支持 UTF-8">
-  <script src="../../toolbox-bridge.js"></script><!-- 可选，见下节 -->
-  <style>
-    /* 深浅色自适应：宿主会在 <html> 上设置 data-theme */
-    :root { color-scheme: light dark; }
-    body { font: 14px/1.6 system-ui, sans-serif; margin: 0; padding: 16px; max-width: 720px; margin-inline: auto; }
-    textarea { width: 100%; min-height: 96px; }
-  </style>
-</head>
-<body>
-  <h2>Base64 编解码器</h2>
-  <textarea id="input" placeholder="输入文本…"></textarea>
-  <button id="encode">编码</button>
-  <button id="decode">解码</button>
-  <output id="result"></output>
-
-  <script>
-    var $ = function (id) { return document.getElementById(id) }
-    function showResult(text) {
-      $('result').textContent = text
-      if (window.Toolbox) Toolbox.clipboard.writeText(text)
-        .then(function () { Toolbox.toast.success('已复制到剪贴板') })
-        .catch(function () {})
-    }
-    $('encode').onclick = function () {
-      try { showResult(btoa(unescape(encodeURIComponent($('input').value)))) }
-      catch (err) { Toolbox.toast.error('编码失败：' + err.message) }
-    }
-    $('decode').onclick = function () {
-      try { showResult(decodeURIComponent(escape(atob($('input').value.trim())))) }
-      catch (err) { Toolbox.toast.error('不是有效的 Base64') }
-    }
-  </script>
-</body>
-</html>
+实现要求：
+1. 交付 index.html 和 manifest.json 的完整代码。使用原生 HTML/CSS/JavaScript，
+   CSS 和业务 JS 内联，无构建依赖；不新增 npm 包、CDN、字体、统计或后台服务。
+   优先修改模板的 transform(text) 和必要的表单控件，保留兼容工具站的部分。
+2. 页面只做功能区：清晰的字段标签、操作按钮、结果和必要提示。
+   不添加站点导航、重复的大标题、页脚、整页卡片、粒子背景或装饰性控制台。
+   保持黑色基调、青色主操作、紫色少量辅助；沿用模板的颜色变量与轻量交互。
+3. iframe 内 html/body 背景必须透明，让宿主背景透出；表单控件仍需足够对比度。
+   不用 100vh 撑高、不固定页面宽度、不让长结果挤出页面；支持窄屏自动换行。
+4. 仅在 window.parent !== window 时动态加载 ../../toolbox-bridge.js。
+   嵌入时通过 Toolbox.theme.get() 获取 { mode, dark, colors }，由工具自己设置
+   data-theme、color-scheme 和 CSS 变量。theme.watch() 的后续事件可能只有 mode，
+   此时再次 get() 刷新 colors；只注册一次监听，不假设宿主会修改 iframe 的 HTML。
+   Bridge 加载失败或请求失败时继续使用本地样式，处理功能不能依赖 Bridge 成功。
+5. 双击本地 HTML 必须可用；顶层页面不调用 Bridge。
+   独立打开使用内置深色样式并响应系统主题。复制由用户点击触发：嵌入时优先用
+   Toolbox.clipboard.writeText()，独立运行时尝试浏览器剪贴板；失败则保留结果，
+   提示并选中可手动复制的文本。下载用原生 Blob、临时链接，及时回收对象 URL。
+6. manifest 使用 runtime: static、format: single-html、entry: index.html、
+   display: { mode: embedded, height: auto }。默认只开 clipboard 和 download，
+   其他权限关闭；没有需要就关闭对应权限，不增加存储示例或网络请求。
+   如需求确实需要更多权限，明确说明用途并同步修改 manifest。
+7. 用户输入按文本处理，展示结果用 textContent 或 textarea.value；不把用户内容
+   拼进 innerHTML。校验失败、处理失败或复制失败时保留输入和上一份成功结果。
+   清空仅由明确的清空按钮触发，错误提示说明如何纠正，不能只写“失败”。
+8. 手机和键盘可完成全部操作：使用 label、原生按钮、可见焦点和状态提示；
+   不劫持文本框 Enter，不在中文输入法组合期间触发快捷键；尊重减少动画偏好。
+9. 修改 title、meta description 和 manifest 的 id/name/description/version/category/tags。
+   给出简短的本地打开与 Admin 导入步骤，以及正常、异常、中文输入、复制失败的验证结果。
+   无法实际运行的验证请明确注明，不要声称已通过。
 ```
 
-## Toolbox Bridge（可选但强烈推荐）
+## 使用模板与导入
 
-在 `<head>` 引入（**相对路径**，导入后工具位于 `/tools/{id}/index.html`，桥接文件固定在 `/tools/toolbox-bridge.js`）：
+1. 复制整个 `templates/tool/` 目录到自己的工具目录。直接双击其中的 `index.html` 查看；这个过程不需要启动工具站。
+2. 修改 `transform(text)` 实现业务规则；按需调整输入控件、结果类型和下载文件名。同步修改 HTML 的 `<title>`、`meta description` 与 `manifest.json` 的元数据，使用唯一 ID。
+3. 本地验证处理、错误提示、清空、复制和下载。浏览器可能限制 `file://` 下的剪贴板访问，模板会保留并选中结果供手动复制。
+4. 启动工具站及 Admin，在“导入工具”中选择一种方式：上传单个 `index.html`，或把 `index.html` 和 `manifest.json` 放在 ZIP 根目录后上传 ZIP。ZIP 适合保留你指定的 ID、权限及其他元数据；单 HTML 由向导生成这些字段。
+5. 在向导中核对元数据和权限，查看兼容性提示及预览，再导入。确认复制需要 `clipboard`、下载需要 `download`；更新已有工具时核对目标 ID、版本及覆盖选项。
 
-```html
-<script src="../../toolbox-bridge.js"></script>
-```
+自动扫描只给出建议，尤其动态加载或独立运行的降级代码可能触发提示。不要跳过权限核对，也不能以“零警告”代替实际验证。完整字段见 [工具包规范](./tool-package-spec.md)。
 
-所有 API 都返回 Promise；桥未加载时降级为不调用（模板里的 `if (window.Toolbox)` 写法）。
+本地 Chromium 可能要求本地网络访问权限以加载 SDK；未授权时基础处理与手动复制仍可用。
 
-| API | 说明 |
+## Bridge 接口与主题约定
+
+接口以 [SDK](../public/tools/toolbox-bridge.js) 和 [宿主实现](../src/tools/runtime/StaticToolPage.tsx) 为准。
+
+工具导入后入口为 `tools/{id}/index.html`；模板使用的 `../../toolbox-bridge.js` 指向站点部署目录下的桥接入口，兼容 GitHub Pages 子路径。SDK 源文件在 `public/tools/toolbox-bridge.js`，构建同时提供上述入口。不要改为以 `/` 开头的地址，也不要把站点 CSS 当作 iframe 内会自动继承的样式。
+
+| API | 返回与使用方式 |
 | --- | --- |
-| `Toolbox.clipboard.writeText(text)` / `readText()` | 剪贴板读写（宿主代理，绕过沙箱限制） |
-| `Toolbox.toast.show(msg, level)` / `success` / `error` | 宿主样式统一 toast，替代 alert |
-| `Toolbox.theme.get()` | 返回 `{ mode: 'light' \| 'dark', accent }`，跟随站点主题 |
-| `Toolbox.theme.watch(listener)` | 主题变化时回调（含首次当前值） |
-| `Toolbox.storage.get(key)` / `set(key, value)` / `remove(key)` / `keys()` | 按工具隔离的持久存储（宿主 localStorage 代理，key 自动加 `toolbox:{id}:` 前缀，工具间互不可见），value 可为任意 JSON |
-| `Toolbox.resize.report(heightPx)` | 手动上报内容高度 |
-| `Toolbox.resize.enableAuto()` | 自动随内容高度上报（**引入桥后默认开启**，长页面建议保持） |
-| `Toolbox.openExternal(url)` | 宿主新窗口打开外链（需 externalLinks 权限，导入向导会自动建议） |
+| `Toolbox.theme.get()` | Promise，返回 `{ mode, dark, colors }`；`mode` 为 `light` 或 `dark`。 |
+| `Toolbox.theme.watch(listener)` | 注册后尝试回调首次主题；后续通知可能只有 `{ mode }`。此时重新 `get()` 获取完整配色。无 Promise，也不返回取消订阅函数。 |
+| `Toolbox.clipboard.writeText(text)` / `readText()` | Promise；需要 `clipboard` 权限，仍可能因浏览器权限或环境失败，必须保留手动复制方式。 |
+| `Toolbox.toast.show(message, level)` / `success(message)` / `error(message)` | Promise；显示宿主提示。若使用，处理拒绝并保留工具内的状态文案。 |
+| `Toolbox.resize.report(height)` | 手动上报高度，不返回 Promise。 |
+| `Toolbox.resize.enableAuto()` / `disableAuto()` | 开关自动高度上报，不返回 Promise；SDK 默认开启。宿主仅在高度设为 `auto` 时采纳上报。 |
+| `Toolbox.storage.get/set/remove/keys` | Promise；可选的宿主存储接口，需要 `storage` 权限。模板不保存输入或结果。 |
+| `Toolbox.openExternal(url)` | Promise；需要 `externalLinks` 权限，仅支持 HTTP(S)，还受浏览器弹窗策略影响。 |
 
-主题适配：宿主切换主题时会广播 `theme-changed`，同时工具 `<html>` 的 `color-scheme` 生效。样式建议用 CSS 变量 + `prefers-color-scheme` 或 `Toolbox.theme.get()` 结果自行适配，不要写死白底黑字。
+`colors` 包含 `bgPrimary`、`bgSecondary`、`textPrimary`、`textSecondary`、`accent`、`borderColor`。将这些值应用到工具自己的 CSS 变量；其中背景色可用于控件或独立页面，iframe 中的 `html/body` 保持透明。宿主只发送主题消息，不会自动写入工具的 `data-theme` 或 `color-scheme`。
 
-## 交付形态
+顶层页面不能使用 Bridge 请求；嵌入到其他站点时也未必有兼容宿主。因此既要判断是否在 iframe 内，也要处理 SDK 加载和请求失败。不要依靠 `window.Toolbox` 存在就认定请求一定成功。
 
-| 形态 | 适用 | 要求 |
-| --- | --- | --- |
-| **单文件 HTML**（默认） | 绝大多数工具 | 一个 `.html` 文件，拖入 Admin 即完成导入 |
-| ZIP 工具包 | 多文件（图片/字体/wasm/构建产物） | 根目录（或单层父目录内）有 `index.html`；可附 `manifest.json` 精确控制权限与元数据，没有则自动生成 |
+## 权限与运行边界
 
-ZIP 内 manifest 模板（完整字段见 [tool-package-spec.md](./tool-package-spec.md)）：
+- 默认沙箱基础为 `allow-scripts allow-forms`。不依赖 iframe 直接访问宿主 DOM、Cookie 或浏览器存储；本模板使用表单状态完成工作。
+- 下载使用原生浏览器能力，没有 `Toolbox.download()`；沙箱中需要 `permissions.download: true`，由宿主添加 `allow-downloads`。
+- `network` 是工具的能力声明，当前实现不是浏览器网络防火墙。关闭它不等于阻止全部请求；纯本地工具应直接不发网络请求。需要外部 API 时说明用途，并处理 CORS、鉴权和网络错误。
+- 默认不使用 `alert/confirm/prompt`、新窗口或 `sameOrigin`。状态提示、文本结果和用户主动的下载即可覆盖模板交互，不为样式适配放宽沙箱。
 
-```json
-{
-  "id": "base64-codec",
-  "name": "Base64 编解码器",
-  "description": "文本与 Base64 互转，支持 UTF-8",
-  "version": "1.0.0",
-  "runtime": "static",
-  "format": "single-html",
-  "entry": "index.html",
-  "display": { "mode": "embedded", "height": "auto" },
-  "permissions": { "clipboard": true, "storage": true }
-}
-```
-
-## 平台自动处理（AI 不需要做，但应知道）
-
-- **id 生成**：从 `<title>` slug 化；冲突自动加 `-2` 后缀。
-- **元数据**：`<title>` → name，`<meta name="description">` → description；没有则导入向导里手工补。
-- **权限建议**：导入向导扫描代码（clipboard / fetch / target=_blank / localStorage 等）自动勾选权限，AI 无需在代码里声明。
-- **兼容性扫描**：站根绝对路径、外部域名、SharedArrayBuffer 等会给出警告；按本规范写则零警告。
-- **版本**：缺省 `1.0.0`；更新工具时在向导里选“覆盖”并提升版本号。
-
-## 自检清单（生成后逐条核对）
-
-- [ ] `<!DOCTYPE html>` + `<meta charset="UTF-8">` + `<title>` + viewport
-- [ ] 无 localStorage / alert / navigator.clipboard / target="_blank" 直接使用
-- [ ] 无 `/` 开头的资源路径；外部 CDN 已尽量内联
-- [ ] 宽度自适应（embedded / fullscreen 都不破版）
-- [ ] 引入了 toolbox-bridge.js 且所有调用有 `if (window.Toolbox)` 降级
-- [ ] 复制、提示、存储走 Toolbox API
-- [ ] 纯静态产物，双击本地打开也能用（Bridge 部分自然降级）
+生成后至少验证：独立打开能处理；导入后背景透明、主题切换有效、高度随内容变化；手机无横向溢出；键盘能操作；错误不清空内容；复制受限仍能手动复制；下载文件内容正确。

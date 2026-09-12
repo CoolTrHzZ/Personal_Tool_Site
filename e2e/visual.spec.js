@@ -60,6 +60,17 @@ test('Admin 可编辑各内容页说明', async ({ page }) => {
   await page.click('.nav-item[data-view="settings"]')
   const fields = ['toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription']
   for (const name of fields) await expect(page.locator(`#site [name="${name}"]`)).toBeVisible()
+  await expect(page.locator('#site [name="name"]')).toHaveAttribute('required', '')
+  await expect(page.locator('#site [name="tagline"]')).not.toHaveAttribute('required', '')
+  await expect(page.locator('#site [name="navigationDescription"]')).not.toHaveAttribute('required', '')
+  await expect(page.locator('#site [name="github"]')).toHaveAttribute('type', 'url')
+  await page.locator('[data-settings-tab="appearance"]').click()
+  await expect(page.locator('#site [name="logo"]')).not.toHaveAttribute('required', '')
+  await page.locator('[data-settings-tab="deploy"]').click()
+  await expect(page.locator('#site [name="publicUrl"]')).toHaveAttribute('type', 'url')
+  await expect(page.locator('#site [name="adminUrl"]')).toHaveAttribute('type', 'url')
+  await expect(page.locator('#site [name="basePath"]')).toHaveAttribute('required', '')
+  await page.locator('[data-settings-tab="general"]').click()
 
   let payload
   await page.route('**/api/site', async route => {

@@ -44,6 +44,16 @@ for (const preference of ['manual', 'system']) {
     await expect(card.locator('.tool-icon')).toHaveCSS('transform', 'none')
     await page.locator('.brand').hover()
     await expect(page.locator('.brand-symbol').first()).toHaveCSS('transform', 'none')
+    for (const [label, selector] of [['导航', '.nav-card'], ['笔记', '.note-card']]) {
+      await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: label, exact: true }).click()
+      const result = page.locator(selector).first()
+      await result.hover()
+      await expect(result).toHaveCSS('transform', 'none')
+    }
+    await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '桌面工具', exact: true }).click()
+    const projectLink = page.locator('.project-card h2 a').first()
+    await projectLink.hover()
+    await expect(projectLink.locator('svg')).toHaveCSS('transform', 'none')
     await page.getByRole('button', { name: '打开命令面板', exact: true }).first().click()
     const dialog = page.getByRole('dialog', { name: '命令面板' })
     await page.keyboard.press('ArrowDown')
@@ -60,6 +70,12 @@ test('触屏按钮命中区足够且触摸后无悬停位移，弹窗保持在�
     await page.goto('http://127.0.0.1:5173/#/tools/json')
     const format = page.getByRole('button', { name: '格式化', exact: true })
     await expect(page.getByTestId('boot-layer')).toBeHidden()
+    for (const control of await page.locator('.topbar .top-search-mini, .topbar .motion-toggle, .topbar .local-admin-link, .topbar .theme-select, .top-nav a').all()) {
+      const box = await control.boundingBox()
+      expect(box.height).toBeGreaterThanOrEqual(44)
+      expect(box.width).toBeGreaterThanOrEqual(44)
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await format.tap()
     await expect(format).toHaveCSS('transform', 'none')
     expect((await format.boundingBox()).height).toBeGreaterThanOrEqual(44)
@@ -73,6 +89,31 @@ test('触屏按钮命中区足够且触摸后无悬停位移，弹窗保持在�
     }).toBe(true)
     await dialog.getByRole('button', { name: '关闭命令面板' }).tap()
     await expect(dialog).toHaveCount(0)
+    await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '导航', exact: true }).tap()
+    await expect(page.getByLabel('搜索网站')).toHaveCSS('min-height', '44px')
+    await expect(page.getByLabel('搜索网站')).toHaveCSS('font-size', '16px')
+  } finally { await context.close() }
+})
+
+test('触屏导航换行后目录与键盘跳转仍显示在导航下方', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' })
+  const page = await context.newPage()
+  const belowHeader = selector => page.locator(selector).evaluate(node => node.getBoundingClientRect().top >= document.querySelector('.topbar').getBoundingClientRect().bottom)
+  try {
+    await page.goto('http://127.0.0.1:5173/#/')
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 })
+      const toc = page.getByRole('navigation', { name: '章节目录' })
+      await toc.getByRole('link', { name: /笔记/ }).tap()
+      await expect(page.locator('#notes')).toBeFocused()
+      await expect.poll(() => belowHeader('#notes h2')).toBe(true)
+      await toc.getByRole('link', { name: /网站/ }).press('Enter')
+      await expect(page.locator('#sites')).toBeFocused()
+      await expect.poll(() => belowHeader('#sites h2')).toBe(true)
+      await page.getByRole('link', { name: '跳到主要内容' }).press('Enter')
+      await expect(page.locator('#main-content')).toBeFocused()
+      await expect.poll(() => belowHeader('.home-viewbar')).toBe(true)
+    }
   } finally { await context.close() }
 })
 

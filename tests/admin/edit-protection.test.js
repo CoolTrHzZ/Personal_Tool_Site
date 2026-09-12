@@ -2,6 +2,16 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { createEditProtection } from '../../admin/edit-protection.js'
 beforeEach(() => { document.body.innerHTML = '<form id="editor"><input name="originalId" type="hidden" value="one"><input name="id" value="one" readonly><textarea name="body">original</textarea><button type="submit">save</button></form>'; localStorage.clear(); vi.restoreAllMocks() })
+it('uses a neutral initial state until the form has actually been saved', () => {
+  const form = document.querySelector('form'), guard = createEditProtection()
+  guard.begin(form)
+  expect(form.querySelector('.admin-draft').textContent).toContain('修改后将自动保存浏览器草稿')
+  form.elements.body.value = 'changed'; guard.changed(form)
+  form.elements.body.value = 'original'; guard.changed(form)
+  expect(form.querySelector('.admin-draft').textContent).not.toContain('所有修改已保存')
+  guard.clean(form)
+  expect(form.querySelector('.admin-draft').textContent).toContain('所有修改已保存')
+})
 it('restores explicitly marked picker values and notifies the UI without changing identity fields', () => {
   const form = document.querySelector('form'), guard = createEditProtection(), sync = vi.fn()
   form.insertAdjacentHTML('beforeend', '<input name="tags" type="hidden" data-restore-value="true" value="old"><input name="icon" type="hidden" data-restore-value="true" value="Code2">')

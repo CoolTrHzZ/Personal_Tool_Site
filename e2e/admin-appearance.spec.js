@@ -131,9 +131,35 @@ test('Admin 按钮、操作菜单及弹窗具有交互反馈并尊重减少动�
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: '开启管理页动效' }).click()
   await page.emulateMedia({ reducedMotion: 'reduce' })
+  const systemMotion = page.getByRole('button', { name: '系统设置已减少动效' })
+  await expect(systemMotion).toBeDisabled()
+  await expect(systemMotion).toHaveText('系统设置已减少动效')
+  await expect(systemMotion).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.locator('canvas.tech-field')).toHaveCount(0)
   await create.hover()
   await expect(create).toHaveCSS('transform', 'none')
   expect(await create.evaluate(node => window.getComputedStyle(node, '::after').display)).toBe('none')
+})
+
+test.describe('Admin 手机触控目标', () => {
+  test.use({ hasTouch: true, reducedMotion: 'reduce', viewport: { width: 320, height: 720 } })
+
+  test('小按钮保持 44px 且不裁切', async ({ page }) => {
+    await page.goto('/admin/')
+    for (const target of [page.locator('#admin-menu'), page.locator('#admin-preview'), page.locator('#admin-motion')]) {
+      const box = await target.boundingBox()
+      expect(box?.height).toBeGreaterThanOrEqual(44)
+      await assertFits(target)
+    }
+    await page.locator('#admin-menu').click()
+    await page.locator('.nav-item[data-view="websites"]').click()
+    const action = page.locator('#navigation .kebab-toggle').first()
+    await action.scrollIntoViewIfNeeded()
+    const box = await action.boundingBox()
+    expect(box?.width).toBeGreaterThanOrEqual(44)
+    expect(box?.height).toBeGreaterThanOrEqual(44)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
 })
 
 test('Admin 导入向导在黑色与手机视口可读，模拟分析不写实际工具', async ({ page, request }) => {
@@ -171,5 +197,10 @@ test('Admin 导入向导在黑色与手机视口可读，模拟分析不写实�
   for (const button of await page.locator('.wizard-preview-bar button').all()) await assertFits(button)
   await page.screenshot({ path: 'e2e/screenshots/admin-mobile-import.png' })
   await page.locator('#wizard-close').click()
+  await expect(page.locator('#modal')).toBeVisible()
+  await page.locator('#modal-cancel').click()
+  await expect(dialog).toBeVisible()
+  await page.locator('#wizard-close').click()
+  await page.locator('#modal-ok').click()
   await expect(dialog).toBeHidden()
 })

@@ -21,6 +21,8 @@
 .project-card h2 a { overflow-wrap: anywhere; }
 .project-card h2 svg { flex-shrink: 0; color: var(--accent); transition: transform var(--duration) var(--ease); }
 .project-card h2 a:hover svg { transform: translate(2px, -2px); }
+:root[data-motion="off"] .project-card h2 a:hover svg { transform: none; }
+@media (prefers-reduced-motion: reduce) { .project-card h2 a:hover svg { transform: none; } }
 .project-card-content > p { color: var(--text-secondary); line-height: 1.9; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .project-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 20px; }
 .project-tags > span { padding: 4px 8px; border: 1px solid var(--border-subtle); border-radius: 5px; color: var(--text-secondary); font-size: 11px; overflow-wrap: anywhere; }

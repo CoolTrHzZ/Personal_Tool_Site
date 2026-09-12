@@ -60,7 +60,10 @@ for (const entry of cases) {
 
 test('工具目录筛选刷新和工具内返回保持一致，分类选择可读', async ({ page }) => {
   await page.goto('/#/tools')
-  const category = page.getByRole('navigation', { name: '工具类别' }).getByRole('button', { name: /development/ })
+  await expect(page.getByRole('combobox', { name: '排序', exact: true })).toHaveValue('recommended')
+  await expect(page.locator('.directory .tool-card-link').first()).toContainText('示例 JSON')
+  await expect(page.getByRole('link', { name: /打开 JSON 示例/ })).toBeVisible()
+  const category = page.getByRole('navigation', { name: '工具类别' }).getByRole('button', { name: /开发/ })
   await category.click()
   await expect(category).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('textbox', { name: '搜索工具', exact: true }).fill('JSON')

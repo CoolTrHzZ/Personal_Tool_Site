@@ -1,5 +1,5 @@
-export function onCarbonPointer(event: { currentTarget: EventTarget & HTMLElement; clientX: number; clientY: number }) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+export function onCarbonPointer(event: { currentTarget: EventTarget & HTMLElement; clientX: number; clientY: number; pointerType?: string }) {
+  if (event.pointerType === 'touch' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
   const node = event.currentTarget
   const box = node.getBoundingClientRect()
   if (!box.width || !box.height) return

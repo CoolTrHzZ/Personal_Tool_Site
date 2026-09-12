@@ -1,9 +1,9 @@
-import { TerminalSquare } from 'lucide-react'
+import { ArrowUpRight, TerminalSquare } from 'lucide-react'
 import { useTools, useToolsLoaded } from '../tools/runtime/ToolCatalog'
 import ToolCard from '../components/tools/ToolCard'
 import { useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { saveSearch } from '../utils/user-state'
+import { Link, useSearchParams } from 'react-router-dom'
+import { addRecentTool, saveSearch } from '../utils/user-state'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Select from '../components/ui/Select'
@@ -14,6 +14,7 @@ import site from '../data/site.json'
 import type { SiteConfig } from '../types'
 
 const blob = (tool: { name: string; description: string; keywords: string[]; tags?: string[] }) => [tool.name, tool.description, ...tool.keywords, ...(tool.tags || [])].join(' ').toLowerCase()
+const categoryLabel = (value: string) => value === 'development' ? '开发' : value === 'game' ? '游戏' : value
 const siteConfig = site as SiteConfig
 
 export default function ToolsPage() {
@@ -23,10 +24,11 @@ export default function ToolsPage() {
   const query = params.get('q') || ''
   const category = params.get('category') || ''
   const status = params.get('status') || 'all'
-  const sort = params.get('sort') || 'name'
-  const hasFilters = Boolean(query || category || status !== 'all' || sort !== 'name')
-  const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || (key === 'status' && value === 'all') || (key === 'sort' && value === 'name')) next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
+  const sort = params.get('sort') || 'recommended'
+  const hasFilters = Boolean(query || category || status !== 'all' || sort !== 'recommended')
+  const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || (key === 'status' && value === 'all') || (key === 'sort' && value === 'recommended')) next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
   const categories = useMemo(() => [...new Set(tools.map(tool => tool.category))], [tools])
+  const quickstart = tools.find(tool => tool.id === 'json' && tool.enabled && tool.status !== 'disabled')
   const filtered = tools.filter(tool => {
     const toolStatus = tool.status || (tool.enabled ? 'active' : 'disabled')
     return (!category || tool.category === category) && (status === 'all' || toolStatus === status) && blob(tool).includes(query.trim().toLowerCase())
@@ -46,13 +48,13 @@ export default function ToolsPage() {
         icon={TerminalSquare}
         code=".TOOLS"
         caption="READY FOR YOUR NEXT TASK"
-        note={<span role="status">{loaded ? `${filtered.length} 个匹配工具` : '正在加载工具目录…'}</span>}
+        note={<><span role="status">{loaded ? `${filtered.length} 个匹配工具` : '正在加载工具目录…'}</span>{loaded && quickstart && !hasFilters && <Link className="tools-quickstart" to={quickstart.path} onClick={() => addRecentTool(quickstart.id)}>第一次使用？打开 JSON 示例<ArrowUpRight size={13} /></Link>}</>}
       />
       <div className="tool-filters">
         <nav className="category-route" aria-label="工具类别">
           <button type="button" className={!category ? 'active' : ''} aria-pressed={!category} onClick={() => setFilter('category', '')}>全部</button>
           {categories.map(item => (
-            <button type="button" className={item === category ? 'active' : ''} aria-pressed={item === category} onClick={() => setFilter('category', item)} key={item}>{item}<span>{tools.filter(tool => tool.category === item).length}</span></button>
+            <button type="button" className={item === category ? 'active' : ''} aria-pressed={item === category} onClick={() => setFilter('category', item)} key={item}>{categoryLabel(item)}<span>{tools.filter(tool => tool.category === item).length}</span></button>
           ))}
           {loaded && category && !categories.includes(category) && <button type="button" className="active" aria-pressed="true" disabled>已失效：{category}</button>}
         </nav>
@@ -69,9 +71,9 @@ export default function ToolsPage() {
           </FormField>
           <FormField label="排序">
             <Select aria-label="排序" value={sort} onChange={event => setFilter('sort', event.target.value)}>
-              <option value="name">按字母排序</option>
-              {!['name', 'recommended', 'updated'].includes(sort) && <option value={sort} disabled>已失效：{sort}</option>}
               <option value="recommended">推荐</option>
+              <option value="name">按名称</option>
+              {!['name', 'recommended', 'updated'].includes(sort) && <option value={sort} disabled>已失效：{sort}</option>}
               <option value="updated">最近更新</option>
             </Select>
           </FormField>

@@ -71,13 +71,13 @@ test('URL 编解码保留查询值并区分错误与结果', async ({ page }) =>
   const input = page.getByLabel('文本')
   const result = page.getByLabel('结果')
   await input.fill('工作站 & a+b/🚀')
-  await page.getByRole('button', { name: 'Encode', exact: true }).click()
+  await page.getByRole('button', { name: '编码', exact: true }).click()
   await expect(result).toHaveValue('%E5%B7%A5%E4%BD%9C%E7%AB%99%20%26%20a%2Bb%2F%F0%9F%9A%80')
   await input.fill(await result.inputValue())
-  await page.getByRole('button', { name: 'Decode', exact: true }).click()
+  await page.getByRole('button', { name: '解码', exact: true }).click()
   await expect(result).toHaveValue('工作站 & a+b/🚀')
   await input.fill('%E0%A4%A')
-  await page.getByRole('button', { name: 'Decode', exact: true }).click()
+  await page.getByRole('button', { name: '解码', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('无效的 URL 编码')
   await expect(result).toHaveValue('')
 })
@@ -140,7 +140,7 @@ test('所有原生复制按钮处理剪贴板拒绝且不丢失结果', async ({
     }
     if (id === 'url') {
       await page.getByLabel('文本').fill('hello world')
-      await page.getByRole('button', { name: 'Encode', exact: true }).click()
+      await page.getByRole('button', { name: '编码', exact: true }).click()
     }
     const result = page.locator('textarea[readonly]')
     const original = await result.inputValue()

@@ -10,6 +10,7 @@ import { ICON_NAMES, createIconSvg } from './icon-catalog.js'
 import { mountTechField } from '/shared/tech-field.js'
 import { mountCfgLibrary } from './cfg-library.js'
 import { createEditProtection } from './edit-protection.js'
+import { assistForm, showFormError } from './form-assistance.js'
 import { mountSiteManagement } from './site-management.js'
 import { mountContentCollections } from './content-collections.js'
 import { noteKinds, runbookTemplates } from '/shared/runbook-templates.js'
@@ -76,13 +77,14 @@ const button = (label, data = {}, className = 'ui-button ui-button-ghost ui-butt
   Object.assign(element.dataset, data)
   return element
 }
-const input = (name, value, label, required = true) => {
+const input = (name, value, label, { required = false, type = 'text' } = {}) => {
   const wrapper = document.createElement('label')
   wrapper.className = 'ui-field'
   const caption = document.createElement('span')
   caption.className = 'ui-field-label'
   caption.textContent = label || name
   const element = document.createElement('input')
+  element.type = type
   element.name = name
   element.value = value ?? ''
   element.required = required
@@ -124,6 +126,7 @@ function toast(message, level = 'success') {
 }
 const toastError = message => toast(message, 'error')
 const protectForm = createEditProtection({ notify: toast })
+const prepareForm = form => assistForm(form, { idHint: i18n.t('form.idHint'), fixedIdHint: i18n.t('form.fixedIdHint') })
 const adminScene = { dashboard: 'dash', websites: 'nav', library: 'nav', 'ai-resources': 'cms', notes: 'cms', 'note-editor': 'cms', tools: 'tools', marketplace: 'market', categories: 'nav', tags: 'cms', settings: 'form', validate: 'cms', import: 'form' }
 let currentView = 'dashboard'
 function updateTelemetry() {
@@ -219,15 +222,20 @@ function renderSite() {
   extra.replaceChildren()
   if (settingsTab === 'general') {
     form.hidden = false
-    for (const name of ['name', 'tagline', 'title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github']) form.append(input(name, state.site[name], labels[name]))
-    const limitField = input('todayContinueLimit', state.site.todayContinueLimit ?? 3, labels.todayContinueLimit)
+    const basics = el('fieldset', 'form-section'), pages = el('fieldset', 'form-section')
+    basics.append(el('legend', '', i18n.t('form.basics')))
+    pages.append(el('legend', '', i18n.t('form.pageDescriptions')))
+    const required = new Set(['name', 'title', 'description', 'github'])
+    for (const name of ['name', 'tagline', 'title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github']) (name.endsWith('Description') ? pages : basics).append(input(name, state.site[name], labels[name], { required: required.has(name), type: name === 'github' ? 'url' : 'text' }))
+    const limitField = input('todayContinueLimit', state.site.todayContinueLimit ?? 3, labels.todayContinueLimit, { required: true, type: 'number' })
     const limitInput = limitField.querySelector('input')
-    limitInput.type = 'number'
     limitInput.min = '1'
     limitInput.max = '8'
     limitInput.step = '1'
-    form.append(limitField)
+    basics.append(limitField)
+    form.append(basics, pages)
     form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
+    prepareForm(form)
     protectForm.begin(form, { key: `site:${settingsTab}` })
     if (settingsTab === 'deploy') void siteManagement.publishing(extra)
     return
@@ -236,6 +244,7 @@ function renderSite() {
     form.hidden = false
     for (const name of ['logo', 'footer']) form.append(input(name, state.site[name], labels[name]))
     form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
+    prepareForm(form)
     protectForm.begin(form, { key: `site:${settingsTab}` })
     if (settingsTab === 'deploy') void siteManagement.publishing(extra)
     return
@@ -243,8 +252,9 @@ function renderSite() {
   if (settingsTab === 'deploy') {
     form.hidden = false
     form.append(el('p', 'muted', i18n.t('form.deployHint')))
-    for (const name of ['publicUrl', 'basePath', 'adminUrl']) form.append(input(name, state.site[name], labels[name], name !== 'publicUrl'))
+    for (const name of ['publicUrl', 'basePath', 'adminUrl']) form.append(input(name, state.site[name], labels[name], { required: name === 'basePath', type: name === 'basePath' ? 'text' : 'url' }))
     form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
+    prepareForm(form)
     protectForm.begin(form, { key: `site:${settingsTab}` })
     if (settingsTab === 'deploy') void siteManagement.publishing(extra)
     return
@@ -795,6 +805,7 @@ function showEditorModal(form) {
   const focusRevision = ++editorFocusRevision
   const drawer = $('#editor-drawer')
   if (form.elements.originalId && form.elements.id) { form.elements.id.readOnly = Boolean(form.elements.originalId.value); form.elements.id.title = form.elements.originalId.value ? '已有 ID 为固定地址，不能更改' : '' }
+  prepareForm(form)
   editorReturnFocus = document.activeElement
   renderEditorPickers(form)
   if (!['cfg-form', 'content-collection-form'].includes(form.id)) protectForm.begin(form)
@@ -857,6 +868,7 @@ function fillNoteStudio(item) {
     form.elements.body.value = '# 标题\n\n在左侧写 Markdown，右侧即时预览。\n'
   }
   form.elements.id.readOnly = Boolean(item)
+  prepareForm(form)
   renderTagPicker(form)
   refreshNotePreview()
   syncNoteJson()
@@ -875,7 +887,8 @@ function syncNoteJson() {
 }
 function applyNoteJson() {
   let parsed
-  try { parsed = JSON.parse($('#note-json').value) } catch { throw new Error(i18n.t('notes.jsonInvalid')) }
+  const rawJson = $('#note-json').value
+  try { parsed = JSON.parse(rawJson) } catch { throw new Error(i18n.t('notes.jsonInvalid')) }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(i18n.t('notes.jsonInvalid'))
   const form = $('#note-studio-form')
   const current = form.elements.originalId.value
@@ -891,14 +904,23 @@ function applyNoteJson() {
     enabled: parsed.enabled !== false,
   }, true)
   form.elements.originalId.value = current
+  $('#note-json').value = rawJson
   refreshNotePreview()
 }
 function setNoteTab(tab) {
+  const jsonPanel = $('#note-tab-json')
+  const enteringJson = tab === 'json' && Boolean(jsonPanel?.hidden)
+  if (tab !== 'json' && jsonPanel && !jsonPanel.hidden) {
+    try { applyNoteJson() }
+    catch (error) { toastError(error.message); $('#note-json')?.focus(); return false }
+    protectForm.changed($('#note-studio-form'))
+  }
   document.querySelectorAll('[data-note-tab]').forEach(button => button.classList.toggle('active', button.dataset.noteTab === tab))
   if ($('#note-tab-write')) $('#note-tab-write').hidden = tab !== 'write'
-  if ($('#note-tab-json')) $('#note-tab-json').hidden = tab !== 'json'
-  if (tab === 'json') syncNoteJson()
+  if (jsonPanel) jsonPanel.hidden = tab !== 'json'
+  if (enteringJson) syncNoteJson()
   if (tab === 'write') refreshNotePreview()
+  return true
 }
 function insertMarkdown(kind) {
   const ta = $('#note-body')
@@ -959,6 +981,7 @@ function openAIResourceDrawer(item) {
 }
 
 function fill(form, item, tags = false) {
+  form.reset()
   for (const [key, value] of Object.entries(item)) {
     const fieldElement = form.elements[key]
     if (!fieldElement) continue
@@ -972,13 +995,13 @@ function fill(form, item, tags = false) {
 
 // ---------------- Import Wizard：StepRegistry + WizardState + 错误边界（v3.0.1 P0）----------------
 
-const wizard = { step: 1, file: null, analysis: null, manifest: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false }
+const wizard = { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false }
 
 let wizardPreviewListener = null
 const detachWizardPreview = () => { if (wizardPreviewListener) { window.removeEventListener('message', wizardPreviewListener); wizardPreviewListener = null } }
 
 function openWizard(file = null) {
-  Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false })
+  Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false })
   $('#wizard').hidden = false
   renderWizard()
   if (file) analyzeWizardFile(file)
@@ -986,12 +1009,14 @@ function openWizard(file = null) {
 
 // 关闭向导必须清理服务端 staging（v3.0.1 十一）
 async function closeWizard(saved = false) {
-  if (wizard.busy && !saved) { toastError('工具正在分析或保存，请稍候再关闭。'); return }
+  if (wizard.busy && !saved) { toastError('工具正在分析或保存，请稍候再关闭。'); return false }
+  if (!saved && wizard.analysis && !await openModal({ title: i18n.t('wizard.exitTitle'), body: i18n.t('wizard.exitBody'), confirm: true, okText: i18n.t('wizard.exitConfirm') })) return false
   detachWizardPreview()
   const token = wizard.analysis?.token
-  Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false })
+  Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false })
   $('#wizard').hidden = true
   if (token) await request(`tools/staging/${token}`, { method: 'DELETE' }).catch(() => {})
+  return true
 }
 
 async function analyzeWizardFile(file) {
@@ -1004,6 +1029,7 @@ async function analyzeWizardFile(file) {
     wizard.file = file
     wizard.analysis = analysis
     wizard.manifest = analysis.manifestDraft
+    wizard.metadataDraft = null
   } catch (error) { wizard.error = error.message; wizard.file = null }
   wizard.busy = false
   renderWizard()
@@ -1055,8 +1081,22 @@ function renderWizardStep1() {
 
 function renderWizardStep2() {
   const form = renderMetadataForm(document, { manifest: wizard.manifest, categories: state.categories, t: i18n.t })
+  for (const entry of wizard.metadataDraft || []) {
+    const element = form.elements.namedItem(entry.name)
+    if (!(element instanceof window.HTMLElement)) continue
+    if (element instanceof HTMLInputElement && element.type === 'checkbox') element.checked = entry.checked
+    else element.value = entry.value
+  }
   $('#wizard-body').replaceChildren(form)
   renderTagPicker(form)
+}
+
+function rememberWizardMetadata() {
+  const form = $('#wizard-body .wizard-form')
+  if (!form) return
+  wizard.metadataDraft = [...form.elements]
+    .filter(element => element.name)
+    .map(element => ({ name: element.name, value: element.value, checked: element instanceof HTMLInputElement && element.type === 'checkbox' ? element.checked : undefined }))
 }
 
 function collectWizardStep2() {
@@ -1065,6 +1105,7 @@ function collectWizardStep2() {
   const result = collectMetadataForm(form, wizard.manifest)
   if (!result.ok) { wizard.error = i18n.t(`wizard.${result.code}`); return false }
   wizard.manifest = result.manifest
+  wizard.metadataDraft = null
   return true
 }
 
@@ -1075,6 +1116,7 @@ function renderWizardStep3() {
     permissions: wizard.manifest.permissions,
     t: i18n.t,
     onChange: permissions => {
+      wizard.manifest = { ...wizard.manifest, permissions }
       sandboxPreview.textContent = `${i18n.t('wizard.sandbox')} ${buildSandbox(permissions)}`
       wizard.warning = permissions.sameOrigin ? i18n.t('wizard.sameOriginWarning') : null
     },
@@ -1271,6 +1313,8 @@ async function wizardNext() {
 
 function wizardPrev() {
   if (wizard.step <= 1) return
+  if (wizard.step === 2) rememberWizardMetadata()
+  else WIZARD_STEPS[wizard.step]?.collect?.()
   wizard.step -= 1
   wizard.error = null
   renderWizard()
@@ -1283,7 +1327,7 @@ const wizardGuard = error => {
   wizard.error = error instanceof Error ? error.message : i18n.t('wizard.unknownError')
   renderWizard()
 }
-window.addEventListener('beforeunload', event => { if (!$('#wizard').hidden && wizard.busy) { event.preventDefault(); event.returnValue = '' } })
+window.addEventListener('beforeunload', event => { if (!$('#wizard').hidden && (wizard.busy || wizard.analysis)) { event.preventDefault(); event.returnValue = '' } })
 bind('#wizard-close', 'click', () => { closeWizard().catch(() => {}) })
 bind('#wizard-prev', 'click', () => { try { wizardPrev() } catch (error) { wizardGuard(error) } })
 bind('#wizard-next', 'click', async () => { try { await wizardNext() } catch (error) { wizardGuard(error) } })
@@ -1292,6 +1336,8 @@ bind('#wizard', 'click', event => { if (event.target === $('#wizard')) closeWiza
 // 主拖放区：拖入即开向导
 const dropzone = $('#tool-dropzone')
 const toolFileInput = $('#tool-file-input')
+bind('#dashboard-add-website', 'click', () => openWebsiteDrawer())
+bind('#dashboard-import-tool', 'click', () => toolFileInput.click())
 if (dropzone && toolFileInput) {
   dropzone.addEventListener('click', () => toolFileInput.click())
   dropzone.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toolFileInput.click() } })
@@ -1462,7 +1508,7 @@ bind('#note-save', 'click', async () => {
 })
 bind('#note-json', 'input', () => protectForm.changed($('#note-studio-form')))
 bind('#note-json-apply', 'click', () => {
-  try { applyNoteJson(); protectForm.changed($('#note-studio-form')); setNoteTab('write'); toast(i18n.t('notes.jsonApplied')) } catch (error) { toastError(error.message) }
+  if (setNoteTab('write')) toast(i18n.t('notes.jsonApplied'))
 })
 document.querySelectorAll('.settings-tab').forEach(tab => tab.addEventListener('click', () => { if (!protectForm.mayLeave($('#site'))) return; settingsTab = tab.dataset.settingsTab; renderSite() }))
 document.addEventListener('click', event => {
@@ -1536,7 +1582,10 @@ const withBusy = async (form, fn) => {
   if (protectedForm) protectForm.busy(protectedForm, true)
   const previous = submit?.textContent
   if (submit) { submit.disabled = true; submit.textContent = i18n.t('form.saving') }
-  try { return await fn() } finally { if (protectedForm) protectForm.busy(protectedForm, false); if (submit) { submit.disabled = false; submit.textContent = previous } }
+  if (protectedForm) showFormError(protectedForm)
+  try { return await fn() }
+  catch (error) { if (protectedForm) showFormError(protectedForm, error.message); throw error }
+  finally { if (protectedForm) protectForm.busy(protectedForm, false); if (submit) { submit.disabled = false; submit.textContent = previous } }
 }
 bind('#site', 'submit', async event => {
   event.preventDefault()
@@ -1616,7 +1665,7 @@ bind('#ai-resource-form', 'submit', async event => {
   data.order = Number(data.order)
   data.enabled = form.has('enabled')
   data.updated = data.updated || new Date().toISOString().slice(0, 10)
-  if (!data.install && !data.content && !data.url) return toastError(i18n.t('aiResources.needAction'))
+  if (!data.install && !data.content && !data.url) { showFormError(event.target, i18n.t('aiResources.needAction')); event.target.elements.install.focus(); return }
   try {
     await withBusy(event.target, async () => {
       await request(originalId ? `ai-resources/${originalId}` : 'ai-resources', { method: originalId ? 'PUT' : 'POST', body: JSON.stringify(data) })
@@ -1751,15 +1800,20 @@ reload('', false).catch(error => toastError(error.message))
 
 const carbon = $('.carbon-fx')
 let motionEnabled = readPreference('devos-motion', 'on') !== 'off'
+const systemMotion = matchMedia('(prefers-reduced-motion: reduce)')
 let unmountTechField = () => {}
 function applyAdminMotion() {
+  const systemReduced = systemMotion.matches
+  const motionActive = motionEnabled && !systemReduced
   document.documentElement.dataset.motion = motionEnabled ? 'on' : 'off'
   const control = $('#admin-motion')
-  control.setAttribute('aria-pressed', String(motionEnabled))
-  control.textContent = i18n.locale === 'en-US' ? `Motion ${motionEnabled ? 'on' : 'off'}` : `动效${motionEnabled ? '开启' : '关闭'}`
-  control.setAttribute('aria-label', i18n.locale === 'en-US' ? `${motionEnabled ? 'Disable' : 'Enable'} motion` : `${motionEnabled ? '关闭' : '开启'}管理页动效`)
+  const systemLabel = i18n.locale === 'en-US' ? 'System reduced motion' : '系统设置已减少动效'
+  control.disabled = systemReduced
+  control.setAttribute('aria-pressed', String(motionActive))
+  control.textContent = systemReduced ? systemLabel : i18n.locale === 'en-US' ? `Motion ${motionActive ? 'on' : 'off'}` : `动效${motionActive ? '开启' : '关闭'}`
+  control.setAttribute('aria-label', systemReduced ? systemLabel : i18n.locale === 'en-US' ? `${motionActive ? 'Disable' : 'Enable'} motion` : `${motionActive ? '关闭' : '开启'}管理页动效`)
   unmountTechField()
-  unmountTechField = motionEnabled ? mountTechField(carbon) : () => {}
+  unmountTechField = motionActive ? mountTechField(carbon) : () => {}
 }
 bind('#admin-theme', 'change', event => {
   themePreference = event.target.value
@@ -1779,9 +1833,10 @@ window.addEventListener('storage', event => {
   }
   if (event.key === 'devos-motion' || event.key === null) { motionEnabled = readPreference('devos-motion', 'on') !== 'off'; applyAdminMotion() }
 })
+systemMotion.addEventListener('change', applyAdminMotion)
 applyAdminMotion()
 carbon?.addEventListener('pointermove', event => {
-  if (!motionEnabled || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!motionEnabled || systemMotion.matches) return
   const box = carbon.getBoundingClientRect()
   carbon.style.setProperty('--mx', `${((event.clientX - box.left) / box.width) * 100}%`)
   carbon.style.setProperty('--my', `${((event.clientY - box.top) / box.height) * 100}%`)

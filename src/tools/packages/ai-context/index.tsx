@@ -165,14 +165,9 @@ export default function AiContextTool() {
       {workflow && <section className="workbench-card" aria-label="工作流任务预览"><h2>{workflow.name}</h2><p>{workflow.description}</p><ol>{workflow.steps.map(step => <li key={step.title}>{step.title}</li>)}</ol><Button variant="primary" onClick={startWorkflow}>从工作流新建任务</Button></section>}
       <section className="workbench-card" aria-label="AI 任务列表">
         <div className="workbench-toolbar"><label className="workbench-field">当前 AI 任务<select aria-label="当前 AI 任务" value={store.activeId} onChange={event => { if (commit({ ...storeRef.current, activeId: event.target.value })) cancelReads() }}>{store.tasks.map(task => <option key={task.id} value={task.id}>{task.name}</option>)}</select></label><label className="workbench-field">任务名称<input key={`${activeTask.id}:${activeTask.name}`} defaultValue={activeTask.name} onBlur={event => commit({ ...storeRef.current, tasks: storeRef.current.tasks.map(task => task.id === storeRef.current.activeId ? { ...task, name: event.target.value } : task) })} /></label><span className="workbench-stats">{store.tasks.length} / {MAX_CONTEXT_TASKS} 个任务</span></div>
-        <div className="workbench-toolbar"><Button onClick={() => addTask()} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建任务</Button><Button onClick={() => addTask(draftRef.current, `${activeTask.name.slice(0, 116)} 副本`)} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>复制当前任务</Button><Button onClick={() => setDeletePending(true)} disabled={store.tasks.length === 1}>删除当前任务</Button></div>
+        <div className="workbench-toolbar"><Button onClick={() => addTask()} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建任务</Button><Button onClick={() => addTask({ ...emptyContext(), project: '个人工具箱', goal: '为 JSON 工具增加一键载入示例，让第一次使用的人能立即看到格式化结果。', stack: 'React / TypeScript', constraints: '复用现有组件，保留现有格式化、压缩和错误提示，不新增依赖。', acceptance: '点击示例后可复制结果；修改输入后旧结果不再可复制；手机宽度下按钮可以正常操作。' }, '示例 · 改进工具体验')} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建示例任务</Button><Button onClick={() => addTask(draftRef.current, `${activeTask.name.slice(0, 116)} 副本`)} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>复制当前任务</Button><Button onClick={() => setDeletePending(true)} disabled={store.tasks.length === 1}>删除当前任务</Button></div>
         {deletePending && <div className="workbench-toolbar"><p>删除「{activeTask.name}」？建议先导出任务包。</p><Button onClick={() => { const tasks = storeRef.current.tasks.filter(task => task.id !== storeRef.current.activeId); if (commit({ ...storeRef.current, activeId: tasks[0].id, tasks })) cancelReads() }}>确认删除任务</Button><Button onClick={() => setDeletePending(false)}>保留任务</Button></div>}
       </section>
-      <div className="workbench-toolbar">
-        <Button icon={<Download size={15} aria-hidden="true" />} onClick={() => downloadText('ai-context.json', JSON.stringify(draft, null, 2), 'application/json')} disabled={!hasContext(draft)}>导出任务包 JSON</Button>
-        <label className="workbench-file"><FilePlus2 size={15} aria-hidden="true" />导入任务包 JSON<input type="file" accept=".json,application/json" onChange={event => { void importPackage(event.target.files?.[0]); event.target.value = '' }} /></label>
-      </div>
-      <p className="workbench-note">最多保存 20 个任务，总材料 3 MiB。内容仅保存在此浏览器。下载 JSON 可在其他机器继续编辑；Markdown 可直接交给 AI。文件不上传，也不会调用模型。</p>
       <p className="workbench-note" role="status" aria-live="polite">{warning || (saved ? '草稿已自动保存到此浏览器' : '填写即自动保存到此浏览器')}</p>
       {warning && <div className="workbench-toolbar"><Button onClick={backupStored}>下载已有草稿备份</Button><Button onClick={() => update(draftRef.current, true)}>保存当前草稿并替换本地记录</Button></div>}
       {error && <p className="error" role="alert">{error}</p>}
@@ -181,6 +176,7 @@ export default function AiContextTool() {
       <div className="workbench-grid">
         <section className="workbench-card" aria-labelledby="context-task-heading">
           <h2 id="context-task-heading">01 / 任务说明</h2>
+          <p className="workbench-note">先写任务目标，其余按需。</p>
           {contextFields.map(field => <label className="workbench-field" key={field.key}>{field.label}{field.key === 'project' || field.key === 'stack'
             ? <input aria-label={field.label} value={draft[field.key]} placeholder={field.placeholder} onChange={event => update({ ...draftRef.current, [field.key]: event.target.value })} />
             : <textarea aria-label={field.label} rows={3} value={draft[field.key]} placeholder={field.placeholder} onChange={event => update({ ...draftRef.current, [field.key]: event.target.value })} />}</label>)}
@@ -205,9 +201,15 @@ export default function AiContextTool() {
       </div>
       <section className="workbench-card" aria-labelledby="context-preview-heading">
         <div className="workbench-toolbar"><h2 id="context-preview-heading">03 / Markdown 预览</h2><span className="workbench-stats">{markdown.length.toLocaleString()} 字符</span></div>
+        <p className="workbench-note">复制下方 Markdown，粘贴到你的 AI 对话即可开始；后续补充进展再复制，便于继续任务。</p>
         <label className="workbench-field"><span className="sr-only">Markdown 任务包</span><textarea value={markdown} readOnly rows={14} spellCheck={false} /></label>
         <div className="workbench-toolbar"><CopyButton value={hasContext(draft) ? markdown : ''} label="复制 Markdown" /><Button variant="primary" icon={<Download size={15} aria-hidden="true" />} disabled={!hasContext(draft)} onClick={() => downloadText('ai-context.md', markdown, 'text/markdown;charset=utf-8')}>下载 Markdown</Button></div>
       </section>
+      <div className="workbench-toolbar">
+        <Button icon={<Download size={15} aria-hidden="true" />} onClick={() => downloadText('ai-context.json', JSON.stringify(draft, null, 2), 'application/json')} disabled={!hasContext(draft)}>导出任务包 JSON</Button>
+        <label className="workbench-file"><FilePlus2 size={15} aria-hidden="true" />导入任务包 JSON<input type="file" accept=".json,application/json" onChange={event => { void importPackage(event.target.files?.[0]); event.target.value = '' }} /></label>
+      </div>
+      <p className="workbench-note">最多保存 20 个任务，总材料 3 MiB。内容仅保存在此浏览器。下载 JSON 可在其他机器继续编辑；Markdown 可直接交给 AI。文件不上传，也不会调用模型。</p>
     </div>
   </ToolShell>
 }
