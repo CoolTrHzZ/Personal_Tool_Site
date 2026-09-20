@@ -40,15 +40,15 @@ test('AI Hub 支持类型筛选、详情、复制和打开产品', async ({ page
   await expect(dialog.getByRole('heading', { name: 'Code Review' })).toBeVisible()
   await expect(dialog).toContainText(/暂无说明|Prioritize bugs/)
   await expect(dialog.locator('pre').first()).toBeVisible()
-  const assertDialogViewport = async () => {
+  // Viewport changes resolve before the resize/ResizeObserver layout callbacks.
+  const assertDialogViewport = () => expect.poll(async () => {
     const bounds = await dialog.boundingBox()
     const header = await page.locator('header.topbar').boundingBox()
-    expect(bounds).toBeTruthy()
-    expect(bounds.x).toBeGreaterThanOrEqual(0)
-    expect(bounds.y).toBeGreaterThanOrEqual(header.y + header.height)
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize().width)
-    expect(bounds.y + bounds.height).toBeLessThanOrEqual(page.viewportSize().height)
-  }
+    return Boolean(bounds && header &&
+      bounds.x >= 0 && bounds.y >= header.y + header.height &&
+      bounds.x + bounds.width <= page.viewportSize().width &&
+      bounds.y + bounds.height <= page.viewportSize().height)
+  }).toBe(true)
   await assertDialogViewport()
   await page.evaluate(() => window.scrollTo(0, 400))
   await assertDialogViewport()
