@@ -1,5 +1,7 @@
 # V4 Prototype Gap Analysis
 
+> 历史记录：本文记录早期 Figma 重构时的范围决策，NOT_IMPLEMENT 仅表示当时未纳入。此后已增加笔记、个人工作区和备份等能力；当前状态见 [current-architecture.md](current-architecture.md) 与 [delivery.md](delivery.md)。
+
 Visual Source of Truth：`Personal_Tool_Site产品原型图.pdf`（18 页，Figma 导出）。
 
 标记：

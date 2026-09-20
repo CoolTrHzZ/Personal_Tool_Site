@@ -5,6 +5,9 @@
   "license": "MIT",
   "author": "CoolTrHzZ",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "deploy": "node deploy.mjs",
     "deploy:update": "node deploy.mjs update",
@@ -17,7 +20,8 @@
     "validate": "node scripts/validate-data.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "check:pages": "node scripts/check-pages.mjs"
+    "check:pages": "node scripts/check-pages.mjs",
+    "audit": "npm audit --registry=https://registry.npmjs.org --audit-level=moderate"
   },
   "dependencies": {
     "@vitejs/plugin-react": "4.3.4",
@@ -25,20 +29,20 @@
     "motion": "^13.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-router-dom": "6.28.1",
-    "vite": "6.0.7",
+    "react-router-dom": "7.18.4",
+    "vite": "6.4.3",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "@eslint/js": "9.17.0",
+    "@eslint/js": "9.39.5",
     "@playwright/test": "^1.62.1",
     "@types/node": "22.10.2",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
-    "eslint": "9.17.0",
+    "eslint": "9.39.5",
     "jsdom": "^25.0.1",
     "typescript": "5.7.2",
     "typescript-eslint": "8.18.0",
-    "vitest": "^4.1.10"
+    "vitest": "4.1.11"
   }
 }

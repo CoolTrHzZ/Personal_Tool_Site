@@ -12,6 +12,16 @@ test.beforeEach(async ({ context }) => {
   await context.route(`**/cfgs/${second.id}.cfg`, route => route.fulfill({ contentType: 'text/plain;charset=utf-8', body: 'echo community\n' }))
 })
 
+test('快速连续修改 CFG 分类和排序不会恢复已清除的条件', async ({ page }) => {
+  await page.goto(`/#/cfg?category=${encodeURIComponent('社区服')}`)
+  await expect(page.locator('.cfg-library-card')).toHaveCount(1)
+  await expect(page.locator('.cfg-library-card')).toContainText(second.name)
+  await page.getByRole('navigation', { name: 'CFG 分类' }).getByRole('button', { name: /全部/ }).click()
+  await page.getByRole('combobox', { name: 'CFG 排序' }).selectOption('updated')
+  await expect(page).toHaveURL(/\/#\/cfg\?sort=updated$/)
+  await expect(page.locator('.cfg-library-card')).toHaveCount(2)
+})
+
 test('CFG 配置库有独立导航，支持筛选、原文预览、复制页面链接和精确下载', async ({ page, context }, testInfo) => {
   await page.goto('/#/cfg')
   await expect(page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: 'CFG 库', exact: true })).toHaveClass(/active/)

@@ -1,10 +1,12 @@
 // @vitest-environment node
 import { afterAll, beforeAll, expect, it } from 'vitest'
-import { appendFile, cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { appendFile, cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { promisify } from 'node:util'
+import { get } from 'node:http'
 import { once } from 'node:events'
 import { Buffer } from 'node:buffer'
 import { createHash, randomUUID } from 'node:crypto'
@@ -230,3 +232,96 @@ it('keeps only three recoverable backup previews and accepts a newly selected ba
   expect((await api('backup/restore', 'POST', { token: previews[3].token })).status).toBe(200)
   expect((await api('validate')).data.ok).toBe(true)
 })
+
+it('rejects foreign hosts and origins for read APIs as well as writes', async () => {
+  for (const path of ['backup', 'tags', 'tools', 'notes', 'cfgs']) {
+    const status = await new Promise((resolve, reject) => get(`${origin}/api/${path}`, { headers: { Host: `attacker.invalid:${new URL(origin).port}` } }, response => { response.resume(); resolve(response.statusCode) }).on('error', reject))
+    expect(status, path).toBe(403)
+    expect((await api(path, 'GET', undefined, { Origin: 'https://example.com' })).status, path).toBe(403)
+  }
+  expect((await api('notes')).status).toBe(200)
+})
+
+it('rejects ZIP symbolic links before exposing files outside the staged package', async () => {
+  const sourceDir = join(root, 'malicious-zip'); await mkdir(sourceDir)
+  const privateFile = join(root, 'private.html'); await writeFile(privateFile, '<title>private marker</title>')
+  await symlink(privateFile, join(sourceDir, 'index.html'))
+  const zipPath = join(root, 'malicious.zip')
+  await promisify(execFile)('zip', ['-yq', zipPath, 'index.html'], { cwd: sourceDir })
+  const result = await api('tools/analyze', 'POST', { filename: 'malicious.zip', content: (await readFile(zipPath)).toString('base64') })
+  expect(result.status).toBe(400)
+  expect(result.data.error).toContain('符号链接')
+  expect(await readFile(privateFile, 'utf8')).toBe('<title>private marker</title>')
+})
+
+it('rejects invalid built-in manifests before changing their source or generated index', async () => {
+  const paths = [join(root, 'src/tools/manifests/core.json'), join(root, 'public/tools-manifests.json')]
+  const before = await Promise.all(paths.map(path => readFile(path)))
+  for (const patch of [{ version: 'invalid' }, { entry: '../outside.html' }, { runtime: 'static', entry: 'index.html' }]) {
+    expect((await api(`tools/${coreFixtureId}`, 'PUT', patch)).status).toBe(400)
+    expect(await Promise.all(paths.map(path => readFile(path)))).toEqual(before)
+  }
+})
+
+it('rolls tool overwrite, edit and deletion back when rebuilding the index fails', async () => {
+  const id = `${fixturePrefix}-transaction`, html = '<title>Original tool</title>'
+  const first = await api('tools/upload', 'POST', { filename: `${id}.html`, content: Buffer.from(html).toString('base64') })
+  expect(first.status).toBe(201)
+  const target = join(root, 'public/tools', id), indexPath = join(root, 'public/tools-manifests.json')
+  const original = await Promise.all([readFile(join(target, 'index.html')), readFile(join(target, 'manifest.json')), readFile(indexPath)])
+  const analysis = await api('tools/analyze', 'POST', { filename: `${id}.html`, content: Buffer.from('<title>Replacement tool</title>').toString('base64') })
+  expect(analysis.status).toBe(200)
+  const obstruction = `${indexPath}.tmp`; await mkdir(obstruction)
+  try {
+    const overwrite = await api('tools/import', 'POST', { token: analysis.data.token, manifest: { ...analysis.data.manifestDraft, id }, overwrite: true })
+    expect(overwrite.status).toBe(400)
+    expect(await Promise.all([readFile(join(target, 'index.html')), readFile(join(target, 'manifest.json')), readFile(indexPath)])).toEqual(original)
+    expect(await readFile(join(root, '.tool-staging', analysis.data.token, 'package/index.html'), 'utf8')).toContain('Replacement')
+    expect((await api(`tools/${id}`, 'PUT', { name: 'Changed title' })).status).toBe(400)
+    expect(await readFile(join(target, 'manifest.json'))).toEqual(original[1])
+    const coreBefore = await readFile(join(root, 'src/tools/manifests/core.json'))
+    expect((await api(`tools/${coreFixtureId}`, 'PUT', { name: 'Changed core' })).status).toBe(400)
+    expect(await readFile(join(root, 'src/tools/manifests/core.json'))).toEqual(coreBefore)
+    expect((await api(`tools/${id}`, 'DELETE')).status).toBe(400)
+    expect(await readFile(join(target, 'index.html'))).toEqual(original[0])
+  } finally { await rm(obstruction, { recursive: true, force: true }); await api(`tools/${id}`, 'DELETE'); await api(`tools/staging/${analysis.data.token}`, 'DELETE') }
+})
+
+it('rejects malformed card fields, tag values and site URLs without persisting them', async () => {
+  for (const [key, id, patches] of [
+    ['navigation', fixtureIds.navigation, [{ name: {} }, { description: {} }, { tags: [42] }]],
+    ['categories', `${fixturePrefix}-category`, [{ name: [] }]],
+    ['library', fixtureIds.library, [{ language: {} }, { description: [] }]],
+    ['notes', fixtureIds.notes, [{ summary: {} }, { title: '' }, { updated: '2026-02-30' }]],
+    ['site', '', [{ github: 'javascript:alert(1)' }, { publicUrl: [] }, { basePath: [] }]],
+  ]) {
+    const path = join(root, 'src/data', `${key}.json`), before = await readFile(path)
+    for (const patch of patches) {
+      expect((await api(`${key}${id ? `/${id}` : ''}`, 'PUT', patch)).status, `${key}: ${JSON.stringify(patch)}`).toBe(400)
+      expect(await readFile(path)).toEqual(before)
+    }
+  }
+  const category = (await api('categories')).data[0]
+  for (const id of ['../invalid', '-invalid', 'x'.repeat(81)]) expect((await api('categories', 'POST', { ...category, id })).status).toBe(400)
+  for (const id of [coreFixtureId, staticFixtureId]) for (const patch of [{ name: {} }, { description: {} }, { tags: [42] }, { tags: 'discarded' }]) expect((await api(`tools/${id}`, 'PUT', patch)).status).toBe(400)
+})
+
+it('rejects malformed restored card fields through the same publishing validator', async () => {
+  for (const [key, patch] of [['navigation', { name: {} }], ['categories', { id: '../invalid' }], ['library', { description: {} }], ['notes', { summary: {} }]]) {
+    const path = join(root, 'src/data', `${key}.json`), before = await readFile(path)
+    const items = JSON.parse(before); Object.assign(items[0], patch)
+    try {
+      await writeFile(path, JSON.stringify(items))
+      await expect(promisify(execFile)(process.execPath, [join(root, 'scripts/validate-data.mjs')])).rejects.toThrow()
+    } finally { await writeFile(path, before) }
+  }
+})
+
+it('accepts the advertised 20 MiB source after Base64 expansion and rejects oversized or invalid encodings', async () => {
+  const bytes = Buffer.alloc(20 * 1024 * 1024, ' '); bytes.write('<title>Upload boundary</title>')
+  const result = await api('tools/analyze', 'POST', { filename: 'boundary.html', content: bytes.toString('base64') })
+  expect(result.status).toBe(200); expect(result.data.stats.totalBytes).toBe(bytes.length)
+  await api(`tools/staging/${result.data.token}`, 'DELETE')
+  expect((await api('tools/analyze', 'POST', { filename: 'boundary.html', content: Buffer.concat([bytes, Buffer.from('!')]).toString('base64') })).status).toBe(400)
+  for (const content of ['not-base64!', 'AB==']) expect((await api('tools/analyze', 'POST', { filename: 'invalid.html', content })).status).toBe(400)
+}, 15000)

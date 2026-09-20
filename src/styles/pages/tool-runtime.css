@@ -36,6 +36,7 @@
 .tool-workspace-frame { display: flex; flex-direction: column; min-height: 70vh; }
 .tool-workspace-frame .tool-frame { flex: 1; min-height: 70vh; }
 html.tool-fullscreen-lock, html.tool-fullscreen-lock body { overflow: hidden; height: 100%; }
+html.tool-fullscreen-lock .route-stage { z-index: 200; }
 .tool-fullscreen { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; background: var(--surface-page); }
 .tool-fullscreen-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); flex: 0 0 auto; }
 .tool-fullscreen-bar .tool-mode-bar { flex: 1; margin: 0; border: none; background: transparent; padding: 0; }

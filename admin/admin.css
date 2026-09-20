@@ -54,6 +54,9 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .cell-tool strong, .cell-tool small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cell-tool small { color: var(--text-faint); font: 11px var(--font-mono); }
 .cell-tags { white-space: normal; }
+.metadata-edit { display: block; width: 100%; min-width: 0; margin-top: 4px; padding: 4px; overflow: hidden; border: 0; border-radius: 4px; background: transparent; color: var(--text-faint); font: 12px/1.5 var(--font-sans); text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.metadata-edit:is(:hover, :focus-visible) { background: var(--accent-soft); color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.metadata-edit:focus-visible { outline-offset: -2px; }
 .cell-actions { width: 72px; }
 .table-notes .col-note-title { width: 22%; }
 .table-notes .col-note-summary { width: 40%; }
@@ -96,6 +99,7 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .ui-modal-head h2 { padding: 0; }
 .ui-modal-body { flex: 1; min-height: 0; overflow: auto; padding: 0 22px 22px; }
 .editor-modal { width: min(720px, calc(100% - 8px)); max-height: min(90dvh, 860px); }
+.editor-modal .ui-modal-body { padding-bottom: 0; scroll-padding-bottom: 88px; }
 .editor-modal .ui-modal-actions { margin-top: 6px; padding: 14px 0 0; }
 
 .cfg-admin-list { display: grid; gap: 12px; }
@@ -242,10 +246,15 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .panel-toolbar h2 { margin: 0; }
 .drawer-form, .settings-section { display: grid; gap: 12px; }
 .form-intro { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
-.form-section { display: grid; min-width: 0; gap: 14px; margin: 0; padding: 16px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-panel) 70%, transparent); }
+.form-section { display: grid; min-width: 0; gap: 12px; margin: 0; padding: 14px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-panel) 70%, transparent); }
 .form-section legend { padding: 0 8px; color: var(--accent); font-size: 12px; font-weight: 700; }
+.form-section textarea[rows="2"] { min-height: 68px; }
 .form-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.form-section-grid > :has(.tags-picker), .form-section-grid > .check-inline { grid-column: 1 / -1; }
+.form-section-grid > :has(.tags-picker), .form-section-grid > .check-inline, .form-field-wide { grid-column: 1 / -1; }
+.form-advanced { min-width: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-panel) 45%, transparent); }
+.form-advanced > summary { min-height: 44px; padding: 13px 14px; color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.form-advanced > summary:is(:hover, :focus-visible) { color: var(--accent); }
+.form-advanced-fields { display: grid; min-width: 0; gap: 12px; padding: 0 14px 14px; }
 .field-hint { color: var(--text-faint); font-size: 11px; font-weight: 400; line-height: 1.6; }
 .form-error { grid-column: 1 / -1; margin: 0; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border-default)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--danger) 7%, var(--surface-panel)); color: var(--danger); line-height: 1.6; overflow-wrap: anywhere; }
 .admin-get-started { display: grid; flex: 1 1 400px; gap: 8px; min-width: 0; padding-inline: 22px; border-inline-start: 1px solid var(--border-default); }
@@ -258,7 +267,7 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
   .admin-start-actions { width: 100%; }
   .admin-start-actions .ui-button { flex: 1 1 160px; }
 }
-.ui-field { display: grid; gap: 6px; }
+.ui-field { display: grid; min-width: 0; gap: 6px; }
 .ui-field-label { display: block; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
 :is(.ui-field, .field):has(> input:required, > select:required, > textarea:required) > :is(.ui-field-label, .field-label)::after { color: var(--danger); content: ' *'; }
 .check-inline { display: flex; align-items: center; gap: 8px; }
@@ -410,13 +419,16 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .picker-card small, .icon-option small { overflow: hidden; max-width: 100%; color: var(--text-faint); font: 10px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .picker-card[aria-pressed="true"], .icon-option[aria-pressed="true"], .tag-option[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent); }
 .tags-picker { display: grid; gap: 8px; min-width: 0; }
+.picker-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .picker-search { min-width: 0; }
 .tag-option-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 118px; overflow: auto; }
 .tag-option { min-height: 30px; padding: 0 9px; font-size: 11px; }
 .icon-option { display: grid; place-items: center; gap: 5px; min-height: 62px; padding: 7px 5px; }
 .icon-option-letter { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 5px; font-weight: 800; }
 .category-icon-cell svg { color: var(--accent); vertical-align: middle; }
-.picker-empty { color: var(--text-faint); font-size: 12px; }
+.picker-empty { margin: 0; color: var(--text-faint); font-size: 12px; line-height: 1.6; }
+.picker-empty:empty, .tag-chips:empty { display: none; }
+.tag-option-list > .picker-empty { flex-basis: 100%; }
 
 /* ---------------- v3.0.1：权限分组 + 危险权限徽标 ---------------- */
 .perm-group { border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 12px 12px; display: grid; gap: 9px; align-content: start; margin: 0; background: color-mix(in srgb, var(--surface-card) 40%, transparent); }
@@ -523,7 +535,7 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 }
 
 @media (pointer: coarse) {
-  .ui-button, .cfg-admin-actions .ui-button, .dashboard-bottom .shortcut-grid .ui-button, .note-studio-tabs button, .tag-option, .ui-switch { min-height: 44px; }
+  .ui-button, .cfg-admin-actions .ui-button, .dashboard-bottom .shortcut-grid .ui-button, .note-studio-tabs button, .tag-option, .ui-switch, .metadata-edit { min-height: 44px; }
   .kebab-toggle { min-width: 44px; }
 }
 

@@ -458,59 +458,65 @@
     <form id="nav-form" class="drawer-form" hidden>
       <p class="form-intro" data-i18n="form.websiteHint">填写名称与网址即可开始，分类已预选；带 * 的为必填项。</p>
       <input type="hidden" name="originalId">
-      <fieldset class="form-section"><legend data-i18n="form.basics">基本信息</legend>
-      <label class="ui-field"><span class="ui-field-label">网站名称</span><input class="ui-input" name="name" required></label>
+      <fieldset class="form-section form-section-grid"><legend data-i18n="form.basics">基本信息</legend>
+      <label class="ui-field"><span class="ui-field-label">网站名称</span><input class="ui-input" name="name" required placeholder="例如：开发文档" data-i18n-placeholder="form.websiteNamePlaceholder"></label>
       <label class="ui-field"><span class="ui-field-label">URL</span><input class="ui-input" name="url" type="url" required placeholder="https://example.com"></label>
-      <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="4"></textarea></label>
-      <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
+      <label class="ui-field form-field-wide"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="2" placeholder="例如：查找前端 API 用法与示例" data-i18n-placeholder="form.websiteDescriptionPlaceholder" aria-describedby="nav-description-hint"></textarea><small id="nav-description-hint" class="field-hint" data-i18n="form.descriptionHint">写清用途，方便以后在列表和搜索中找到它。</small></label>
       </fieldset>
       <fieldset class="form-section"><legend data-i18n="form.organization">分类与展示</legend>
       <div class="ui-field visual-picker-field"><span class="ui-field-label">分类</span><input type="hidden" name="category" required><div id="nav-category-picker" class="category-picker" role="group" aria-label="分类"></div><button type="button" class="ui-button ui-button-ghost ui-button-sm picker-manage" data-view="categories">管理分类</button></div>
       <div class="ui-field visual-picker-field"><span class="ui-field-label">标签</span><input type="hidden" name="tags"><div id="nav-tags-picker" class="tags-picker"></div><button type="button" class="ui-button ui-button-ghost ui-button-sm picker-manage" data-view="tags">管理标签</button></div>
-      <div class="ui-field visual-picker-field"><span class="ui-field-label">图标</span><input type="hidden" name="icon" value="auto"><div id="nav-icon-picker" class="icon-picker" role="group" aria-label="网站图标"></div></div>
-      <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
       </fieldset>
+      <details class="form-advanced"><summary data-i18n="form.advancedWebsite">更多设置 · ID、图标与排序</summary><div class="form-advanced-fields form-section-grid">
+      <label class="ui-field form-field-wide"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
+      <div class="ui-field visual-picker-field form-field-wide"><span class="ui-field-label">图标</span><input type="hidden" name="icon" value="auto"><div id="nav-icon-picker" class="icon-picker" role="group" aria-label="网站图标"></div><small class="field-hint" data-i18n="form.iconHint">默认自动获取网站图标，通常无需调整。</small></div>
+      <label class="ui-field form-field-wide"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10" aria-describedby="nav-order-hint"><small id="nav-order-hint" class="field-hint" data-i18n="form.orderHint">数值越小越靠前，不确定时保留默认值。</small></label>
+      </div></details>
       <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="nav-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveWebsite">保存更改</button></div>
     </form>
     <form id="library-form" class="drawer-form" hidden>
       <p class="form-intro" data-i18n="form.libraryHint">填写名称与链接，保存后即可在收藏页打开。带 * 的为必填项。</p>
       <input type="hidden" name="originalId">
-      <fieldset class="form-section"><legend data-i18n="form.basics">基本信息</legend>
-      <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required></label>
+      <fieldset class="form-section form-section-grid"><legend data-i18n="form.basics">基本信息</legend>
+      <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required placeholder="例如：常用开发工具集" data-i18n-placeholder="form.libraryNamePlaceholder"></label>
       <label class="ui-field"><span class="ui-field-label">类型</span><select class="ui-input" name="kind"><option value="repo">仓库</option><option value="skill">Skill</option></select></label>
-      <label class="ui-field"><span class="ui-field-label">GitHub URL</span><input class="ui-input" name="url" type="url" required placeholder="https://github.com/owner/repo"></label>
-      <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="3"></textarea></label>
-      <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
+      <label class="ui-field form-field-wide"><span class="ui-field-label">GitHub URL</span><input class="ui-input" name="url" type="url" required placeholder="https://github.com/owner/repo"></label>
+      <label class="ui-field form-field-wide"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="2" placeholder="例如：快速搭建项目时可以复用的模板" data-i18n-placeholder="form.libraryDescriptionPlaceholder" aria-describedby="library-description-hint"></textarea><small id="library-description-hint" class="field-hint" data-i18n="form.descriptionHint">写清用途，方便以后在列表和搜索中找到它。</small></label>
       </fieldset>
       <fieldset class="form-section form-section-grid"><legend data-i18n="form.organization">分类与展示</legend>
       <label class="ui-field"><span class="ui-field-label">语言</span><input class="ui-input" name="language" placeholder="TypeScript"></label>
       <label class="ui-field"><span class="ui-field-label">标签</span><input class="ui-input" name="tags"></label>
-      <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
       </fieldset>
+      <details class="form-advanced"><summary data-i18n="form.advancedLibrary">更多设置 · ID 与排序</summary><div class="form-advanced-fields form-section-grid">
+      <label class="ui-field form-field-wide"><span class="ui-field-label">ID</span><input class="ui-input" name="id" required></label>
+      <label class="ui-field form-field-wide"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10" aria-describedby="library-order-hint"><small id="library-order-hint" class="field-hint" data-i18n="form.orderHint">数值越小越靠前，不确定时保留默认值。</small></label>
+      </div></details>
       <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="library-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveLibrary">保存收藏</button></div>
     </form>
     <form id="ai-resource-form" class="drawer-form" hidden>
-      <p class="muted" data-i18n="aiResources.formHint">保存到 ai-resources.json；启用后随静态站发布。</p>
+      <p class="form-intro" data-i18n="aiResources.formHint">填写名称和一种使用方式即可保存；类型和标签便于以后查找。</p>
       <input type="hidden" name="originalId">
-      <fieldset class="form-section"><legend data-i18n="form.basics">基本信息</legend>
-      <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required></label>
+      <fieldset class="form-section form-section-grid"><legend data-i18n="form.basics">基本信息</legend>
+      <label class="ui-field"><span class="ui-field-label">名称</span><input class="ui-input" name="name" required placeholder="例如：代码审查助手" data-i18n-placeholder="form.aiNamePlaceholder"></label>
       <label class="ui-field"><span class="ui-field-label">类型</span><select class="ui-input" name="kind"><option value="skill">Skill</option><option value="agent">Agent</option><option value="prompt">Prompt</option><option value="model">模型</option><option value="app">应用 / 产品</option></select></label>
-      <label class="ui-field"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="3"></textarea></label>
-      <label class="ui-field"><span class="ui-field-label">ID</span><input class="ui-input" name="id" pattern="[a-z0-9][a-z0-9-]*" required></label>
+      <label class="ui-field form-field-wide"><span class="ui-field-label">描述</span><textarea class="ui-input" name="description" rows="2" placeholder="例如：提交前检查潜在问题，适合小型项目" data-i18n-placeholder="form.aiDescriptionPlaceholder" aria-describedby="ai-description-hint"></textarea><small id="ai-description-hint" class="field-hint" data-i18n="form.descriptionHint">写清用途，方便以后在列表和搜索中找到它。</small></label>
       </fieldset>
       <fieldset class="form-section"><legend data-i18n="form.resourceAction">使用方式 · 至少填写一项</legend>
-      <label class="ui-field"><span class="ui-field-label" data-i18n="aiResources.install">安装方式</span><textarea class="ui-input" name="install" rows="4" placeholder="可复制的安装或配置方式"></textarea></label>
-      <label class="ui-field"><span class="ui-field-label">配置内容</span><textarea class="ui-input" name="content" rows="6" placeholder="Skill、Agent、Prompt 或模型配置，可一键复制"></textarea></label>
       <label class="ui-field"><span class="ui-field-label">产品 URL</span><input class="ui-input" name="url" type="url" placeholder="https://..."></label>
+      <label class="ui-field"><span class="ui-field-label" data-i18n="aiResources.install">安装方式</span><textarea class="ui-input" name="install" rows="2" placeholder="粘贴安装命令或操作步骤，可留空" data-i18n-placeholder="form.installPlaceholder"></textarea></label>
+      <label class="ui-field"><span class="ui-field-label">配置内容</span><textarea class="ui-input" name="content" rows="4" placeholder="粘贴可直接使用的提示词、Skill 或模型配置，可留空" data-i18n-placeholder="form.contentPlaceholder"></textarea></label>
       </fieldset>
       <fieldset class="form-section"><legend data-i18n="form.organization">分类与展示</legend>
       <div class="ui-field visual-picker-field"><span class="ui-field-label">标签</span><input type="hidden" name="tags"><div id="ai-tags-picker" class="tags-picker"></div><button type="button" class="ui-button ui-button-ghost ui-button-sm picker-manage" data-view="tags">管理标签</button></div>
-      <label class="ui-field"><span class="ui-field-label">更新日期</span><input class="ui-input" name="updated" type="date"></label>
-      <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10"></label>
       <label class="check-inline"><input name="enabled" type="checkbox" checked> <span data-i18n="table.enable">启用</span></label>
       </fieldset>
+      <details class="form-advanced"><summary data-i18n="form.advancedAIResource">更多设置 · ID、更新日期与排序</summary><div class="form-advanced-fields form-section-grid">
+      <label class="ui-field form-field-wide"><span class="ui-field-label">ID</span><input class="ui-input" name="id" pattern="[a-z0-9][a-z0-9\-]*" required></label>
+      <label class="ui-field"><span class="ui-field-label">更新日期</span><input class="ui-input" name="updated" type="date"></label>
+      <label class="ui-field"><span class="ui-field-label">排序</span><input class="ui-input" name="order" type="number" value="10" aria-describedby="ai-order-hint"><small id="ai-order-hint" class="field-hint" data-i18n="form.orderHint">数值越小越靠前，不确定时保留默认值。</small></label>
+      </div></details>
       <div class="ui-modal-actions"><button type="button" class="ui-button ui-button-ghost" id="ai-resource-cancel">取消</button><button type="submit" class="ui-button ui-button-primary" data-i18n="form.saveAIResource">保存资源</button></div>
     </form>
     <form id="category-form" class="drawer-form" hidden>

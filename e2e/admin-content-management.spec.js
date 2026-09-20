@@ -4,7 +4,7 @@ import { resolve, extname } from 'node:path'
 import { Buffer } from 'node:buffer'
 import { gzipSync } from 'node:zlib'
 
-const tagOptions = [{ name: 'AI workflow', total: 1 }, { name: '社区服', total: 1 }]
+const tagOptions = [{ name: 'AI workflow', total: 1 }, { name: '社区服', total: 1 }, { name: '设计，排版', total: 1 }]
 async function tagApi(route, url) { if (url.pathname !== '/api/tags') return false; await route.fulfill({ json: { items: tagOptions } }); return true }
 async function selectTags(form, custom = '自定义') {
   const search = form.locator('.picker-search')
@@ -19,7 +19,7 @@ async function mockAdmin(page, override) {
   const collections = {}
   for (const key of ['navigation', 'categories', 'site', 'library', 'ai-resources', 'notes', 'tags', 'projects', 'cfgs', 'ai-workflows']) collections[key] = JSON.parse(await readFile(resolve('src/data', `${key}.json`), 'utf8'))
   collections.projects = []; collections.notes = []; collections['ai-workflows'] = []; collections.cfgs = []
-  const tools = JSON.parse(await readFile(resolve('public/tools-manifests.json'), 'utf8'))
+  collections.tools = JSON.parse(await readFile(resolve('public/tools-manifests.json'), 'utf8'))
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.route('**/*', async route => {
     const url = new URL(route.request().url())
@@ -30,7 +30,6 @@ async function mockAdmin(page, override) {
       const respond = value => route.fulfill({ json: value })
       if (key === 'system') return respond({ version: 'test', admin: 'running' })
       if (key === 'validate') return respond({ ok: true, issues: [] })
-      if (key === 'tools') return respond(tools)
       if (key === 'tags') return respond({ items: [], navigationTagCount: 0, toolTagCount: 0, aiResourceTagCount: 0 })
       if (key === 'publishing') return respond({ git: true, branch: 'main', files: [{ path: 'src/data/projects.json', status: ' M', managed: true }], command: 'git diff --stat' })
       if (!(key in collections)) return route.fulfill({ status: 404, json: { error: `unmocked ${key}` } })
@@ -96,6 +95,117 @@ test('Admin 切换编辑条目不残留上一条的可选字段', async ({ page 
   expect(errors).toEqual([])
 })
 
+test('Admin 列表直达标签和说明，直接保存未确认标签且仅修改目标字段', async ({ page }) => {
+  const records = {
+    navigation: { id: 'quick-nav', name: 'Quick website', description: '', url: 'https://example.com', category: 'development', icon: 'auto', tags: ['原标签'], order: 10, enabled: true },
+    library: { id: 'quick-library', name: 'Quick library', description: '原说明', kind: 'repo', url: 'https://example.com/repo', language: 'TypeScript', tags: ['原标签'], order: 20, enabled: false },
+    'ai-resources': { id: 'quick-ai', name: 'Quick AI', description: '原说明', kind: 'prompt', content: '保留提示词', install: '保留安装方式', url: '', tags: ['原标签'], order: 30, enabled: true },
+    notes: { id: 'quick-note', title: 'Quick note', summary: '原摘要', body: '# 保留正文', projectId: 'project', cfgIds: ['cfg'], tags: ['原标签'], order: 40, enabled: true, updated: '2026-09-01' },
+  }
+  const writes = []; let seeded = false
+  const { collections, errors } = await mockAdmin(page, async (route, url, data) => {
+    if (!seeded) { for (const [kind, record] of Object.entries(records)) data[kind] = [{ ...record }]; seeded = true }
+    if (route.request().method() === 'PUT') writes.push({ path: url.pathname, body: route.request().postDataJSON() })
+    return tagApi(route, url)
+  })
+  for (const [kind, original] of Object.entries(records)) {
+    await page.locator(`.nav-item[data-view="${kind === 'navigation' ? 'websites' : kind}"]`).click()
+    const shortcut = page.locator(`[data-metadata-kind="${kind}"][data-metadata-id="${original.id}"]`)
+    await expect(shortcut).toHaveAccessibleName(`编辑 ${original.name || original.title} 的标签和说明`)
+    await shortcut.click()
+    const form = page.locator('#metadata-form'), key = kind === 'notes' ? 'summary' : 'description'
+    await expect(form.locator(`[name="${key}"]`)).toBeFocused()
+    await expect(page.locator('#editor-drawer-body form:visible')).toHaveCount(1)
+    await form.locator(`[name="${key}"]`).fill(`  ${kind} 新说明  `)
+    await form.locator('.picker-search').fill('直接保存的标签')
+    await form.getByRole('button', { name: '保存修改', exact: true }).click()
+    await expect(page.locator('#editor-drawer')).toBeHidden()
+    const patch = { [key]: `${kind} 新说明`, tags: ['原标签', '直接保存的标签'] }
+    expect(writes.at(-1)).toEqual({ path: `/api/${kind}/${original.id}`, body: patch })
+    expect(collections[kind][0]).toEqual({ ...original, ...patch })
+    await expect(shortcut).toContainText(patch[key])
+    await expect(shortcut).toBeFocused()
+  }
+  expect(writes).toHaveLength(4)
+  expect(errors).toEqual([])
+})
+
+test('Admin 快捷编辑保存失败可恢复草稿重试，切换完整编辑不会叠加表单', async ({ page }) => {
+  let fail = true
+  const { collections, errors } = await mockAdmin(page, async (route, url) => {
+    if (fail && url.pathname.startsWith('/api/navigation/') && route.request().method() === 'PUT') {
+      await route.fulfill({ status: 500, json: { error: '说明暂时无法保存' } }); return true
+    }
+    return tagApi(route, url)
+  })
+  const original = { ...collections.navigation[0] }
+  await page.locator('.nav-item[data-view="websites"]').click()
+  const shortcut = page.locator(`[data-metadata-kind="navigation"][data-metadata-id="${original.id}"]`)
+  await shortcut.click()
+  const form = page.locator('#metadata-form')
+  await form.locator('[name="description"]').fill('失败后仍保留的说明')
+  await form.locator('.picker-search').fill('失败后保留标签')
+  await form.getByRole('button', { name: '保存修改', exact: true }).click()
+  await expect(form.locator('.form-error')).toHaveText('说明暂时无法保存')
+  await expect(form.getByRole('button', { name: '保存修改', exact: true })).toBeEnabled()
+  expect(collections.navigation[0]).toEqual(original)
+  await form.locator('.picker-search').fill('尚未确认的草稿标签')
+  page.once('dialog', dialog => dialog.accept())
+  await page.locator('#editor-drawer-close').click()
+  await shortcut.click()
+  await form.getByRole('button', { name: '恢复草稿', exact: true }).click()
+  await expect(form.locator('[name="description"]')).toHaveValue('失败后仍保留的说明')
+  await expect(form.getByRole('button', { name: '移除标签 失败后保留标签', exact: true })).toBeVisible()
+  await expect(form.locator('.picker-search')).toHaveValue('尚未确认的草稿标签')
+  fail = false
+  await form.getByRole('button', { name: '保存修改', exact: true }).click()
+  await expect(page.locator('#editor-drawer')).toBeHidden()
+  expect(collections.navigation[0]).toEqual({ ...original, description: '失败后仍保留的说明', tags: [...new Set([...(original.tags || []), '失败后保留标签', '尚未确认的草稿标签'])] })
+  await shortcut.click()
+  await expect(form.getByRole('button', { name: '恢复草稿', exact: true })).toHaveCount(0)
+  // Sidebar routing can be triggered while a drawer exists; it must retire that form as well.
+  await page.locator('.nav-item[data-view="library"]').evaluate(node => node.click())
+  await expect(page.locator('#editor-drawer')).toBeHidden()
+  await page.locator('#library .kebab-toggle').first().click()
+  await page.locator('.kebab-menu:not([hidden]) [data-edit-library]').click()
+  await expect(page.locator('#library-form')).toBeVisible()
+  await expect(form).toBeHidden()
+  await expect(page.locator('#editor-drawer-body form:visible')).toHaveCount(1)
+  expect(errors).toEqual([])
+})
+
+test('Admin 内置与导入工具快捷编辑合并标签和关键词，删除后仅更新元数据', async ({ page }) => {
+  const records = ['react', 'static'].map(runtime => ({ id: `quick-${runtime}`, name: `Quick ${runtime}`, runtime, version: '1.0.0', description: '原工具说明', category: 'development', tags: ['保留标签', '重复标签'], keywords: ['仅关键词', '重复标签'], display: { mode: 'workspace', height: 640 }, permissions: { clipboardWrite: true }, readme: '# 保留完整说明', enabled: true, order: 12 }))
+  const writes = []; let seeded = false
+  const { collections, errors } = await mockAdmin(page, async (route, url, data) => {
+    if (!seeded) { data.tools = records.map(record => ({ ...record })); seeded = true }
+    if (route.request().method() === 'PUT' && url.pathname.startsWith('/api/tools/')) writes.push(route.request().postDataJSON())
+    return tagApi(route, url)
+  })
+  await page.locator('.nav-item[data-view="tools"]').click()
+  for (const original of records) {
+    const shortcut = page.locator(`[data-metadata-kind="tools"][data-metadata-id="${original.id}"]`)
+    await shortcut.click()
+    const form = page.locator('#metadata-form')
+    await expect(form.locator('[name="tags"]')).toHaveValue('保留标签, 重复标签, 仅关键词')
+    await form.getByRole('button', { name: '移除标签 仅关键词', exact: true }).click()
+    await form.getByRole('button', { name: '移除标签 重复标签', exact: true }).click()
+    await form.locator('[name="description"]').fill('新的工具卡片说明')
+    await form.locator('.picker-search').fill('新增工具标签')
+    await form.getByRole('button', { name: '保存修改', exact: true }).click()
+    await expect(page.locator('#editor-drawer')).toBeHidden()
+    const patch = { description: '新的工具卡片说明', tags: ['保留标签', '新增工具标签'], keywords: ['保留标签', '新增工具标签'] }
+    expect(writes.at(-1)).toEqual(patch)
+    expect(collections.tools.find(tool => tool.id === original.id)).toEqual({ ...original, ...patch })
+    await expect(shortcut).toContainText(patch.description)
+    await shortcut.click()
+    await expect(form.locator('[name="tags"]')).toHaveValue('保留标签, 新增工具标签')
+    await page.locator('#editor-drawer-close').click()
+  }
+  expect(writes).toHaveLength(2)
+  expect(errors).toEqual([])
+})
+
 test('Admin 原始 JSON 保存失败保留编辑内容', async ({ page }) => {
   const { errors } = await mockAdmin(page, async (route, url) => {
     if (url.pathname !== '/api/notes' || route.request().method() !== 'POST') return false
@@ -109,6 +219,77 @@ test('Admin 原始 JSON 保存失败保留编辑内容', async ({ page }) => {
   await page.locator('#note-save').click()
   await expect(page.locator('#note-studio-form .form-error')).toHaveText('暂时无法保存笔记')
   await expect(page.locator('#note-json')).toHaveValue(json)
+  expect(errors).toEqual([])
+})
+
+test('Admin 笔记恢复 JSON 草稿保留原文，兼容没有编辑模式的旧版非法 JSON 草稿', async ({ page }) => {
+  const { collections, errors } = await mockAdmin(page)
+  for (const legacy of [false, true]) {
+    await page.locator('.nav-item[data-view="notes"]').click()
+    await page.locator('[data-add-note]').click()
+    const form = page.locator('#note-studio-form')
+    await form.locator('[name="title"]').fill(legacy ? '旧版草稿恢复' : 'JSON 草稿恢复')
+    await page.locator('[data-note-tab="json"]').click()
+    const content = JSON.parse(await page.locator('#note-json').inputValue())
+    content.body = '# 仅在原始 JSON 中修改的正文'
+    const raw = legacy ? '{"body":"尚未写完的 JSON' : JSON.stringify(content)
+    await page.locator('#note-json').fill(raw)
+    page.once('dialog', dialog => dialog.accept())
+    await page.locator('.nav-item[data-view="notes"]').click()
+    if (legacy) await page.evaluate(() => {
+      const key = 'devos-admin-draft:note-studio-form:new'
+      const draft = JSON.parse(localStorage.getItem(key))
+      delete draft.extra.tab
+      localStorage.setItem(key, JSON.stringify(draft))
+    })
+    await page.locator('[data-add-note]').click()
+    await form.getByRole('button', { name: '恢复草稿', exact: true }).click()
+    await expect(page.locator('#note-tab-json')).toBeVisible()
+    await expect(form.locator('.note-meta')).toBeHidden()
+    await expect(page.locator('#note-json')).toHaveValue(raw)
+    await page.locator('[data-note-tab="json"]').click()
+    await expect(page.locator('#note-json')).toHaveValue(raw)
+    await page.locator('[data-note-tab="write"]').click()
+    if (legacy) {
+      await expect(page.locator('#note-tab-json')).toBeVisible()
+      await expect(page.locator('#note-json')).toHaveValue(raw)
+      await page.locator('#note-json').fill(JSON.stringify(content))
+      await page.locator('[data-note-tab="write"]').click()
+    }
+    await expect(page.locator('#note-body')).toHaveValue(content.body)
+    await page.locator('#note-save').click()
+    await expect(page.locator('[data-view-panel="notes"]')).toHaveClass(/active/)
+    expect(collections.notes.at(-1)).toMatchObject({ id: content.id, body: content.body })
+  }
+  expect(errors).toEqual([])
+})
+
+test('Admin 新网站与新收藏分别保留草稿，恢复时不会套入另一种表单', async ({ page }) => {
+  const { errors } = await mockAdmin(page)
+  const forms = [
+    { view: 'websites', create: '[data-add-website]', form: '#nav-form', name: '未保存的网站', url: 'https://example.com/site' },
+    { view: 'library', create: '[data-add-library]', form: '#library-form', name: '未保存的收藏', url: 'https://github.com/example/repo' },
+  ]
+  for (const item of forms) {
+    await page.locator(`.nav-item[data-view="${item.view}"]`).click()
+    await page.locator(item.create).click()
+    const form = page.locator(item.form)
+    await expect(form.getByRole('button', { name: '恢复草稿', exact: true })).toHaveCount(0)
+    await form.locator('[name="name"]').fill(item.name)
+    await form.locator('[name="url"]').fill(item.url)
+    page.once('dialog', dialog => dialog.accept())
+    await page.locator('#editor-drawer-close').click()
+  }
+  for (const item of forms) {
+    await page.locator(`.nav-item[data-view="${item.view}"]`).click()
+    await page.locator(item.create).click()
+    const form = page.locator(item.form)
+    await form.getByRole('button', { name: '恢复草稿', exact: true }).click()
+    await expect(form.locator('[name="name"]')).toHaveValue(item.name)
+    await expect(form.locator('[name="url"]')).toHaveValue(item.url)
+    page.once('dialog', dialog => dialog.accept())
+    await page.locator('#editor-drawer-close').click()
+  }
   expect(errors).toEqual([])
 })
 
@@ -312,6 +493,14 @@ test('Admin 全部内容标签支持候选、自定义与草稿恢复，笔记 J
     page.once('dialog', dialog => dialog.accept()); await page.locator('#editor-drawer-close').click()
     await page.locator(create).click(); await form.getByRole('button', { name: '恢复草稿', exact: true }).click()
     await expect(form.getByRole('button', { name: '移除标签 自定义', exact: true })).toBeVisible()
+    if (view === 'cfg-library') {
+      await form.locator('[data-tag-option="设计，排版"]').click()
+      await form.locator('#cfg-file').setInputFiles({ name: 'tags.cfg', mimeType: 'text/plain', buffer: Buffer.from('echo tags') })
+      await form.locator('#cfg-save').click()
+      await expect(page.locator('#editor-drawer')).toBeHidden()
+      expect(collections.cfgs[0].tags).toEqual(['自定义', '设计，排版'])
+      continue
+    }
     page.once('dialog', dialog => dialog.accept()); await page.locator('#editor-drawer-close').click()
   }
   await page.locator('.nav-item[data-view="notes"]').click(); await page.locator('[data-add-note]').click()
@@ -322,14 +511,25 @@ test('Admin 全部内容标签支持候选、自定义与草稿恢复，笔记 J
   expect(collections.notes).toHaveLength(0); await expect(note.locator('.picker-search')).toBeFocused()
   await note.locator('.picker-search').fill('')
   expect(JSON.parse(await page.locator('#note-json').inputValue()).tags).toEqual(['笔记标签'])
+  await note.locator('.picker-search').fill('切换前未确认标签')
   await page.locator('[data-note-tab="json"]').click()
+  expect(JSON.parse(await page.locator('#note-json').inputValue()).tags).toEqual(['笔记标签', '切换前未确认标签'])
   await page.locator('#note-json').fill('{'); await page.locator('[data-note-tab="write"]').click()
   await expect(page.locator('#note-json')).toBeFocused(); await expect(page.locator('#note-tab-json')).toBeVisible()
   const content = JSON.parse(JSON.stringify(collections.notes[0] || { id: 'tag-sync', kind: 'note', enabled: true })); content.title = 'JSON 切换笔记'; content.tags = ['JSON 标签']
   await page.locator('#note-json').fill(JSON.stringify(content)); await page.locator('[data-note-tab="write"]').click()
   await expect(note.locator('[name="title"]')).toHaveValue('JSON 切换笔记')
   await expect(note.getByRole('button', { name: '移除标签 JSON 标签', exact: true })).toBeVisible()
-  await page.locator('#note-save').click(); expect(collections.notes[0]).toMatchObject({ title: 'JSON 切换笔记', tags: ['JSON 标签'] })
+  await page.locator('[data-note-tab="json"]').click()
+  await expect(note.locator('.note-meta')).toBeHidden()
+  const jsonDraft = JSON.parse(await page.locator('#note-json').inputValue())
+  jsonDraft.body = '# 原始 JSON 中刚编辑的正文'
+  await page.locator('#note-json').fill(JSON.stringify(jsonDraft))
+  await page.locator('[data-note-tab="write"]').click()
+  await expect(note.locator('.note-meta')).toBeVisible()
+  await expect(note.locator('[name="body"]')).toHaveValue(jsonDraft.body)
+  await note.locator('.picker-search').fill('JSON 返回后未确认标签')
+  await page.locator('#note-save').click(); expect(collections.notes[0]).toMatchObject({ title: 'JSON 切换笔记', body: jsonDraft.body, tags: ['JSON 标签', 'JSON 返回后未确认标签'] })
   await expect(page.locator('[data-view-panel="notes"]')).toHaveClass(/active/)
   await page.locator('#notes .kebab-toggle').first().click(); await page.locator('[data-edit-note="tag-sync"]').click()
   await expect(note.getByRole('button', { name: '移除标签 JSON 标签', exact: true })).toBeVisible()
@@ -344,6 +544,7 @@ test('Admin 仅改变图标或分类也会保护并恢复草稿，隐藏身份�
   const category = await form.locator('[data-category-option][aria-pressed="false"]').first().getAttribute('data-category-option')
   await form.locator(`[data-category-option="${category}"]`).focus(); await page.keyboard.press('Enter')
   await expect(form.locator(`[data-category-option="${category}"]`)).toBeFocused()
+  await form.locator('details.form-advanced > summary').click()
   await form.locator('[data-icon-option="letter"]').focus(); await page.keyboard.press('Enter')
   await expect(form.locator('[data-icon-option="letter"]')).toBeFocused()
   page.once('dialog', dialog => dialog.dismiss()); await page.locator('#editor-drawer-close').click(); await expect(form).toBeVisible()
@@ -368,6 +569,9 @@ test('Admin 工具编辑与导入向导共享标签选择，手机页面不溢�
   await page.locator('.nav-item[data-view="tools"]').click(); await page.locator('#tools .kebab-toggle').first().click()
   await page.locator('.kebab-menu:not([hidden]) [data-edit-tool]').click()
   const tool = page.locator('.tool-edit-form'), originalTags = await tool.locator('[name="tags"]').inputValue()
+  await page.locator('#tool-edit-save').focus(); await page.keyboard.press('Tab')
+  await expect(tool.locator('[name="name"]')).toBeFocused()
+  await page.keyboard.press('Shift+Tab'); await expect(page.locator('#tool-edit-save')).toBeFocused()
   const search = tool.locator('.picker-search'); await search.fill('工具标签'); await search.press('Enter')
   await expect(tool.locator('[name="tags"]')).toHaveValue([originalTags, '工具标签'].filter(Boolean).join(', '))
   await search.fill('x'.repeat(65)); await search.press('Enter'); await page.locator('#tool-edit-save').click()
@@ -395,6 +599,60 @@ test('Admin 工具编辑与导入向导共享标签选择，手机页面不溢�
   await expect(page.locator('#wizard-body .picker-search')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   expect(errors).toEqual([])
+})
+
+test('Admin 延迟笔记请求不会覆盖后来打开的编辑器', async ({ page }) => {
+  let defer = false, finish
+  await mockAdmin(page, async (route, url) => {
+    if (!defer || url.pathname !== '/api/projects') return false
+    await new Promise(resolve => { finish = async () => { await route.fulfill({ json: [] }); resolve() } }); return true
+  })
+  await page.locator('.nav-item[data-view="notes"]').click()
+  defer = true
+  await page.locator('[data-add-note]').click()
+  await expect.poll(() => Boolean(finish)).toBe(true)
+  await page.locator('.nav-item[data-view="library"]').click()
+  await page.locator('[data-add-library]').click()
+  await finish()
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  await expect(page.locator('#library-form')).toBeVisible()
+  await expect(page.locator('[data-view-panel="note-editor"]')).not.toHaveClass(/active/)
+})
+
+test('Admin 工具分析期间忽略重复上传，替换文件清理旧暂存并保留失败前内容', async ({ page }) => {
+  let analyses = 0, finish; const removed = []
+  await mockAdmin(page, async (route, url) => {
+    if (url.pathname.startsWith('/api/tools/staging/')) { removed.push(url.pathname); await route.fulfill({ json: { ok: true } }); return true }
+    if (url.pathname !== '/api/tools/analyze') return false
+    const number = ++analyses
+    if (number === 3) { await route.fulfill({ status: 400, json: { error: '新文件无法分析' } }); return true }
+    const respond = () => route.fulfill({ json: { token: `token-${number}`, kind: 'html', format: 'html', entry: 'index.html', files: ['index.html'], stats: { totalBytes: 10, zipBytes: 10 }, suggested: { name: `文件 ${number}` }, notes: [], manifestDraft: { id: `file-${number}`, name: `文件 ${number}`, version: '1.0.0', tags: [], permissions: {}, display: { mode: 'embedded' } } } })
+    if (number === 1) await new Promise(resolve => { finish = async () => { await respond(); resolve() } })
+    else await respond()
+    return true
+  })
+  await page.locator('.nav-item[data-view="import"]').click()
+  const file = { name: 'one.html', mimeType: 'text/html', buffer: Buffer.from('<p>one</p>') }
+  await page.locator('#tool-file-input').setInputFiles(file)
+  await expect.poll(() => analyses).toBe(1)
+  await page.locator('#wizard input[type="file"]').setInputFiles({ ...file, name: 'two.html' })
+  await finish()
+  await expect(page.locator('.wizard-summary')).toContainText('文件 1')
+  expect(analyses).toBe(1)
+  await page.locator('#wizard-close').focus(); await page.keyboard.press('Shift+Tab')
+  await expect(page.locator('#wizard-next')).toBeFocused()
+  await page.locator('#wizard input[type="file"]').setInputFiles({ ...file, name: 'two.html' })
+  await expect(page.locator('.wizard-summary')).toContainText('文件 2')
+  await expect.poll(() => removed).toContain('/api/tools/staging/token-1')
+  await page.locator('#wizard input[type="file"]').setInputFiles({ ...file, name: 'bad.html' })
+  await expect(page.locator('#wizard-status')).toContainText('新文件无法分析')
+  await expect(page.locator('.wizard-summary')).toContainText('文件 2')
+  await expect(page.locator('#wizard-next')).toBeEnabled()
+  await page.locator('#wizard input[type="file"]').setInputFiles({ name: 'large.zip', mimeType: 'application/zip', buffer: Buffer.alloc(20 * 1024 * 1024 + 1) })
+  await expect(page.locator('#wizard-status')).toContainText('20 MiB')
+  expect(analyses).toBe(3)
+  await expect(page.locator('.wizard-summary')).toContainText('文件 2')
+  await expect(page.locator('#wizard-next')).toBeEnabled()
 })
 
 test('Admin 项目编辑忽略旧请求，读取失败保留当前表单', async ({ page }) => {

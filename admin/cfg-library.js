@@ -186,7 +186,7 @@ export function mountCfgLibrary({ request, openModal, showEditorModal, closeEdit
     if (!Number.isSafeInteger(order)) { error('#cfg-form-error', '排序必须为安全范围内的整数。'); return }
     const payload = {
       name: field('name').value.trim(), filename: field('filename').value.trim(), description: field('description').value.trim(),
-      category: field('category').value.trim(), tags: [...new Set(field('tags').value.split(/[,，]/).map(tag => tag.trim()).filter(Boolean))], order,
+      category: field('category').value.trim(), tags: [...new Set(field('tags').value.split(',').map(tag => tag.trim()).filter(Boolean))], order,
       changelog: field('changelog')?.value.trim() || '',
       ...(!editing || replacement ? { content } : {}),
     }

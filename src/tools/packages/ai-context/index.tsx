@@ -13,8 +13,8 @@ import { buildContextMarkdown, CONTEXT_STORAGE_KEY, contextBytes, contextFields,
 function loadDraft() {
   let raw: string | null = null
   try {
-    raw = localStorage.getItem(CONTEXT_TASKS_KEY)
     const current = readPersonalRaw(CONTEXT_TASKS_KEY)
+    raw = hasPersonalPending(CONTEXT_TASKS_KEY) ? null : current
     const legacy = current === null ? readPersonalRaw(CONTEXT_STORAGE_KEY) : null
     const store = current !== null ? parseContextStore(current) : emptyContextStore(legacy ? parseContext(legacy) : emptyContext())
     return { store, raw, warning: hasPersonalPending(CONTEXT_TASKS_KEY) ? '修改尚未保存，请先导出或重试保存。' : '', saved: raw !== null }

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Maximize2, Minimize2, PanelTop, RefreshCw } from 'lucide-react'
 import type { DisplayMode, ToolDefinition } from '../types'
@@ -190,49 +189,24 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
     </div>
   )
 
-  if (mode === 'fullscreen') {
-    return createPortal(
-      <div className="tool-fullscreen" data-testid="tool-fullscreen">
-        <header className="tool-fullscreen-bar">
-          <strong>{tool.name}</strong>
-          <span>v{tool.version}</span>
-          {modeBar}
-          <button type="button" className="tool-exit-fullscreen" aria-label="退出全屏 (Esc)" title="退出全屏 (Esc)" onClick={() => setMode('embedded')}>退出</button>
-        </header>
-        <div className="tool-fullscreen-stage">{frame}</div>
-        {toastsView}
-      </div>,
-      document.body,
-    )
-  }
-
-  if (mode === 'workspace') {
-    return (
-      <main className="page tool-workspace">
-        <header className="tool-workspace-bar">
-          <Link className="back-link" to={returnTo}>← 工具中心</Link>
-          <strong>{tool.name}</strong>
-          <span className="tool-mode-label">v{tool.version} · {tool.format}</span>
-          {modeBar}
-        </header>
-        <div className="tool-workspace-frame">{frame}</div>
-        {toastsView}
-      </main>
-    )
-  }
-
   return (
-    <main className="page tool-page">
-      <Link className="back-link" to={returnTo}>← 返回工具中心</Link>
-      <section className="page-heading">
+    <main className={mode === 'fullscreen' ? 'tool-fullscreen' : `page ${mode === 'workspace' ? 'tool-workspace' : 'tool-page'}`} data-testid={mode === 'fullscreen' ? 'tool-fullscreen' : undefined}>
+      {mode === 'embedded' && <Link className="back-link" to={returnTo}>← 返回工具中心</Link>}
+      {mode === 'embedded' && <section className="page-heading">
         <p className="eyebrow">{tool.category.toUpperCase()} / TOOL</p>
         <h1>{tool.name}</h1>
         <p>{tool.description}</p>
         <div className="tool-meta"><span>v{tool.version}</span><span>{tool.category === 'development' ? '开发' : tool.category === 'game' ? '游戏' : tool.category}</span><span>{tool.format}</span></div>
-      </section>
-      {modeBar}
-      <details className="tool-docs"><summary>使用说明</summary><p>{tool.readme || '在浏览器中完成操作；数据只保存在当前浏览器。'}</p></details>
-      <div className="tool-panel">{frame}</div>
+      </section>}
+      <header className={mode === 'fullscreen' ? 'tool-fullscreen-bar' : mode === 'workspace' ? 'tool-workspace-bar' : undefined}>
+        {mode === 'workspace' && <Link className="back-link" to={returnTo}>← 工具中心</Link>}
+        {mode !== 'embedded' && <strong>{tool.name}</strong>}
+        {mode !== 'embedded' && <span className="tool-mode-label">v{tool.version} · {tool.format}</span>}
+        {modeBar}
+        {mode === 'fullscreen' && <button type="button" className="tool-exit-fullscreen" aria-label="退出全屏 (Esc)" title="退出全屏 (Esc)" onClick={() => setMode('embedded')}>退出</button>}
+      </header>
+      {mode === 'embedded' && <details className="tool-docs"><summary>使用说明</summary><p>{tool.readme || '在浏览器中完成操作；数据只保存在当前浏览器。'}</p></details>}
+      <div key="frame-stage" className={mode === 'fullscreen' ? 'tool-fullscreen-stage' : mode === 'workspace' ? 'tool-workspace-frame' : 'tool-panel'}>{frame}</div>
       {toastsView}
     </main>
   )

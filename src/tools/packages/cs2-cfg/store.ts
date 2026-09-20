@@ -1,4 +1,5 @@
 import { isCfgDocument, type CfgDocument } from './share'
+import { hasPersonalPending, readPersonalRaw } from '../../../utils/personal-storage'
 
 export const CFG_STORAGE_KEY = 'devos.cfg.workbench.v1'
 export const MAX_VERSIONS = 20
@@ -16,10 +17,10 @@ export function isCfgStore(value: unknown): value is CfgStore {
 
 export function readCfgStore() {
   try {
-    const raw = localStorage.getItem(CFG_STORAGE_KEY)
+    const raw = readPersonalRaw(CFG_STORAGE_KEY)
     if (raw === null) return { data: emptyCfgStore, raw, error: '' }
     const data: unknown = JSON.parse(raw)
     if (!isCfgStore(data)) throw new Error('invalid')
-    return { data, raw, error: '' }
+    return { data, raw, error: hasPersonalPending(CFG_STORAGE_KEY) ? '修改尚未保存，请先导出个人备份或重新保存当前内容。' : '' }
   } catch { return { data: emptyCfgStore, raw: null, error: '本地 CFG 记录无法读取，已暂停自动保存并保留原记录。' } }
 }

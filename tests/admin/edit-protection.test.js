@@ -2,6 +2,33 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { createEditProtection } from '../../admin/edit-protection.js'
 beforeEach(() => { document.body.innerHTML = '<form id="editor"><input name="originalId" type="hidden" value="one"><input name="id" value="one" readonly><textarea name="body">original</textarea><button type="submit">save</button></form>'; localStorage.clear(); vi.restoreAllMocks() })
+it('uses the form attribute for draft identity when an id input shadows the DOM property', () => {
+  const form = document.querySelector('form'), guard = createEditProtection()
+  Object.defineProperty(form, 'id', { value: form.elements.id })
+  guard.begin(form); form.elements.body.value = 'isolated draft'; guard.changed(form)
+  vi.spyOn(window, 'confirm').mockReturnValue(true); guard.mayLeave(form)
+  expect(localStorage.getItem('devos-admin-draft:editor:one')).toContain('isolated draft')
+  expect(localStorage.getItem('devos-admin-draft:[object HTMLInputElement]:one')).toBeNull()
+  guard.end(form)
+})
+
+it('migrates an old shadowed key only when the draft fields match this form', () => {
+  const form = document.querySelector('form'), guard = createEditProtection()
+  const oldKey = 'devos-admin-draft:[object HTMLInputElement]:one'
+  localStorage.setItem(oldKey, JSON.stringify({ values: [{ name: 'url', type: 'url', value: 'https://example.com' }] }))
+  guard.begin(form)
+  expect(form.querySelector('.admin-draft').textContent).not.toContain('恢复草稿')
+  expect(localStorage.getItem(oldKey)).not.toBeNull()
+  const saved = [...form.elements].filter(field => field.name).map(field => ({ name: field.name, type: field.type, value: field.name === 'body' ? 'legacy body' : field.value, checked: field.checked }))
+  localStorage.setItem(oldKey, JSON.stringify({ values: saved }))
+  guard.begin(form)
+  ;[...form.querySelectorAll('button')].find(button => button.textContent === '恢复草稿').click()
+  expect(form.elements.body.value).toBe('legacy body')
+  expect(localStorage.getItem(oldKey)).toBeNull()
+  expect(localStorage.getItem('devos-admin-draft:editor:one')).toContain('legacy body')
+  guard.end(form)
+})
+
 it('uses a neutral initial state until the form has actually been saved', () => {
   const form = document.querySelector('form'), guard = createEditProtection()
   guard.begin(form)

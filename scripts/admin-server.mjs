@@ -1,7 +1,7 @@
 import { createServer } from 'node:http'
-import { readFile, writeFile, readdir, rename, copyFile, mkdir, mkdtemp, rm, stat } from 'node:fs/promises'
+import { readFile, writeFile, readdir, rename, copyFile, mkdir, mkdtemp, rm, stat, lstat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { extname, join, resolve, basename } from 'node:path'
+import { extname, join, resolve, basename, dirname, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -33,7 +33,7 @@ const coreManifestPath = resolve(root, 'src/tools/manifests/core.json')
 const indexManifestPath = join(publicDir, 'tools-manifests.json')
 const files = { navigation: 'navigation.json', categories: 'categories.json', site: 'site.json', library: 'library.json', 'ai-resources': 'ai-resources.json', notes: 'notes.json', tags: 'tags.json', projects: 'projects.json', 'ai-workflows': 'ai-workflows.json' }
 const MAX_BODY_SIZE = 1024 * 1024
-const MAX_TOOL_BODY_SIZE = 25 * 1024 * 1024
+const MAX_TOOL_BODY_SIZE = 29 * 1024 * 1024 // 20 MiB bytes expand to 26.7 MiB Base64, plus JSON metadata.
 const execFileAsync = promisify(execFile)
 // ponytail: one process-local queue keeps the small CFG file/index transactions consistent.
 let cfgQueue = Promise.resolve()
@@ -50,6 +50,7 @@ let navigationCache = [], categoryCache = []
 const normalizeTag = value => String(value ?? '').trim()
 const hasUnsafeTagChar = value => [...value].some(char => { const code = char.charCodeAt(0); return code < 32 || (code >= 127 && code <= 159) })
 const assertTagName = value => {
+  if (typeof value !== 'string') throw new Error('标签名必须是字符串')
   const name = normalizeTag(value)
   if (!name || name.length > 64 || name.includes(',') || hasUnsafeTagChar(name)) throw new Error('标签名无效')
   return name
@@ -57,8 +58,8 @@ const assertTagName = value => {
 const CATEGORY_ICONS = new Set(['Code2', 'Bot', 'Palette', 'Server', 'Globe2', 'Wrench'])
 const WEBSITE_ICONS = new Set(['auto', 'letter'])
 const assertTags = tags => {
-  if (!Array.isArray(tags)) throw new Error('标签必须是数组')
-  for (const tag of tags) assertTagName(tag)
+  if (!Array.isArray(tags) || tags.length > 30 || new Set(tags).size !== tags.length) throw new Error('标签必须是数组且不能重复，最多 30 个')
+  for (const tag of tags) if (assertTagName(tag) !== tag) throw new Error('标签不能有首尾空格')
 }
 function validate(key, value) {
   if (key === 'projects') return assertProjects(value)
@@ -66,6 +67,9 @@ function validate(key, value) {
   if (key === 'notes') assertNoteRelations(value)
   if (key === 'site') {
     for (const field of ['name', 'title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'footer', 'logo']) if (typeof value[field] !== 'string') throw new Error(`${field} 必须是字符串`)
+    for (const field of ['name', 'title', 'description', 'github']) if (!value[field].trim()) throw new Error(`${field} 不能为空`)
+    for (const field of ['github', 'publicUrl', 'adminUrl']) if (value[field] !== undefined && (typeof value[field] !== 'string' || (value[field] && !/^https?:$/.test(new URL(value[field]).protocol)))) throw new Error(`${field} 必须是 HTTP(S) 链接`)
+    if (value.basePath != null && (typeof value.basePath !== 'string' || !/^(\.\/|\/)/.test(value.basePath))) throw new Error('basePath 必须以 / 或 ./ 开头')
     if (!Number.isFinite(value.todayContinueLimit) || !Number.isInteger(value.todayContinueLimit) || value.todayContinueLimit < 1 || value.todayContinueLimit > 8) throw new Error('todayContinueLimit 必须是 1-8 的整数')
     return
   }
@@ -75,8 +79,15 @@ function validate(key, value) {
     if (new Set(names).size !== names.length) throw new Error('标签不能重复')
     return
   }
-  const ids = new Set(value.map(item => item.id)); if (ids.size !== value.length || value.some(item => !item.id)) throw new Error('id 不能为空且不能重复')
-  if (key === 'categories') { if (value.some(item => typeof item.name !== 'string' || typeof item.order !== 'number' || !CATEGORY_ICONS.has(item.icon))) throw new Error('分类字段无效'); return }
+  if (value.some(item => !item || typeof item.id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(item.id))) throw new Error('id 必须为 1–80 位小写字母、数字和短横线，且不能以短横线开头')
+  const ids = new Set(value.map(item => item.id)); if (ids.size !== value.length) throw new Error('id 不能重复')
+  for (const item of value) {
+    const title = key === 'notes' ? item.title : item.name
+    if (typeof title !== 'string' || !title.trim() || !Number.isFinite(item.order)) throw new Error(`名称或排序无效: ${item.id}`)
+    for (const field of ['description', 'summary', 'language']) if (item[field] !== undefined && typeof item[field] !== 'string') throw new Error(`${field} 必须是字符串`)
+    if (item.updated !== undefined && !isISODate(item.updated)) throw new Error(`更新日期无效: ${item.id}`)
+  }
+  if (key === 'categories') { if (value.some(item => !CATEGORY_ICONS.has(item.icon))) throw new Error('分类字段无效'); return }
   if (key === 'notes') {
     for (const item of value) {
       if (typeof item.title !== 'string' || typeof item.body !== 'string' || typeof item.order !== 'number' || typeof item.enabled !== 'boolean') throw new Error(`字段无效: ${item.id}`)
@@ -123,7 +134,7 @@ async function validateRelations(key, value) {
   const workflows = key === 'ai-workflows' ? value : await json('ai-workflows')
   assertProjects(projects, cfgs); assertNoteRelations(notes, projects, cfgs); assertAIWorkflows(workflows, resources)
 }
-function safeAdminPath(requestUrl) { const path = decodeURIComponent(new URL(requestUrl, 'http://localhost').pathname); const file = path === '/admin' || path === '/admin/' ? '/index.html' : path.slice('/admin'.length); const target = resolve(adminDir, `.${file}`); return target.startsWith(adminDir) ? target : null }
+function safeAdminPath(requestUrl) { const path = decodeURIComponent(new URL(requestUrl, 'http://localhost').pathname); if (path !== '/admin' && !path.startsWith('/admin/')) return null; const file = path === '/admin' || path === '/admin/' ? '/index.html' : path.slice('/admin'.length); const target = resolve(adminDir, `.${file}`); return target.startsWith(adminDir + sep) ? target : null }
 async function writeFileAtomic(target, content) { const temp = `${target}.tmp`; await writeFile(temp, content); await rename(temp, target) }
 
 // ---------------- Manifest Index Builder ----------------
@@ -139,15 +150,16 @@ async function staticToolManifests() {
     if (name.startsWith('.')) continue
     const manifestPath = join(toolsDir, name, 'manifest.json')
     if (!existsSync(manifestPath)) continue
-    const manifest = await readJsonFile(manifestPath, null)
-    if (manifest && manifest.id === name) manifests.push(normalizeManifest(manifest, manifests.length * 10 + 10))
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+    if (!manifest || manifest.id !== name) throw new Error(`静态工具 Manifest 无效: ${name}`)
+    manifests.push(normalizeManifest(manifest, manifests.length * 10 + 10))
   }
   manifests.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   return manifests
 }
 
 async function rebuildToolIndex() {
-  const core = await readJsonFile(coreManifestPath, [])
+  const core = await readCoreManifests()
   const statics = await staticToolManifests()
   const merged = [...core.map(manifest => normalizeManifest(manifest, manifest.order ?? 0)), ...statics]
   const unique = [...new Map(merged.map(manifest => [manifest.id, manifest])).values()].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
@@ -226,10 +238,13 @@ function pickEntryFile(files) {
 }
 
 async function listZip(zipPath) {
+  const { stdout: attributes } = await execFileAsync('unzip', ['-Z', '-l', zipPath])
+  if (/^[lbcps][^\s]{9}\s/m.test(attributes)) throw new Error('工具包不支持符号链接或特殊文件')
   const { stdout: names } = await execFileAsync('unzip', ['-Z1', zipPath])
+  if (names.split('\n').some(name => name.startsWith('/') || name.includes('\\') || name.split('/').includes('..'))) throw new Error('工具包路径无效')
   const entries = names.split('\n').map(item => item.trim()).filter(Boolean).filter(item => !item.includes('__MACOSX') && basename(item) !== 'Thumbs.db' && basename(item) !== '.DS_Store')
   const { stdout: listing } = await execFileAsync('unzip', ['-l', zipPath])
-  return { names: entries, listing: parseZipListing(listing).filter(item => entries.includes(item.name)) }
+  return { names: entries, listing: parseZipListing(listing) }
 }
 
 function assertZipSafety(zipBytes, listing) {
@@ -252,8 +267,10 @@ async function extractToStaging(zipPath, extractTarget) {
   const walk = async (dir, prefix) => {
     for (const name of await readdir(dir)) {
       const full = join(dir, name)
-      if ((await stat(full)).isDirectory()) await walk(full, `${prefix}${name}/`)
-      else files.push(`${prefix}${name}`)
+      const info = await lstat(full)
+      if (info.isDirectory()) await walk(full, `${prefix}${name}/`)
+      else if (info.isFile()) files.push(`${prefix}${name}`)
+      else throw new Error('工具包不支持符号链接或特殊文件')
     }
   }
   await walk(extractTarget, '')
@@ -264,7 +281,9 @@ async function analyzeToolSource(payload) {
   const filename = typeof payload.filename === 'string' ? payload.filename : ''
   const lower = filename.toLowerCase()
   if (typeof payload.content !== 'string' || !payload.content) throw new Error('缺少文件内容')
+  if (payload.content.length > Math.ceil(IMPORT_LIMITS.maxZipBytes / 3) * 4 || payload.content.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(payload.content)) throw new Error('文件 Base64 编码无效或超过 20 MiB')
   const bytes = Buffer.from(payload.content, 'base64')
+  if (bytes.toString('base64') !== payload.content) throw new Error('文件 Base64 编码无效')
   if (!bytes.length || bytes.length > IMPORT_LIMITS.maxZipBytes) throw new Error(`文件大小必须在 1B 到 ${IMPORT_LIMITS.maxZipBytes / 1024 / 1024}MB 之间`)
   await cleanStaging()
   const token = randomUUID().slice(0, 8)
@@ -388,6 +407,7 @@ async function installTool(payload) {
 
   const previous = existing.find(tool => tool.id === (manifestInput?.id || ''))
   const merged = { ...(previous || {}), ...manifestInput }
+  assertManifest(merged, { upload: true })
   const saved = normalizeManifest(merged, previous?.order ?? (Math.max(0, ...existing.map(tool => tool.order || 0)) || 0) + 10)
   assertManifest(saved, { upload: true, hasEntry: existsSync(resolve(sourceRoot, saved.entry)) })
   if (saved.runtime === 'iframe') throw new Error('iframe 外链工具请直接编辑 tools-manifests 生成流程，导入通道仅接受静态工具包')
@@ -399,10 +419,9 @@ async function installTool(payload) {
   const target = join(toolsDir, saved.id)
   await mkdir(toolsDir, { recursive: true })
   await writeFile(join(sourceRoot, 'manifest.json'), JSON.stringify({ ...saved, entry: saved.entry }, null, 2) + '\n')
-  if (overwrite && existsSync(target)) await rm(target, { recursive: true, force: true })
-  await rename(sourceRoot, target)
-  if (payload.token && existsSync(join(stagingDir, payload.token))) await rm(join(stagingDir, payload.token), { recursive: true, force: true })
-  await rebuildToolIndex()
+  if (existsSync(target) && !overwrite) throw new Error(`工具目录已存在: ${saved.id}`)
+  await commitToolSource(target, sourceRoot)
+  await rm(dirname(sourceRoot), { recursive: true, force: true }).catch(() => {})
   return saved
 }
 
@@ -421,13 +440,35 @@ async function findStaticToolDir(id) {
 }
 
 async function readCoreManifests() {
-  const value = await readJsonFile(coreManifestPath, [])
+  const value = JSON.parse(await readFile(coreManifestPath, 'utf8'))
   if (!Array.isArray(value)) throw new Error('core.json 无效')
   return value
 }
 
-async function writeCoreManifests(value) {
-  await writeFileAtomic(coreManifestPath, JSON.stringify(value, null, 2) + '\n')
+// Keep the original source outside public until its generated index is committed.
+async function commitToolSource(target, replacement) {
+  const transaction = await mkdtemp(join(root, '.admin-tool-'))
+  const backup = join(transaction, 'previous')
+  let moved = false, placed = false
+  try {
+    if (existsSync(target)) { await rename(target, backup); moved = true }
+    if (replacement) { await rename(replacement, target); placed = true }
+    await rebuildToolIndex()
+  } catch (error) {
+    try {
+      if (placed) await rename(target, replacement)
+      if (moved) await rename(backup, target)
+    } catch (rollbackError) { throw new Error(`工具保存失败且回滚未完成，原文件保留在 ${backup}：${rollbackError.message}`, { cause: error }) }
+    await rm(transaction, { recursive: true, force: true }).catch(() => {})
+    throw error
+  }
+  await rm(transaction, { recursive: true, force: true }).catch(() => {})
+}
+
+async function writeToolMetadata(target, value) {
+  const temp = `${target}.${randomUUID()}.tmp`
+  try { await writeFile(temp, JSON.stringify(value, null, 2) + '\n', { flag: 'wx' }); await commitToolSource(target, temp) }
+  finally { await rm(temp, { force: true }).catch(() => {}) }
 }
 
 async function updateCoreTool(id, patch) {
@@ -436,9 +477,10 @@ async function updateCoreTool(id, patch) {
   if (index < 0) throw new Error(`内置工具不存在: ${id}`)
   const current = core[index]
   const next = { ...current, ...patch, id, display: { ...(current.display || {}), ...(patch.display || {}) } }
+  assertManifest(next)
+  if (normalizeManifest(next).runtime !== 'react') throw new Error('内置工具运行类型不能更改')
   core[index] = next
-  await writeCoreManifests(core)
-  await rebuildToolIndex()
+  await writeToolMetadata(coreManifestPath, core)
   return normalizeManifest(next, next.order ?? 0)
 }
 
@@ -446,15 +488,17 @@ async function updateToolManifest(id, patch) {
   if (existsSync(join(toolsDir, id, 'manifest.json'))) {
     const dir = await findStaticToolDir(id)
     const current = await readJsonFile(join(dir, 'manifest.json'), {})
-    const next = normalizeManifest({
+    const merged = {
       ...current,
       ...patch,
       id,
       display: { ...(current.display || {}), ...(patch.display || {}) },
-    }, current.order ?? 0)
+    }
+    assertManifest(merged)
+    const next = normalizeManifest(merged, current.order ?? 0)
+    if (next.runtime !== 'static') throw new Error('静态工具运行类型不能更改')
     assertManifest(next, { hasEntry: existsSync(join(dir, next.entry)) })
-    await writeFileAtomic(join(dir, 'manifest.json'), JSON.stringify(next, null, 2) + '\n')
-    await rebuildToolIndex()
+    await writeToolMetadata(join(dir, 'manifest.json'), next)
     return next
   }
   return updateCoreTool(id, patch)
@@ -473,15 +517,13 @@ async function toggleTool(id) {
 
 async function deleteTool(id) {
   if (existsSync(join(toolsDir, id, 'manifest.json'))) {
-    await rm(join(toolsDir, id), { recursive: true, force: true })
-    await rebuildToolIndex()
+    await commitToolSource(join(toolsDir, id))
     return { ok: true }
   }
   const core = await readCoreManifests()
   const next = core.filter(item => item.id !== id)
   if (next.length === core.length) throw new Error(`工具不存在: ${id}`)
-  await writeCoreManifests(next)
-  await rebuildToolIndex()
+  await writeToolMetadata(coreManifestPath, next)
   return { ok: true }
 }
 
@@ -668,10 +710,8 @@ async function handleRequest(req, res) {
   try {
     const url = new URL(req.url || '/', 'http://127.0.0.1')
     if (url.pathname.startsWith('/api/')) {
-      if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
-        const localOrigin = `http://${req.headers.host || ''}`, host = new URL(localOrigin)
-        if (!['127.0.0.1', 'localhost', '[::1]'].includes(host.hostname) || Number(host.port || 80) !== req.socket.localPort || (req.headers.origin && req.headers.origin !== localOrigin) || req.headers['sec-fetch-site'] === 'cross-site') return send(res, 403, { error: '管理写入仅允许本机 Admin 同源访问' })
-      }
+      const localOrigin = `http://${req.headers.host || ''}`, host = new URL(localOrigin)
+      if (!['127.0.0.1', 'localhost', '[::1]'].includes(host.hostname) || Number(host.port || 80) !== req.socket.localPort || (req.headers.origin && req.headers.origin !== localOrigin) || req.headers['sec-fetch-site'] === 'cross-site') return send(res, 403, { error: '管理接口仅允许本机 Admin 同源访问' })
       if (url.pathname === '/api/backup' && req.method === 'GET') return send(res, 200, await exportSiteBackup(root))
       if (url.pathname === '/api/backup/preview' && req.method === 'POST') {
         for (const [token, item] of restorePreviews) if (Date.now() - item.created > 30 * 60 * 1000) { await rm(item.stage, { recursive: true, force: true }); restorePreviews.delete(token) }
@@ -711,9 +751,6 @@ async function handleRequest(req, res) {
       }
       const cfgMatch = url.pathname.match(/^\/api\/cfgs(?:\/([^/]+))?$/)
       if (cfgMatch) {
-        const localHost = `http://${req.headers.host || ''}`
-        const host = new URL(localHost)
-        if (!['127.0.0.1', 'localhost', '[::1]'].includes(host.hostname) || Number(host.port || 80) !== req.socket.localPort || (req.headers.origin && req.headers.origin !== localHost) || req.headers['sec-fetch-site'] === 'cross-site') return send(res, 403, { error: 'CFG 管理仅允许本机 Admin 同源访问' })
         if (['POST', 'PUT'].includes(req.method) && !/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) return send(res, 415, { error: 'CFG 写请求必须使用 application/json' })
         const id = cfgMatch[1]
         if (id && !CFG_ID.test(id)) return send(res, 400, { error: 'CFG id 无效' })

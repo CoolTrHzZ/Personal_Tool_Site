@@ -1,51 +1,59 @@
-# V4 交付说明
+# V4 交付与验收
 
-## 1. 架构说明
+更新于 2026-09-20。当前能力以 [架构说明](current-architecture.md) 和 [README](../../README.md) 为准；早期 Figma 差距与交互审查文档保留为历史记录。
 
-展示层按 Figma（`Personal_Tool_Site产品原型图.pdf`）重构。业务仍走现有 Catalog / Manifest / Import Wizard / Static Runtime / Admin JSON API。未替换 Runtime、Router、导入状态机。
+## 本次交付
 
-## 2. Figma → Code
+- 初次使用：一条启动命令运行前台和 Admin；首页可直接试用 JSON 工具或定位个人待办；后台提供常用新增入口。
+- 内容维护：列表中直接修改说明和标签；常用字段前置，低频设置折叠；自动 ID、标签候选及批量输入、未确认标签随保存提交；手机上的操作区、焦点和错误恢复可用。
+- 数据保留：工具切换显示模式不重建 iframe；AI / CFG 存储失败后的会话草稿可恢复、备份和重试；后台各类表单分别保存草稿，并兼容恢复可识别的旧草稿；笔记 JSON 与表单模式保留明确的数据来源。
+- 导入与安全：防止重复分析和旧异步响应覆盖当前编辑器；超限文件提前拒绝；ZIP 拒绝链接、特殊文件和越界路径；工具写入与索引失败回滚；读写 API 都检查本机同源边界与字段类型。
+- 可复现构建：声明 Node.js 22+，更新存在公告漏洞的直接与间接依赖，CI 增加官方 npm registry 安全审计门禁；路由保留同步更新，使连续修改筛选条件不会互相覆盖。
 
-| Figma | 实现 |
+## 验收命令
+
+```bash
+npm ci
+npx playwright install chromium
+npm run audit
+npm run lint
+npm run validate
+npm test
+npm run test:e2e -- --workers=1
+npm run check:pages
+npm run build
+```
+
+Chromium 仅需首次安装或 Playwright 升级后安装；Linux CI 使用 `npx playwright install --with-deps chromium`。`lint` 包含 TypeScript 检查。E2E 默认串行运行，并使用本地 Admin / Vite；不要在编辑真实内容时同时运行。后端故障注入与回滚测试在临时目录中执行。Pages 检查使用临时构建和纯静态服务，验证 `./`、`/`、`/Personal_Tool_Site/` 三种路径及刷新、静态资源、CFG / EXE 下载、工具 iframe 与 SDK。
+
+浏览器验收覆盖桌面及移动视口、键盘和 IME、减少动效、表单校验与草稿、导入与覆盖、备份恢复、页面导航和工具工作台。测试明细以本次执行结果与 GitHub Actions 日志为准。
+
+2026-09-20 本地验收结果：
+
+| 检查 | 结果 |
 |---|---|
-| Public Header | `Header.tsx`：DevOS / 首页 / 工具 / 管理 + ⌘K + 主题 |
-| Home Hero | `HomePage.tsx` + 真实计数 |
-| Command Palette | `CommandPalette.tsx` |
-| Tools grid | `ToolsPage.tsx` + `ToolCard` |
-| Native metadata sidebar | `ToolShell.tsx` |
-| Static chrome | `StaticToolPage.tsx` |
-| Admin shell | `admin/index.html` + `admin.css` |
-| Tables + kebab | `admin.js` `kebab()` |
-| Website/Category/Tag Drawer | `#editor-drawer` / `#tag-drawer` 同一套 `.ui-drawer` |
-| Settings tabs | `renderSite()` |
-| Validation table | `/api/validate` |
-| Wizard viewport | step 5 Desktop/Tablet/Mobile 宽度 |
+| 锁文件安装 | `npm ci` 成功 |
+| 官方 npm 安全审计 | 0 个已知漏洞 |
+| ESLint、TypeScript、公开数据校验 | 全部通过 |
+| 单元与后端集成测试 | 28 个文件，201 项通过 |
+| Chromium 端到端测试 | 144 项通过，最终全量运行无失败、无重试 |
+| GitHub Pages 静态部署 | 相对、根路径、仓库子路径全部通过 |
+| 生产构建与内容保护 | 构建成功；业务 JSON、工具 Manifest 与公开文件未被本轮修改 |
 
-## 3. Gap 决策
+依赖升级引出的连续筛选时序问题已在全量回归中定位并修复；测试没有通过添加等待来规避。GitHub Actions 会在推送 main 后再次执行相同交付门禁。
 
-见 `docs/v4/prototype-gap-analysis.md`。
+## 发布与恢复
 
-## 4. 已实现页面
+1. 在 Admin 的设置中导出完整站点备份；浏览器个人记录从前台工作区另行导出。
+2. 完成上述验收，检查 Git diff，提交并推送 main。CI 通过后由 Pages 发布；Admin 保存本身不会改变线上内容。
+3. 检查线上首页、工具、关键下载与新资源版本。生产页面不依赖本机 Admin。
+4. 内容恢复：在 Admin 设置的备份页选择 `.devos.gz`，核对预览，确认恢复后重新校验并发布。预览 30 分钟有效，期间内容变化必须重新预览。
+5. 应用代码回滚：对交付提交执行 `git revert`，经过相同 CI 后重新发布。完整站点备份只恢复内容文件，不恢复源码。
 
-前台：Home、Tools、Command Palette、Native Tool、Static Tool。  
-Admin：Dashboard、网站、工具、市场、分类、标签、校验、导入向导入口、设置。
+## 已知边界
 
-## 5. 未实现的原型能力
-
-Mike_A、通知、Cloud Sync、便签、Usage 图、访问量、存储配额、父分类、Tag Color schema、command_execution / read_env_vars / file_system_write、假 WASM scan、立即修复。原因：无真实数据源或不安全。
-
-## 6. Responsive
-
-前台 Header 在 <768 折行；工具网格 1/2/4 列；Admin sidebar 在 1024 以下折叠。需在 390–2560 目视确认。
-
-## 7. Accessibility
-
-Focus visible、Palette/Modal/Drawer Esc、Drawer focus trap、Reduced motion 已覆盖。Kebab 为按钮菜单。
-
-## 8–9. Test / Build
-
-以当次 `npm run lint && typecheck && validate && test && build` 为准。E2E：`npm run test:e2e`。
-
-## 10. 限制
-
-Admin 仅本机；GitHub Pages 无 CMS；导入 HTML 内部样式隔离；备份为 JSON 导出而非数据库。
+- 个人记录保存在当前浏览器；被拒绝或已满的存储不会变成可靠持久化。错误状态下应先导出，页面会话结束可能失去未保存内容。
+- Admin 仅本机、单进程使用，进程内队列不支持多个 Admin 进程同时写同一仓库。
+- 静态工具内部界面由导入包负责；允许的能力取决于 Manifest、浏览器 sandbox、权限与第三方站点策略。
+- 已验证当前 macOS 环境与自动化静态路径；PowerShell 启动器未在真实 Windows 环境验收。Windows 的 ZIP 导入/导出仍需 PATH 中的 `zip` / `unzip`。
+- 安全审计反映执行时已公开的依赖公告，不代表未来不会出现新的漏洞。CI 遇到新的中高危公告会阻止发布。

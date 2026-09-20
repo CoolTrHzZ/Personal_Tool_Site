@@ -3,4 +3,5 @@ import { HashRouter } from 'react-router-dom'
 import App from './app/App'
 import './styles.css'
 
-createRoot(document.getElementById('root')!).render(<HashRouter><App /></HashRouter>)
+// Keep URL-driven filters synchronous so consecutive edits use the latest parameters.
+createRoot(document.getElementById('root')!).render(<HashRouter useTransitions={false}><App /></HashRouter>)

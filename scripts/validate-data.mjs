@@ -12,9 +12,9 @@ const isISODate = value => {
   const time = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? Date.parse(`${value}T00:00:00Z`) : NaN
   return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value
 }
-const hasUnsafeTagChar = value => [...value].some(char => { const code = char.charCodeAt(0); return code < 32 || code === 127 })
-const validTag = tag => typeof tag === 'string' && tag.trim() && tag.length <= 64 && !tag.includes(',') && !hasUnsafeTagChar(tag)
-const validTags = tags => Array.isArray(tags) && tags.every(validTag)
+const hasUnsafeTagChar = value => [...value].some(char => { const code = char.charCodeAt(0); return code < 32 || (code >= 127 && code <= 159) })
+const validTag = tag => typeof tag === 'string' && tag.trim() && tag === tag.trim() && tag.length <= 64 && !tag.includes(',') && !hasUnsafeTagChar(tag)
+const validTags = tags => Array.isArray(tags) && tags.length <= 30 && new Set(tags).size === tags.length && tags.every(validTag)
 const categoryIcons = new Set(['Code2', 'Bot', 'Palette', 'Server', 'Globe2', 'Wrench'])
 const [navigation, categories] = await Promise.all([load('navigation'), load('categories')])
 const library = await load('library')
@@ -33,15 +33,22 @@ const registry = await readFile(new URL('../src/tools/registry.ts', import.meta.
 const registryTools = [...registry.matchAll(/\{\s*id:\s*'([^']+)'[\s\S]*?path:\s*'([^']+)'/g)].map(([, id, path]) => ({ id, path }))
 const coreManifests = JSON.parse(await readFile(new URL('../src/tools/manifests/core.json', import.meta.url), 'utf8'))
 const publicManifests = JSON.parse(await readFile(new URL('../public/tools-manifests.json', import.meta.url), 'utf8'))
-for (const field of ['title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'name']) if (typeof site[field] !== 'string') throw new Error(`invalid site.${field}`)
+for (const field of ['title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'name', 'footer', 'logo']) if (typeof site[field] !== 'string') throw new Error(`invalid site.${field}`)
 for (const field of ['title', 'description', 'github', 'name']) if (!site[field].trim()) throw new Error(`invalid site.${field}`)
 if (!/^https?:$/.test(new URL(site.github).protocol)) throw new Error(`invalid site.github: ${site.github}`)
-if (site.publicUrl) {
-  if (!/^https?:$/.test(new URL(site.publicUrl).protocol)) throw new Error(`invalid site.publicUrl: ${site.publicUrl}`)
-}
-if (site.basePath != null && !/^(\.\/|\/)/.test(String(site.basePath))) throw new Error(`invalid site.basePath: ${site.basePath}`)
-if (site.adminUrl && !/^https?:$/.test(new URL(site.adminUrl).protocol)) throw new Error(`invalid site.adminUrl: ${site.adminUrl}`)
+for (const field of ['publicUrl', 'adminUrl']) if (site[field] !== undefined && (typeof site[field] !== 'string' || (site[field] && !/^https?:$/.test(new URL(site[field]).protocol)))) throw new Error(`invalid site.${field}: ${site[field]}`)
+if (site.basePath != null && (typeof site.basePath !== 'string' || !/^(\.\/|\/)/.test(site.basePath))) throw new Error(`invalid site.basePath: ${site.basePath}`)
 if (!Number.isFinite(site.todayContinueLimit) || !Number.isInteger(site.todayContinueLimit) || site.todayContinueLimit < 1 || site.todayContinueLimit > 8) throw new Error(`invalid site.todayContinueLimit: ${site.todayContinueLimit}`)
+for (const [key, items] of Object.entries({ navigation, categories, library, notes, aiResources })) {
+  if (!Array.isArray(items)) throw new Error(`invalid ${key}`)
+  for (const item of items) {
+    if (!item || typeof item.id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(item.id)) throw new Error(`invalid ${key} id`)
+    const title = key === 'notes' ? item.title : item.name
+    if (typeof title !== 'string' || !title.trim()) throw new Error(`invalid ${key} title: ${item.id}`)
+    for (const field of ['description', 'summary', 'language']) if (item[field] !== undefined && typeof item[field] !== 'string') throw new Error(`invalid ${key}.${field}: ${item.id}`)
+    if (item.updated !== undefined && !isISODate(item.updated)) throw new Error(`invalid ${key}.updated: ${item.id}`)
+  }
+}
 const categoryIds = new Set(categories.map(item => item.id))
 if (categoryIds.size !== categories.length || categories.some(item => !item.id || !item.name || !Number.isFinite(item.order) || !categoryIcons.has(item.icon))) throw new Error('invalid categories')
 if (!Array.isArray(tags) || new Set(tags).size !== tags.length || !tags.every(validTag)) throw new Error('invalid tags catalog')

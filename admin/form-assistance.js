@@ -19,10 +19,10 @@ export function assistForm(form, { idHint, fixedIdHint } = {}) {
   if (id) {
     delete id.dataset.suggestedId
     id.maxLength = 80
-    id.pattern = '[a-z0-9][a-z0-9-]*'
+    id.pattern = '[a-z0-9][a-z0-9\\-]*'
     let hint = id.parentElement.querySelector('.field-hint')
     if (!hint) {
-      hint = document.createElement('small'); hint.className = 'field-hint'; hint.id = `${form.id}-id-hint`
+      hint = document.createElement('small'); hint.className = 'field-hint'; hint.id = `${form.getAttribute('id')}-id-hint`
       id.after(hint); id.setAttribute('aria-describedby', hint.id)
     }
     hint.textContent = id.readOnly ? fixedIdHint : idHint

@@ -4,6 +4,7 @@
 const ID = /^[a-z0-9-]+$/
 const VERSION = /^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$/i
 const ENTRY = /^[^/\\]+(?:\/[^/\\]+)*$/
+const validTag = tag => typeof tag === 'string' && tag.trim() && tag === tag.trim() && tag.length <= 64 && ![...tag].some(char => { const code = char.charCodeAt(0); return char === ',' || code < 32 || (code >= 127 && code <= 159) })
 
 export const TOOL_TYPES = ['react', 'html', 'iframe']
 export const TOOL_STATUSES = ['active', 'beta', 'disabled']
@@ -94,7 +95,7 @@ export function validateManifest(manifest, { upload = false, hasEntry } = {}) {
   const errors = []
   if (!manifest || typeof manifest !== 'object') return ['manifest 无效']
   if (!ID.test(manifest.id || '')) errors.push('id 只能使用小写字母、数字和短横线')
-  if (!manifest.name) errors.push('缺少 name')
+  if (typeof manifest.name !== 'string' || !manifest.name.trim()) errors.push('缺少有效 name')
   if (!VERSION.test(String(manifest.version || ''))) errors.push('version 必须是 semver，如 1.0.0')
   const migrated = migrateManifest(manifest)
   if (upload && migrated.runtime === 'react') errors.push('上传通道不接受 react 工具')
@@ -110,10 +111,12 @@ export function validateManifest(manifest, { upload = false, hasEntry } = {}) {
   if (manifest.enabled !== undefined && typeof manifest.enabled !== 'boolean') errors.push('enabled 必须是布尔值')
   if (manifest.keywords !== undefined && !Array.isArray(manifest.keywords)) errors.push('keywords 必须是数组')
   if (manifest.tags !== undefined && !Array.isArray(manifest.tags)) errors.push('tags 必须是数组')
+  for (const field of ['tags', 'keywords']) if (Array.isArray(manifest[field]) && (manifest[field].length > 30 || new Set(manifest[field]).size !== manifest[field].length || !manifest[field].every(validTag))) errors.push(`${field} 每项必须是有效标签，且不超过 30 个`)
   if (manifest.status !== undefined && !TOOL_STATUSES.includes(manifest.status)) errors.push('status 必须是 active / beta / disabled')
   if (manifest.display !== undefined && typeof manifest.display !== 'object') errors.push('display 必须是对象')
   if (manifest.permissions !== undefined && typeof manifest.permissions !== 'object') errors.push('permissions 必须是对象')
-  for (const field of ['author', 'updated', 'readme', 'license']) if (manifest[field] !== undefined && typeof manifest[field] !== 'string') errors.push(`${field} 必须是字符串`)
+  for (const field of ['description', 'category', 'icon', 'author', 'updated', 'readme', 'license']) if (manifest[field] !== undefined && typeof manifest[field] !== 'string') errors.push(`${field} 必须是字符串`)
+  if (manifest.order !== undefined && !Number.isFinite(manifest.order)) errors.push('order 必须是有限数字')
   return errors
 }
 

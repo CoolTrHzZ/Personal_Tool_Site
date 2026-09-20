@@ -34,7 +34,9 @@ export function createEditProtection({ notify = () => {} } = {}) {
     form.removeAttribute('aria-busy')
     states.delete(form)
   }
-  const begin = (form, { key = `${form.id}:${form.elements.originalId?.value || 'new'}`, extra, afterRestore } = {}) => {
+  const begin = (form, { key, extra, afterRestore } = {}) => {
+    const defaultKey = `${form.getAttribute('id')}:${form.elements.originalId?.value || 'new'}`
+    key ??= defaultKey
     for (const [node] of states) if (!node.isConnected) end(node)
     end(form)
     const banner = document.createElement('div'); banner.className = 'admin-draft'; banner.setAttribute('role', 'status')
@@ -44,7 +46,18 @@ export function createEditProtection({ notify = () => {} } = {}) {
     states.set(form, state); state.baseline = capture(form, state)
     form.prepend(banner); form.addEventListener('input', state.listener); form.addEventListener('change', state.listener)
     let draft
-    try { draft = localStorage.getItem(prefix + key) } catch { /* Storage may be unavailable; write gives an explicit warning. */ }
+    try {
+      draft = localStorage.getItem(prefix + key)
+      if (!draft && key === defaultKey && form.elements.namedItem('id')) {
+        // Chromium exposes name="id" as form.id; recover the former shared key only for matching fields.
+        const oldKey = `${prefix}[object HTMLInputElement]:${form.elements.originalId?.value || 'new'}`
+        const oldDraft = localStorage.getItem(oldKey), saved = oldDraft && JSON.parse(oldDraft)
+        const shape = fields => JSON.stringify(fields.filter(field => field.name !== '__tagInput').map(({ name, type }) => [name, type]).sort())
+        if (Array.isArray(saved?.values) && shape(saved.values) === shape(values(form))) {
+          draft = oldDraft; localStorage.setItem(prefix + key, draft); localStorage.removeItem(oldKey)
+        }
+      }
+    } catch { /* Storage may be unavailable; write gives an explicit warning. */ }
     if (draft && draft !== state.baseline) {
       status.textContent = '发现此条目的未保存草稿（仅此浏览器）'
       const restore = document.createElement('button'), discard = document.createElement('button')

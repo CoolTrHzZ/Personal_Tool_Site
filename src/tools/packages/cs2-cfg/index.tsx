@@ -7,6 +7,7 @@ import { downloadText, readTextFile } from '../../../utils/tool-files'
 import { analyzeCfg, upsertBinding } from './cfg'
 import { cfgFilename, decodeSharedCfg, encodeSharedCfg, isCfgDocument, MAX_CFG_BYTES, type CfgDocument } from './share'
 import { CFG_STORAGE_KEY, MAX_VERSIONS, readCfgStore, type CfgStore } from './store'
+import { rememberPersonalPending, writePersonalRaw } from '../../../utils/personal-storage'
 
 const example: CfgDocument = { name: 'autoexec', content: '// 日常配置示例：数值需在游戏内确认\nsensitivity "1.2"\nvolume "0.5"\nbind "SPACE" "+jump"\nbind "MOUSE4" "+voicerecord"\nbind "f" "+lookatweapon"\necho "autoexec loaded"\n' }
 const keyCodes: Record<string, string> = { Space: 'SPACE', ControlLeft: 'CTRL', ControlRight: 'CTRL', ShiftLeft: 'SHIFT', ShiftRight: 'SHIFT', AltLeft: 'ALT', AltRight: 'ALT', Enter: 'ENTER', Backquote: '`', Equal: '=', Minus: '-', BracketLeft: '[', BracketRight: ']', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\', Semicolon: 'SEMICOLON', ArrowUp: 'UPARROW', ArrowDown: 'DOWNARROW', ArrowLeft: 'LEFTARROW', ArrowRight: 'RIGHTARROW' }
@@ -57,22 +58,25 @@ export default function CfgWorkbench() {
   const commit = (next: CfgStore, force = false) => {
     setData(next)
     setMessage('')
-    if (blocked.current && !force) return false
+    const raw = JSON.stringify(next)
+    if (blocked.current && !force) { rememberPersonalPending(CFG_STORAGE_KEY, raw); return false }
     try {
       const current = localStorage.getItem(CFG_STORAGE_KEY)
       if (!force && current !== rawRef.current) {
         blocked.current = true
+        rememberPersonalPending(CFG_STORAGE_KEY, raw)
         setStorageError('本地记录已在其他页面修改，自动保存已暂停。请下载当前内容后刷新。')
         return false
       }
       // ponytail: at most 20 explicit snapshots; large collections should move to IndexedDB.
-      const raw = JSON.stringify(next)
-      localStorage.setItem(CFG_STORAGE_KEY, raw)
+      writePersonalRaw(CFG_STORAGE_KEY, raw)
       rawRef.current = raw
       blocked.current = false
       setStorageError('')
       return true
     } catch {
+      rememberPersonalPending(CFG_STORAGE_KEY, raw)
+      blocked.current = true
       setStorageError('浏览器保存失败，编辑内容仍在当前页面。请先下载 CFG，再重试保存。')
       return false
     }

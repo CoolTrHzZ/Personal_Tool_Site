@@ -5,7 +5,7 @@ import {
   field, renderMetadataForm, renderPermissionsForm,
 } from './wizard-forms.js'
 import { TAG_PAGE_SIZES, collectTagItems, filterTagItems, paginateTagItems, tagSourceLabel } from './tags-core.js'
-import { mountTagPicker } from './tag-picker.js'
+import { commitTagPicker, mountTagPicker } from './tag-picker.js'
 import { ICON_NAMES, createIconSvg } from './icon-catalog.js'
 import { mountTechField } from '/shared/tech-field.js'
 import { mountCfgLibrary } from './cfg-library.js'
@@ -105,7 +105,10 @@ function toBase64(bytes) {
   for (let index = 0; index < bytes.length; index += chunk) binary += String.fromCharCode.apply(null, bytes.subarray(index, index + chunk))
   return btoa(binary)
 }
-const fileToPayload = async file => ({ filename: file.name, content: toBase64(new Uint8Array(await file.arrayBuffer())) })
+const fileToPayload = async (file, maxBytes = Infinity) => {
+  if (file.size > maxBytes) throw new Error(i18n.locale === 'en-US' ? `File must be at most ${maxBytes / 1024 / 1024} MiB.` : `文件不能超过 ${maxBytes / 1024 / 1024} MiB。`)
+  return { filename: file.name, content: toBase64(new Uint8Array(await file.arrayBuffer())) }
+}
 function downloadBase64(filename, base64) {
   const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0))
   const url = URL.createObjectURL(new Blob([bytes], { type: filename.endsWith('.gz') ? 'application/gzip' : 'application/zip' }))
@@ -361,6 +364,59 @@ function chips(values) {
   return wrap
 }
 
+function metadataButton(collection, item) {
+  const description = item[collection === 'notes' ? 'summary' : 'description'] || ''
+  const en = i18n.locale === 'en-US'
+  const action = button(description ? `${en ? 'Edit' : '编辑'} · ${description}` : en ? 'Add tags / description' : '添加标签 / 说明', { metadataKind: collection, metadataId: item.id }, 'metadata-edit')
+  action.title = description || action.textContent
+  action.setAttribute('aria-label', en ? `Edit tags and description for ${item.name || item.title}` : `编辑 ${item.name || item.title} 的标签和说明`)
+  action.addEventListener('click', () => openMetadataEditor(collection, item))
+  return action
+}
+
+function openMetadataEditor(collection, item) {
+  if (!protectForm.mayLeave()) return
+  hideEditorForms()
+  $('#metadata-form')?.remove()
+  if ($('#tag-drawer')) $('#tag-drawer').hidden = true
+  const en = i18n.locale === 'en-US', descriptionKey = collection === 'notes' ? 'summary' : 'description'
+  const form = el('form', 'drawer-form')
+  form.id = 'metadata-form'
+  const identity = document.createElement('input')
+  identity.type = 'hidden'; identity.name = 'originalId'; identity.value = `${collection}:${item.id}`
+  const description = el('label', 'ui-field')
+  const textarea = el('textarea', 'ui-input')
+  textarea.name = descriptionKey; textarea.rows = 3; textarea.value = item[descriptionKey] || ''
+  textarea.placeholder = en ? 'What is it for, and when would you use it?' : '它能做什么？什么场景下会用到？'
+  description.append(el('span', 'ui-field-label', en ? 'Card description' : collection === 'notes' ? '摘要' : '卡片说明'), textarea)
+  const tags = collection === 'tools' ? [...new Set([...(item.tags || []), ...(item.keywords || [])])] : item.tags || []
+  const actions = el('div', 'ui-modal-actions')
+  const cancel = button(en ? 'Cancel' : '取消', {}, 'ui-button ui-button-ghost')
+  cancel.addEventListener('click', closeEditorDrawer)
+  actions.append(cancel, button(en ? 'Save changes' : '保存修改', {}, 'ui-button ui-button-primary', 'submit'))
+  form.append(identity, el('p', 'form-intro', en ? 'Save to update the card description and tags in the local preview.' : '补充一句用途说明，再选几个标签；保存后即可在本地预览中查看。'), description, input('tags', tags.join(', '), en ? 'Tags' : '标签'), actions)
+  $('#editor-drawer-body').append(form)
+  $('#editor-drawer-title').textContent = item.name || item.title
+  showEditorModal(form)
+  form.addEventListener('submit', async event => {
+    event.preventDefault()
+    if (!commitTagPicker(form) || !form.reportValidity()) return
+    const data = Object.fromEntries(new FormData(form))
+    const tags = String(data.tags || '').split(',').map(tag => tag.trim()).filter(Boolean)
+    const patch = { [descriptionKey]: data[descriptionKey].trim(), tags }
+    if (collection === 'tools') patch.keywords = tags
+    try {
+      await withBusy(form, async () => {
+        await request(`${collection}/${encodeURIComponent(item.id)}`, { method: 'PUT', body: JSON.stringify(patch) })
+        protectForm.clean(form)
+        closeEditorDrawer()
+        await reload(en ? 'Tags and description saved' : '标签和说明已保存')
+        document.querySelector(`[data-metadata-kind="${collection}"][data-metadata-id="${window.CSS.escape(item.id)}"]`)?.focus({ preventScroll: true })
+      })
+    } catch (error) { toastError(error.message) }
+  })
+}
+
 function renderCategoryPicker(form) {
   const host = form.querySelector('.category-picker')
   const field = form.elements.category
@@ -380,7 +436,7 @@ function renderCategoryPicker(form) {
 }
 
 function renderTagPicker(form) {
-  return mountTagPicker(form, { initialTags: state.tags, locale: i18n.locale, getTags: readTags, maxTags: form.id === 'cfg-form' ? 20 : 30 })
+  return mountTagPicker(form, { initialTags: state.tags, locale: i18n.locale, getTags: readTags, maxTags: form.getAttribute('id') === 'cfg-form' ? 20 : 30 })
 }
 async function readTags() {
   const data = await request('tags')
@@ -488,7 +544,7 @@ function matchedWebsites() {
   const category = $('#website-category')?.value || 'all'
   const status = $('#website-status')?.value || 'all'
   return state.navigation.filter(item => {
-    const blob = `${item.name} ${item.url} ${item.id} ${(item.tags || []).join(' ')}`.toLowerCase()
+    const blob = `${item.name} ${item.description || ''} ${item.url} ${item.id} ${(item.tags || []).join(' ')}`.toLowerCase()
     const statusOk = status === 'all' || (status === 'enabled' ? item.enabled : !item.enabled)
     const categoryOk = category === 'all' || item.category === category
     return (!q || blob.includes(q)) && statusOk && categoryOk
@@ -510,6 +566,7 @@ function renderNavigation() {
     const name = text('td', item.name)
     name.className = 'cell-tool'
     name.title = item.name
+    name.append(metadataButton('navigation', item))
     row.append(name, url, text('td', item.category), tags, text('td', item.enabled ? i18n.t('table.enable') : i18n.t('table.disable')))
     const actions = el('td', 'cell-actions', '')
     actions.append(kebab([
@@ -533,6 +590,7 @@ function renderLibrary() {
     const name = text('td', item.name)
     name.className = 'cell-tool'
     name.title = item.name
+    name.append(metadataButton('library', item))
     row.append(name, url, text('td', item.kind === 'skill' ? 'Skill' : '仓库'), tags, text('td', item.enabled ? i18n.t('table.enable') : i18n.t('table.disable')))
     const actions = el('td', 'cell-actions', '')
     actions.append(kebab([
@@ -553,6 +611,7 @@ function renderAIResources() {
     const name = text('td', item.name)
     name.className = 'cell-tool'
     name.title = item.name
+    name.append(metadataButton('ai-resources', item))
     const detail = el('td', 'cell-url', item.content || item.url || '—')
     detail.title = item.content || item.url || ''
     const tags = el('td', 'cell-tags')
@@ -576,6 +635,7 @@ function renderNotes() {
     const title = text('td', item.title)
     title.className = 'cell-tool'
     title.title = item.title
+    title.append(metadataButton('notes', item))
     const summary = text('td', item.summary || '')
     summary.className = 'cell-clip'
     summary.title = item.summary || ''
@@ -596,6 +656,7 @@ function renderTools() {
     const nameCell = el('td', 'cell-tool')
     nameCell.title = `${tool.name} · ${tool.id}`
     nameCell.append(el('strong', '', tool.name), el('small', '', tool.id))
+    nameCell.append(metadataButton('tools', tool))
     const displayCell = el('td', 'cell-display')
     if (tool.runtime === 'react') {
       displayCell.textContent = '—'
@@ -776,44 +837,34 @@ function armOutside(node, close) {
 function closeEditorDrawer() {
   const active = [...$('#editor-drawer-body').querySelectorAll('form')].find(form => !form.hidden)
   if (!$('#editor-drawer').hidden && active && !protectForm.mayLeave(active)) return false
+  editorFocusRevision++
   stopOutside?.()
   const returnFocus = editorReturnFocus
   editorReturnFocus = null
-  $('#editor-drawer-body').querySelectorAll('form').forEach(form => protectForm.end(form))
+  hideEditorForms()
   $('#editor-drawer').hidden = true
-  $('#nav-form').hidden = true
-  $('#category-form').hidden = true
-  if ($('#library-form')) $('#library-form').hidden = true
-  if ($('#ai-resource-form')) $('#ai-resource-form').hidden = true
-  if ($('#cfg-form')) $('#cfg-form').hidden = true
-  if ($('#content-collection-form')) $('#content-collection-form').hidden = true
   returnFocus?.focus()
   return true
 }
 function hideEditorForms() {
-  $('#editor-drawer-body').querySelectorAll('form').forEach(form => protectForm.end(form))
-  $('#nav-form').hidden = true
-  $('#category-form').hidden = true
-  if ($('#library-form')) $('#library-form').hidden = true
-  if ($('#ai-resource-form')) $('#ai-resource-form').hidden = true
-  if ($('#cfg-form')) $('#cfg-form').hidden = true
-  if ($('#content-collection-form')) $('#content-collection-form').hidden = true
+  $('#editor-drawer-body').querySelectorAll('form').forEach(form => { protectForm.end(form); form.hidden = true })
 }
 let editorReturnFocus = null
 let editorFocusRevision = 0
 function showEditorModal(form) {
   const focusRevision = ++editorFocusRevision
   const drawer = $('#editor-drawer')
+  form.querySelectorAll('details.form-advanced').forEach(details => { details.open = false })
   if (form.elements.originalId && form.elements.id) { form.elements.id.readOnly = Boolean(form.elements.originalId.value); form.elements.id.title = form.elements.originalId.value ? '已有 ID 为固定地址，不能更改' : '' }
   prepareForm(form)
   editorReturnFocus = document.activeElement
   renderEditorPickers(form)
-  if (!['cfg-form', 'content-collection-form'].includes(form.id)) protectForm.begin(form)
+  if (!['cfg-form', 'content-collection-form'].includes(form.getAttribute('id'))) protectForm.begin(form)
   drawer.hidden = false
   $('#editor-drawer-body').scrollTop = 0
   requestAnimationFrame(() => {
     if (focusRevision !== editorFocusRevision || !form.isConnected || !drawer.isConnected || drawer.hidden || form.hidden || !$('#modal').hidden || drawer.contains(document.activeElement)) return
-    form.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])')?.focus({ preventScroll: true })
+    ;[...form.querySelectorAll('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])')].find(field => !field.hidden && field.getClientRects().length)?.focus({ preventScroll: true })
   })
 }
 function openWebsiteDrawer(item) {
@@ -892,6 +943,7 @@ function applyNoteJson() {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(i18n.t('notes.jsonInvalid'))
   const form = $('#note-studio-form')
   const current = form.elements.originalId.value
+  const pendingTags = form.elements.namedItem('__tagInput')?.value || ''
   fill(form, {
     id: current || parsed.id || '',
     kind: parsed.kind || 'note', projectId: parsed.projectId || '', cfgIds: parsed.cfgIds || [],
@@ -904,20 +956,27 @@ function applyNoteJson() {
     enabled: parsed.enabled !== false,
   }, true)
   form.elements.originalId.value = current
+  if (form.elements.namedItem('__tagInput')) form.elements.namedItem('__tagInput').value = pendingTags
+  form.dispatchEvent(new Event('devos:picker-sync'))
   $('#note-json').value = rawJson
   refreshNotePreview()
+}
+function renderNoteTab(tab) {
+  document.querySelectorAll('[data-note-tab]').forEach(button => button.classList.toggle('active', button.dataset.noteTab === tab))
+  $('#note-studio-form .note-meta').hidden = tab === 'json'
+  if ($('#note-tab-write')) $('#note-tab-write').hidden = tab !== 'write'
+  if ($('#note-tab-json')) $('#note-tab-json').hidden = tab !== 'json'
 }
 function setNoteTab(tab) {
   const jsonPanel = $('#note-tab-json')
   const enteringJson = tab === 'json' && Boolean(jsonPanel?.hidden)
+  if (enteringJson && !commitTagPicker($('#note-studio-form'))) return false
   if (tab !== 'json' && jsonPanel && !jsonPanel.hidden) {
     try { applyNoteJson() }
     catch (error) { toastError(error.message); $('#note-json')?.focus(); return false }
     protectForm.changed($('#note-studio-form'))
   }
-  document.querySelectorAll('[data-note-tab]').forEach(button => button.classList.toggle('active', button.dataset.noteTab === tab))
-  if ($('#note-tab-write')) $('#note-tab-write').hidden = tab !== 'write'
-  if (jsonPanel) jsonPanel.hidden = tab !== 'json'
+  renderNoteTab(tab)
   if (enteringJson) syncNoteJson()
   if (tab === 'write') refreshNotePreview()
   return true
@@ -942,14 +1001,24 @@ function insertMarkdown(kind) {
   refreshNotePreview()
 }
 async function openNoteStudio(item) {
-  if (!protectForm.mayLeave()) return
-  try { [state.projects, state.cfgs] = await Promise.all([request('projects'), request('cfgs')]) } catch (error) { toastError(error.message); return }
+  const revision = ++editorFocusRevision
+  let projects, cfgs
+  try { [projects, cfgs] = await Promise.all([request('projects'), request('cfgs')]) }
+  catch (error) { if (revision === editorFocusRevision) toastError(error.message); return }
+  if (revision !== editorFocusRevision) return
+  state.projects = projects; state.cfgs = cfgs
   if (!showView('note-editor')) return
   closeEditorDrawer()
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   fillNoteStudio(item)
   $('#note-studio-title').textContent = item ? i18n.t('form.saveNote') : i18n.t('form.addNote')
-  protectForm.begin($('#note-studio-form'), { extra: { get: () => ({ rawJson: $('#note-json').value }), set: value => { $('#note-json').value = value.rawJson || '' } }, afterRestore: refreshNotePreview })
+  protectForm.begin($('#note-studio-form'), {
+    extra: {
+      get: () => ({ rawJson: $('#note-json').value, tab: $('#note-tab-json').hidden ? 'write' : 'json' }),
+      set: value => { $('#note-json').value = value.rawJson || ''; renderNoteTab(value.tab === 'write' ? 'write' : 'json') },
+    },
+    afterRestore: () => { refreshNotePreview(); ($('#note-tab-json').hidden ? $('#note-body') : $('#note-json')).focus() },
+  })
   $('#note-body')?.focus()
 }
 function openLibraryDrawer(item) {
@@ -1001,9 +1070,11 @@ let wizardPreviewListener = null
 const detachWizardPreview = () => { if (wizardPreviewListener) { window.removeEventListener('message', wizardPreviewListener); wizardPreviewListener = null } }
 
 function openWizard(file = null) {
+  if (!protectForm.mayLeave() || !$('#wizard').hidden) return
   Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false })
   $('#wizard').hidden = false
   renderWizard()
+  $('#wizard-close').focus()
   if (file) analyzeWizardFile(file)
 }
 
@@ -1020,17 +1091,20 @@ async function closeWizard(saved = false) {
 }
 
 async function analyzeWizardFile(file) {
+  if (wizard.busy) return
   if (!/\.(html?|zip)$/i.test(file.name)) { wizard.error = i18n.t('wizard.badFile'); renderWizard(); return }
   wizard.busy = true
   wizard.error = null
   renderWizard()
   try {
-    const analysis = await request('tools/analyze', { method: 'POST', body: JSON.stringify(await fileToPayload(file)) })
+    const analysis = await request('tools/analyze', { method: 'POST', body: JSON.stringify(await fileToPayload(file, 20 * 1024 * 1024)) })
+    const previousToken = wizard.analysis?.token
     wizard.file = file
     wizard.analysis = analysis
     wizard.manifest = analysis.manifestDraft
     wizard.metadataDraft = null
-  } catch (error) { wizard.error = error.message; wizard.file = null }
+    if (previousToken && previousToken !== analysis.token) await request(`tools/staging/${previousToken}`, { method: 'DELETE' }).catch(() => {})
+  } catch (error) { wizard.error = error.message }
   wizard.busy = false
   renderWizard()
 }
@@ -1081,14 +1155,15 @@ function renderWizardStep1() {
 
 function renderWizardStep2() {
   const form = renderMetadataForm(document, { manifest: wizard.manifest, categories: state.categories, t: i18n.t })
+  $('#wizard-body').replaceChildren(form)
+  renderTagPicker(form)
   for (const entry of wizard.metadataDraft || []) {
     const element = form.elements.namedItem(entry.name)
     if (!(element instanceof window.HTMLElement)) continue
     if (element instanceof HTMLInputElement && element.type === 'checkbox') element.checked = entry.checked
     else element.value = entry.value
   }
-  $('#wizard-body').replaceChildren(form)
-  renderTagPicker(form)
+  form.dispatchEvent(new Event('devos:picker-sync'))
 }
 
 function rememberWizardMetadata() {
@@ -1101,7 +1176,7 @@ function rememberWizardMetadata() {
 
 function collectWizardStep2() {
   const form = $('#wizard-body .wizard-form')
-  if (!form.reportValidity()) return false
+  if (!commitTagPicker(form) || !form.reportValidity()) return false
   const result = collectMetadataForm(form, wizard.manifest)
   if (!result.ok) { wizard.error = i18n.t(`wizard.${result.code}`); return false }
   wizard.manifest = result.manifest
@@ -1271,7 +1346,7 @@ function renderWizard() {
   dialog.classList.remove('wizard-md', 'wizard-lg', 'wizard-preview')
   dialog.classList.add(wizard.step === 5 ? 'wizard-preview' : wizard.step === 3 ? 'wizard-lg' : 'wizard-md')
   WIZARD_STEPS[wizard.step]?.render()
-  $('#wizard-prev').disabled = wizard.step === 1
+  $('#wizard-prev').disabled = wizard.busy || wizard.step === 1
   $('#wizard-next').textContent = wizard.step === 6 ? i18n.t('wizard.import') : i18n.t('wizard.next')
   $('#wizard-next').disabled = wizard.busy || (wizard.step === 1 && !wizard.analysis)
   renderWizardStatus()
@@ -1312,7 +1387,7 @@ async function wizardNext() {
 }
 
 function wizardPrev() {
-  if (wizard.step <= 1) return
+  if (wizard.busy || wizard.step <= 1) return
   if (wizard.step === 2) rememberWizardMetadata()
   else WIZARD_STEPS[wizard.step]?.collect?.()
   wizard.step -= 1
@@ -1387,6 +1462,7 @@ function openToolEdit(tool) {
   renderTagPicker(form)
   protectForm.begin(form, { key: `tool:${tool.id}` })
   protectForm.begin(access.querySelector('form'), { key: `tool-permissions:${tool.id}` })
+  form.elements.name.focus()
 }
 
 bind('#tool-edit-cancel', 'click', () => { if (!protectForm.mayLeave()) return; $('#tool-edit-body').querySelectorAll('form').forEach(form => protectForm.end(form)); $('#tool-edit').hidden = true; editingTool = null })
@@ -1394,7 +1470,7 @@ bind('#tool-edit-save', 'click', async () => {
   if (!editingTool) return
   try {
     const form = $('#tool-edit-body .tool-edit-form')
-    if (!form.reportValidity()) return
+    if (!commitTagPicker(form) || !form.reportValidity()) return
     const permForm = $('#tool-edit-body form.perm-grid')
     const data = Object.fromEntries(new FormData(form))
     const permResult = collectPermissionsForm(permForm, editingTool.permissions || {})
@@ -1432,7 +1508,7 @@ async function overwriteToolFlow(tool) {
     if (!file) return
     toast(i18n.t('wizard.analyzing'))
     try {
-      const analysis = await request('tools/analyze', { method: 'POST', body: JSON.stringify(await fileToPayload(file)) })
+      const analysis = await request('tools/analyze', { method: 'POST', body: JSON.stringify(await fileToPayload(file, 20 * 1024 * 1024)) })
       const manifest = { ...analysis.manifestDraft, id: tool.id, order: tool.order, favorite: tool.favorite }
       await request('tools/import', { method: 'POST', body: JSON.stringify({ token: analysis.token, manifest, overwrite: true }) })
       await reload(i18n.t('msg.overwrote', { id: tool.id }))
@@ -1488,12 +1564,17 @@ bind('#note-template', 'click', async () => {
 bind('#note-body', 'input', () => { refreshNotePreview() })
 bind('#note-studio-form', 'input', event => {
   if (event.target.id === 'note-json') return
-  if (currentView === 'note-editor') syncNoteJson()
+  if (currentView === 'note-editor' && $('#note-tab-json').hidden) syncNoteJson()
 })
 bind('#note-studio-form', 'submit', event => { event.preventDefault(); $('#note-save')?.click() })
 bind('#note-save', 'click', async () => {
   if (!$('#note-tab-json').hidden) { try { applyNoteJson() } catch (error) { toastError(error.message); return } }
-  if (!$('#note-studio-form').reportValidity()) return
+  const form = $('#note-studio-form')
+  if (!commitTagPicker(form) || !form.checkValidity()) {
+    if (!$('#note-tab-json').hidden) setNoteTab('write')
+    form.reportValidity()
+    return
+  }
   const pack = readNoteForm()
   if (!pack) return
   if (!pack.data.id || !pack.data.title) { toastError(i18n.t('notes.needFields')); return }
@@ -1516,13 +1597,13 @@ document.addEventListener('click', event => {
   document.querySelectorAll('.kebab-menu').forEach(menu => { menu.hidden = true })
 })
 document.addEventListener('keydown', event => {
-  const editor = !$('#modal').hidden ? $('#modal') : $('#editor-drawer')
+  const editor = ['#modal', '#tool-edit', '#editor-drawer', '#wizard'].map($).find(node => !node.hidden)
   if (event.key === 'Tab' && editor && !editor.hidden) {
-    const focusable = [...editor.querySelectorAll('button, input:not([type="hidden"]), select, textarea')].filter(node => !node.hidden && !node.disabled && node.offsetParent)
+    const focusable = [...editor.querySelectorAll('button, input:not([type="hidden"]), select, textarea, summary, a[href], [tabindex="0"]')].filter(node => !node.hidden && !node.disabled && !node.closest('[hidden], details:not([open]) > :not(summary)') && node.offsetParent)
     const [first] = focusable
     const last = focusable.at(-1)
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+    else if (!event.shiftKey && document.activeElement === last || !editor.contains(document.activeElement)) { event.preventDefault(); first?.focus() }
     return
   }
   if (event.key !== 'Escape') return
