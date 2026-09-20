@@ -31,9 +31,10 @@ export function mountTagPicker(form, { getTags, initialTags = [], locale = 'zh-C
   inputRow.append(search, addButton)
   const selectedHost = make('div', 'tag-chips'), options = make('div', 'tag-option-list'), feedback = make('p', 'picker-empty')
   feedback.setAttribute('role', 'status')
+  const countHint = make('small', 'picker-empty')
   const hint = make('small', 'picker-empty', en ? 'Enter or Add confirms a tag. Save also includes typed tags. Paste comma, semicolon or line-separated lists.' : '回车或点“添加”确认；直接保存也会带上已输入的标签。可粘贴逗号、分号或换行分隔的列表。')
   const retry = action(en ? 'Retry loading tags' : '重新加载标签', () => refresh(), 'ui-button ui-button-ghost ui-button-sm'); retry.hidden = true
-  host.replaceChildren(inputRow, selectedHost, options, hint, feedback, retry)
+  host.replaceChildren(inputRow, selectedHost, options, countHint, hint, feedback, retry)
   let candidates = initialTags, revision = 0
   const disabled = () => field.disabled || field.readOnly
   const names = () => [...new Set(candidates.map(item => typeof item === 'string' ? item : item.name).filter(name => typeof name === 'string'))]
@@ -83,7 +84,7 @@ export function mountTagPicker(form, { getTags, initialTags = [], locale = 'zh-C
     if (query && !names().some(name => name.toLocaleLowerCase() === query.toLocaleLowerCase())) {
       const create = action(`${en ? 'Add' : '添加'}「${query}」`, () => add(query)); create.dataset.createTag = 'true'; create.disabled = locked; options.append(create)
     } else if (!filtered.length) options.append(make('span', 'picker-empty', en ? 'No tags yet. Create one above.' : '暂无候选标签，可直接输入新标签。'))
-    if (!query && filtered.length > 12) options.append(make('span', 'picker-empty', en ? `Showing 12 of ${filtered.length}; type to find more.` : `显示前 12 个，共 ${filtered.length} 个；输入可查找其他标签。`))
+    countHint.textContent = !query && filtered.length > 12 ? (en ? `Showing 12 of ${filtered.length}; type to find more.` : `显示前 12 个，共 ${filtered.length} 个；输入可查找其他标签。`) : ''
     if (!locked && (optionName !== undefined || creating || chipIndex !== -1)) {
       const next = chipIndex !== -1 ? [...selectedHost.children].find(chip => chip.getAttribute('aria-label') === focused.getAttribute('aria-label')) || selectedHost.children[Math.min(chipIndex, selectedHost.children.length - 1)] : [...options.children].find(option => optionName !== undefined ? option.dataset.tagOption === optionName : option.dataset.createTag === 'true')
       const target = next || search
