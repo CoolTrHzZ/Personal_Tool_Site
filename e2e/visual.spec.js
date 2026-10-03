@@ -1,4 +1,4 @@
-import { adminNavigation } from './helpers/admin-navigation.js'
+import { adminNavigation, adminField } from './helpers/admin-navigation.js'
 import { test, expect } from '@playwright/test'
 
 test('Admin dashboard 一屏展示真实项目配置并可直达管理页', async ({ page, request }) => {
@@ -60,7 +60,7 @@ test('Admin 可编辑各内容页说明', async ({ page }) => {
   await page.goto('/admin/')
   await (await adminNavigation(page, '.nav-item[data-view="settings"]')).click()
   const fields = ['toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription']
-  for (const name of fields) await expect(page.locator(`#site [name="${name}"]`)).toBeVisible()
+  for (const name of fields) await expect(await adminField(page.locator('#site'), `[name="${name}"]`)).toBeVisible()
   await expect(page.locator('#site [name="name"]')).toHaveAttribute('required', '')
   await expect(page.locator('#site [name="tagline"]')).not.toHaveAttribute('required', '')
   await expect(page.locator('#site [name="navigationDescription"]')).not.toHaveAttribute('required', '')
@@ -79,7 +79,7 @@ test('Admin 可编辑各内容页说明', async ({ page }) => {
     payload = route.request().postDataJSON()
     await route.fulfill({ json: payload })
   })
-  await page.locator('#site [name="navigationDescription"]').fill('E2E 页面说明')
+  await (await adminField(page.locator('#site'), '[name="navigationDescription"]')).fill('E2E 页面说明')
   await page.locator('#site button[type="submit"]').click()
   await expect.poll(() => payload?.navigationDescription).toBe('E2E 页面说明')
 })

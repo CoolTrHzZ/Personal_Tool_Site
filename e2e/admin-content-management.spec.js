@@ -8,7 +8,7 @@ import { gzipSync } from 'node:zlib'
 const tagOptions = [{ name: 'AI workflow', total: 1 }, { name: '社区服', total: 1 }, { name: '设计，排版', total: 1 }]
 async function tagApi(route, url) { if (url.pathname !== '/api/tags') return false; await route.fulfill({ json: { items: tagOptions } }); return true }
 async function selectTags(form, custom = '自定义') {
-  const search = form.locator('.picker-search')
+  const search = await adminField(form, '.picker-search')
   await search.fill('awf'); await search.press('ArrowDown'); await form.locator('[data-tag-option="AI workflow"]').press('Enter')
   await expect(form.locator('[data-tag-option="AI workflow"]')).toBeFocused()
   await search.fill(custom); await search.press('Enter')
@@ -546,8 +546,7 @@ test('Admin 仅改变图标或分类也会保护并恢复草稿，隐藏身份�
   const category = await form.locator('[data-category-option][aria-pressed="false"]').first().getAttribute('data-category-option')
   await form.locator(`[data-category-option="${category}"]`).focus(); await page.keyboard.press('Enter')
   await expect(form.locator(`[data-category-option="${category}"]`)).toBeFocused()
-  await form.locator('details.form-advanced > summary').click()
-  await form.locator('[data-icon-option="letter"]').focus(); await page.keyboard.press('Enter')
+  await (await adminField(form, '[data-icon-option="letter"]')).focus(); await page.keyboard.press('Enter')
   await expect(form.locator('[data-icon-option="letter"]')).toBeFocused()
   page.once('dialog', dialog => dialog.dismiss()); await page.locator('#editor-drawer-close').click(); await expect(form).toBeVisible()
   page.once('dialog', dialog => dialog.accept()); await page.locator('#editor-drawer-close').click()
