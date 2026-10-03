@@ -32,8 +32,9 @@ export function normalizeFields(target, input) {
       if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('链接必须是无凭据的 HTTP(S) 地址')
       output.url = url.href
     } else if (key === 'kind') {
-      if (!['skill', 'agent', 'prompt', 'model', 'app'].includes(text)) throw new Error('资源类型建议无效')
-      output.kind = text
+      const kind = text.toLowerCase()
+      if (!['skill', 'agent', 'prompt', 'model', 'app'].includes(kind)) throw new Error('资源类型建议无效')
+      output.kind = kind
     } else output[key] = text
   }
   return output
