@@ -10,6 +10,7 @@ import { ICON_NAMES, createIconSvg } from './icon-catalog.js'
 import { mountTechField } from '/shared/tech-field.js'
 import { mountCfgLibrary } from './cfg-library.js'
 import { createEditProtection } from './edit-protection.js'
+import { mountQuickCollect } from './quick-collect.js'
 import { assistForm, showFormError } from './form-assistance.js'
 import { mountSiteManagement } from './site-management.js'
 import { mountContentCollections } from './content-collections.js'
@@ -61,12 +62,18 @@ if (i18n.locale === 'en-US') {
   ;['Dark', 'Light', 'System'].forEach((label, index) => { $('#admin-theme').options[index].textContent = label })
 }
 
-const request = async (path, options) => {
-  const response = await fetch(`/api/${path}`, { headers: { 'content-type': 'application/json' }, ...options })
+const authSession = await fetch('/api/auth/session').then(response => response.json())
+if (!authSession.authenticated) location.replace('/admin/login.html')
+const request = async (path, options = {}) => {
+  const response = await fetch(`/api/${path}`, { ...options, headers: { 'content-type': 'application/json', ...(authSession.csrf ? { 'x-csrf-token': authSession.csrf } : {}), ...options.headers } })
+  if (response.status === 401) { location.replace('/admin/login.html'); throw Error('会话已失效，请重新登录') }
   const data = await response.json()
   if (!response.ok) throw Error(data.error || i18n.t('msg.request'))
   return data
 }
+const quickCollectors = authSession.mode === 'cloud' ? Object.fromEntries([
+  ['nav-form', 'navigation'], ['ai-resource-form', 'ai-resources'],
+].map(([id, target]) => [id, mountQuickCollect(document.getElementById(id), { target, request, changed: form => protectForm.changed(form) })])) : {}
 const text = (tag, value) => { const element = document.createElement(tag); element.textContent = value ?? ''; return element }
 const el = (tag, className, value) => { const element = text(tag, value); if (className) element.className = className; return element }
 const button = (label, data = {}, className = 'ui-button ui-button-ghost ui-button-sm', type = 'button') => {
@@ -132,11 +139,14 @@ const protectForm = createEditProtection({ notify: toast })
 const prepareForm = form => assistForm(form, { idHint: i18n.t('form.idHint'), fixedIdHint: i18n.t('form.fixedIdHint') })
 const adminScene = { dashboard: 'dash', websites: 'nav', library: 'nav', 'ai-resources': 'cms', notes: 'cms', 'note-editor': 'cms', tools: 'tools', marketplace: 'market', categories: 'nav', tags: 'cms', settings: 'form', validate: 'cms', import: 'form' }
 let currentView = 'dashboard'
+let viewHistoryIndex = Number.isInteger(window.history.state?.devosAdminViewIndex) ? window.history.state.devosAdminViewIndex : 0
+let revertingViewHistory = false
+const viewHash = view => '#' + (view === 'cfg-library' ? 'cfgs' : view === 'note-editor' ? 'notes' : view)
 function updateTelemetry() {
   if ($('#page-telemetry')) $('#page-telemetry').textContent = `index · tools ${state.tools.length} · websites ${state.navigation.length} · System Online`
 }
 
-function showView(view) {
+function showView(view, updateHistory = true) {
   if (!protectForm.mayLeave()) return false
   const menuWasOpen = $('.admin-shell').classList.contains('nav-open')
   setAdminMenu(false)
@@ -144,8 +154,7 @@ function showView(view) {
   if ($('#tag-drawer')) $('#tag-drawer').hidden = true
   if (currentView === 'note-editor' && view !== 'note-editor') protectForm.end($('#note-studio-form'))
   currentView = view
-  const hash = { 'cfg-library': 'cfgs', projects: 'projects', 'ai-workflows': 'ai-workflows' }[view]
-  window.history.replaceState(null, '', hash ? `#${hash}` : location.pathname + location.search)
+  if (updateHistory && location.hash !== viewHash(view)) window.history.pushState({ ...window.history.state, devosAdminViewIndex: ++viewHistoryIndex }, '', viewHash(view))
   document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view))
   const navView = view === 'note-editor' ? 'notes' : view
   document.querySelectorAll('.nav-item[data-view]').forEach(item => { item.classList.toggle('active', item.dataset.view === navView); if (item.dataset.view === navView) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current') })
@@ -740,7 +749,7 @@ function renderTags() {
     tbody.replaceChildren(...page.items.map(item => {
       const row = document.createElement('tr')
       row.append(text('td', item.name), text('td', String(item.total)), text('td', i18n.t(`tags.source.${tagSourceLabel(item)}`)))
-      const actions = el('td', '', '')
+      const actions = el('td', 'cell-actions', '')
       actions.append(button(i18n.t('tags.view'), { viewTag: item.name }))
       row.append(actions)
       return row
@@ -847,6 +856,7 @@ function closeEditorDrawer() {
   return true
 }
 function hideEditorForms() {
+  Object.values(quickCollectors).forEach(collector => collector.cancel())
   $('#editor-drawer-body').querySelectorAll('form').forEach(form => { protectForm.end(form); form.hidden = true })
 }
 let editorReturnFocus = null
@@ -857,6 +867,7 @@ function showEditorModal(form) {
   form.querySelectorAll('details.form-advanced').forEach(details => { details.open = false })
   if (form.elements.originalId && form.elements.id) { form.elements.id.readOnly = Boolean(form.elements.originalId.value); form.elements.id.title = form.elements.originalId.value ? '已有 ID 为固定地址，不能更改' : '' }
   prepareForm(form)
+  quickCollectors[form.getAttribute('id')]?.reset()
   editorReturnFocus = document.activeElement
   renderEditorPickers(form)
   if (!['cfg-form', 'content-collection-form'].includes(form.getAttribute('id'))) protectForm.begin(form)
@@ -1871,11 +1882,53 @@ document.addEventListener('click', async event => {
   } catch (error) { toastError(error.message) }
 })
 
-const siteManagement = mountSiteManagement({ request, el, button, toast, openModal, downloadBase64, fileToPayload, reload })
+if (authSession.mode === 'cloud') {
+  const localLabel = document.querySelector('.admin-local-label')
+  if (localLabel) { localLabel.textContent = '私有草稿 · 保存不发布'; localLabel.title = '私有管理入口；回环服务经独立 HTTPS 端口访问' }
+  $('#status').removeAttribute('data-i18n'); $('#status').textContent = '云端私有草稿'
+  const hint = document.querySelector('.admin-get-started .muted')
+  if (hint) hint.textContent = '先添加内容并保存私有草稿，再预览变更与校验；显式发布尚未接入。'
+  $('#admin-preview').hidden = true
+  $('#admin-logout').hidden = false
+  $('#admin-draft-preview').hidden = false
+  bind('#admin-logout', 'click', async () => {
+    if (!await protectForm.mayLeave()) return
+    try { await request('auth/logout', { method: 'POST', body: '{}' }); location.replace('/admin/login.html') } catch (error) { toastError(error.message) }
+  })
+  bind('#admin-draft-preview', 'click', async () => {
+    try {
+      const report = await request('drafts/preview')
+      const validation = await request('publishing/validate', { method: 'POST', body: '{}' })
+      const content = el('div', 'admin-management-result')
+      content.append(el('p', '', report.message), el('p', '', validation.ok ? '内容校验通过。' : '内容校验未通过：' + validation.issues.join('；')))
+      const list = el('ul', 'admin-file-list')
+      for (const item of report.changes) list.append(el('li', '', ({ add: '新增', replace: '覆盖', delete: '删除' }[item.action] || item.action) + ' · ' + item.path))
+      if (!report.changes.length) list.append(el('li', '', '没有未发布变更'))
+      content.append(list)
+      await openModal({ title: '私有草稿变更预览', body: content })
+    } catch (error) { toastError(error.message) }
+  })
+}
+const siteManagement = mountSiteManagement({ request, el, button, toast, openModal, downloadBase64, fileToPayload, reload, cloud: authSession.mode === 'cloud' })
 const contentCollections = mountContentCollections({ request, el, button, toast, openModal, showEditorModal, closeEditorDrawer, hideEditorForms, protectForm, getState: () => state })
 const cfgLibrary = mountCfgLibrary({ request, openModal, showEditorModal, closeEditorDrawer, hideEditorForms, toast, el, button, protectForm })
-const followAdminHash = () => { const view = { '#cfgs': 'cfg-library', '#projects': 'projects', '#ai-workflows': 'ai-workflows' }[location.hash]; if (view) showView(view) }
+const followAdminHash = () => {
+  if (revertingViewHistory) { revertingViewHistory = false; return }
+  const requested = location.hash === '#cfgs' ? 'cfg-library' : location.hash.slice(1)
+  const view = requested !== 'note-editor' && [...document.querySelectorAll('[data-view-panel]')].some(panel => panel.dataset.viewPanel === requested) ? requested : requested === 'note-editor' ? 'notes' : 'dashboard'
+  const nextIndex = Number.isInteger(window.history.state?.devosAdminViewIndex) ? window.history.state.devosAdminViewIndex : viewHistoryIndex + 1
+  if (location.hash === viewHash(currentView) && nextIndex === viewHistoryIndex) return
+  if (!showView(view, false)) {
+    if (nextIndex !== viewHistoryIndex) { revertingViewHistory = true; window.history.go(viewHistoryIndex - nextIndex) }
+    else window.history.replaceState({ ...window.history.state, devosAdminViewIndex: viewHistoryIndex }, '', viewHash(currentView))
+    return
+  }
+  viewHistoryIndex = nextIndex
+  window.history.replaceState({ ...window.history.state, devosAdminViewIndex: viewHistoryIndex }, '', viewHash(view))
+}
+window.history.replaceState({ ...window.history.state, devosAdminViewIndex: viewHistoryIndex }, '', location.href)
 followAdminHash()
+window.addEventListener('popstate', followAdminHash)
 window.addEventListener('hashchange', followAdminHash)
 reload('', false).catch(error => toastError(error.message))
 

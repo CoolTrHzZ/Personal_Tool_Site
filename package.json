@@ -21,7 +21,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "check:pages": "node scripts/check-pages.mjs",
-    "audit": "npm audit --registry=https://registry.npmjs.org --audit-level=moderate"
+    "audit": "npm audit --registry=https://registry.npmjs.org --audit-level=moderate",
+    "admin:cloud": "node scripts/admin-maintain.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "4.3.4",

@@ -73,7 +73,7 @@ export function decodeSiteBackup(content) {
   return { ...archive, bytes }
 }
 
-async function validateStaged(root, staged) {
+export async function validateStaged(root, staged) {
   await cp(join(root, 'scripts'), join(staged, 'scripts'), { recursive: true })
   await cp(join(root, 'shared'), join(staged, 'shared'), { recursive: true })
   await cp(join(root, 'src/tools/registry.ts'), join(staged, 'src/tools/registry.ts'))

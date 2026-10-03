@@ -242,10 +242,122 @@ LICENSE             MIT
 
 ## 约束
 
-- 不引入数据库、登录、Docker 或常驻云端后端。
+- 静态站点保持无数据库；本地开发模式使用回环。可选云 Admin 增加独立登录与私有草稿，见下文。
 - 不引入大型 UI 框架。
 - 不提交密钥、`node_modules`、`dist`、日志。
 
 ## License
 
 [MIT](LICENSE) © 2026 CoolTrHzZ
+
+## 云 Admin 基础批（Node/JSON，无数据库）
+
+云模式仍只监听 `127.0.0.1`，通过前置 TLS 入口访问。外部地址支持同一服务器域名加独立 HTTPS 端口，例如 `https://workstation.example:19473`；内部回环端口可以不同。当前代码不会安装或修改反向代理、DNS、防火墙或系统服务。高位端口不能代替认证和限速。
+
+`ADMIN_MODE=local` 是现有本地开发方式，无登录且只绑定回环；`cloud` 必须配置 HTTPS origin、仓库外私有 state、已由用户设置的认证文件，否则拒绝启动。不要用公网 HTTP 传输登录密码。
+
+需要 Node.js 22+、Git；Admin 本身不需要 npm/Vite。ZIP 工具导入/导出仍需要 zip/unzip。先将这一批受审代码提交到固定仓库 main 后，以下升级入口才可下载它；本地尚未提交的更改会被拒绝覆盖。
+
+```sh
+# 已有干净的官方仓库，首次在服务器交互终端设置：
+node deploy.mjs cloud setup --project /srv/devos/code --state /srv/devos/private \
+  --origin https://workstation.example:19473 --port 19474
+
+# 从包含本基础批的 deploy.mjs 安装到不存在的目录（也支持单独下载启动器）：
+node deploy.mjs cloud install --project /srv/devos/code --state /srv/devos/private \
+  --origin https://workstation.example:19473 --port 19474
+
+node deploy.mjs cloud start --project /srv/devos/code --state /srv/devos/private
+# 前台运行，用 Ctrl+C 停止这个入口。另一个终端可查询：
+node deploy.mjs cloud status --project /srv/devos/code --state /srv/devos/private
+node deploy.mjs cloud logs --project /srv/devos/code --state /srv/devos/private
+# 停止后才可升级/回退：
+node deploy.mjs cloud update --project /srv/devos/code --state /srv/devos/private
+node deploy.mjs cloud rollback --project /srv/devos/code --state /srv/devos/private
+```
+
+密码仅在交互终端输入，不接受命令参数或环境变量；首次设置不回显，保存加盐 scrypt 校验值。state 必须为运行用户拥有的 0700 实际目录，不能位于代码、public 或代码回退目录内；认证和运行配置文件权限为 0600。不提供公网首次注册页面。忘记密码时先停止入口，通过服务器私有终端备份并移出 `auth.json`、`runtime.json`，再 setup；账号处理不改变 `drafts/`。
+
+会话使用 HttpOnly、Secure、SameSite=Strict Cookie，绝对期限 6 小时，闲置 30 分钟失效，退出或重启立即失效。写请求同时验证配置的 origin、JSON 类型及会话 CSRF。错误登录按来源逐步等待 1/2/4/8/16/30 秒，最长 30 秒，10 分钟无失败后释放；全局限制初始 5 次、之后每 3 秒补一次，限制换 IP 的高频尝试。不是永久账号锁定。审计只记录固定事件、状态和匿名来源摘要，1 MiB 轮换，不记录密码、用户名、Cookie、请求正文或原始 IP。
+
+前置代理必须覆盖 Host 为配置的外部域名及端口、覆盖 `X-Forwarded-Proto: https`、覆盖 `X-Forwarded-For` 为客户端单个真实 IP。不要透传客户端自带的转发头。Node 始终回环监听；直接 HTTP 后端不接受云登录。TLS 入口与其他服务共用服务器时，先检查端口、既有域名及代理方式，单独增加本应用入口。
+
+云编辑保存在 `state/drafts/`，首次从仓库已公开内容初始化。之后源码 `src/data`、`public` 不受云保存或备份恢复影响。停用仅控制展示，不能当作保密措施。浏览器未保存编辑仍沿用原有浏览器草稿；服务器保存与浏览器未保存草稿分别提示。
+
+“预览草稿变更”展示文件清单并运行内容校验，**不是前台视觉预览**。同源导入 HTML 在云 Admin 中暂不执行，避免导入脚本访问管理会话；本地开发预览继续可用。真实视觉预览需要独立的无管理 Cookie 来源或严格隔离，另行实现。
+
+基础批的保存/变更预览仍不提交或推送；后续已增加需要明确确认的固定仓库发布流程，见“云 Admin 显式发布准备批”。完整前台视觉预览仍待独立 origin。备份页在云模式导出/恢复的是私有草稿内容，排除认证、运行配置、源码和浏览器数据。
+
+云升级固定 `https://github.com/CoolTrHzZ/Personal_Tool_Site.git` 的 main，不接受命令行 repo/ref 或远程 Shell。先克隆候选到同文件系统、记录并固定 commit、校验候选和当前草稿，再交换代码目录；要求快进，拒绝脏仓库和并发操作。上一代码版本保存在 `code.previous`，仅保留一版。升级前的内容备份保存在私有 `state/backups/`；自行保留所需历史并定期备份整个 state（含认证/配置，勿提交仓库）。
+
+`rollback` 只交换代码，不把业务草稿恢复到旧快照；旧代码不能读取当前草稿时拒绝回退，需自行处理兼容性。候选校验失败不改现有代码，目录交换失败尝试恢复原代码。更新或回退后手动 start 检查前台输出；本批不安装守护服务、不自动重启。异常强制终止可能留下 `maintenance.lock`，核实 owner.json 进程已结束后再移除，维护入口不会杀其他进程。
+
+定向检查需明确提供隔离目录和无 secret 的合成 demo，没有内部目录 fallback：
+
+```sh
+DEVOS_TEST_DIR=/path/to/disposable-tests DEVOS_DEMO_SOURCE=/path/to/sanitized-demo \
+  TMPDIR=/path/to/disposable-tests/tmp node scripts/check-admin-foundation.mjs
+```
+
+## 快速收集与通用 AI 补空（云 Admin）
+
+已登录云模式的网站、AI 资源表单增加“快速收集与 AI 补空”。粘贴带“名称 / URL / 描述 / 标签”等标签的文本、单个网址或完整 Markdown 链接，点击“提取明确字段”即可得到逐字段差异。**仅分析粘贴内容，不自动读取网址**；单个网址不能自动得到网页标题或正文。重复字段和多个网址会提示手动选择，最多接收 12000 字符。
+
+“AI 补空建议”把粘贴材料与本表单字段发送给已配置的服务。材料被作为不可信数据；服务端只接受白名单 JSON 建议，不执行命令、不请求材料中的网址、不采用 ID、启用状态、排序或发布指令。网站白名单为名称、URL、描述、标签；AI 资源另有类型、安装方式、配置内容。URL 只接受无凭据 HTTP(S)，类型限现有五种，标签限 30 个。
+
+已有值、默认类型、分析期间的手动修改和标签选择器中尚未确认的输入都会保留。每项建议先显示“当前 / 建议”，你可取消勾选；点击“应用勾选建议”时再次检查最新空值及编辑版本。取消、关闭、重开或切换表单使旧响应失效。AI 的 HTML、脚本和安装命令只作为文本显示，仍需自行检查内容准确性。
+
+应用只修改当前表单，**还需点击原有保存按钮才写入私有草稿**，不会提交或发布。配置缺失、超时、格式不符或服务失败都保留手填能力。全局只处理一项 AI 请求，不排队；忙碌时提示稍后重试。此入口在无登录的本地模式中关闭。
+
+AI 配置由运行用户在服务器私有终端创建为 `state/ai-provider.json`，权限 0600，且属于该用户；state 沿用 0700 仓库外目录。浏览器不提供密钥配置入口，也不返回 endpoint、model 或 key。以下仅为格式示例，需替换为你自行确认的服务与模型；不要将此文件放入仓库：
+
+```json
+{
+  "version": 1,
+  "baseUrl": "https://ai-service.example/v1",
+  "model": "your-configured-model",
+  "apiKey": "",
+  "timeoutMs": 10000
+}
+```
+
+服务需兼容 `POST <baseUrl>/chat/completions`，返回 `choices[0].message.content` 中的纯 JSON `{"fields": {...}}`。不绑定模型品牌。远程地址必须 HTTPS；HTTP 仅允许同机 localhost / 127.0.0.1 / ::1。不跟随重定向，不关闭 TLS 校验；默认 10 秒、最多 15 秒，响应上限 128 KiB。key 可按所选服务要求填写；本批没有生成或录入真实 key。
+
+配置按请求读取；首次配置可查看表单提示确认是否有效。内容备份排除 AI 配置、认证和运行配置，需单独安全备份整个私有 state。审计只记录事件与状态，不记录材料、表单正文或服务密钥。
+
+定向检查仅使用合成账号与模拟服务：
+
+```sh
+DEVOS_TEST_DIR=/path/to/disposable-tests DEVOS_DEMO_SOURCE=/path/to/sanitized-demo \
+  TMPDIR=/path/to/disposable-tests/tmp node scripts/check-admin-ai.mjs
+```
+
+## 云 Admin 显式发布准备批
+
+云模式的“发布管理”现在提供：生成公开清单与差异 → 校验 → 确认公开 → 固定仓库 main 的 commit / push → 手动刷新 Pages 结果。前面的“变更预览”仍仅核对内容，**不是完整前台视觉预览**；管理来源不执行导入 HTML。完整视觉预览需要合适的独立 origin，另行实现。
+
+目标固定为 `CoolTrHzZ/Personal_Tool_Site` 的 `main`，不接收网页传入的 remote、branch、Shell 或命令。发布使用仓库外 `state/publisher/repo` 独立工作区，不在运行源码仓库提交、不回退运行源码、不重置私有草稿。预览以实际获取的远端 main 为基准；它可能与运行程序的旧内容不同，请检查所有删改。
+
+先保存服务器草稿，再生成清单。确认页列出目标站点、新增/修改/删除、大小与 SHA256，显示文本差异（最多 64 KiB）；二进制/长文本需自行核对。停用条目、笔记/AI 正文、CFG 历史、工具脚本和下载仍会公开，未保存浏览器编辑不包含。字段校验不能判断你在允许的正文或工具文件里写入的私密内容，请在确认前检查。
+
+公开范围比完整备份更窄：只接受现有十个 `src/data/*.json` 的明确字段、内置/公开工具索引、已登记 CFG、已登记项目下载、已有工具 SDK，以及带合法 Manifest 的静态工具资产。拒绝未知数据文件/字段、私有配置名称、隐藏路径、符号链接和未登记工具/下载。草稿中额外的 `public/images`、其他未支持上传路径会明确拒绝，**不会静默省略**。已登记工具内部的图片/HTML 是公开工具资产；差异按文字/哈希展示，管理界面不执行它们。
+
+预览 30 分钟有效，草稿、远端或暂存区变化后需重新确认。服务器也要求明确确认标记，复用登录与 CSRF。每次只允许一个发布操作；先持久保存待写 commit 的精确 SHA，再写 Git 对象/移动本地 main。中断恢复先查同一 SHA，不创建另一个 commit。推送前和响应不明时回读远端，禁止 force push。
+
+发布阶段分别显示：未提交、提交结果待核对、已提交未确认推送、推送结果待核对、已确认推送待 Pages。推送错误不等于未推送；须先刷新核对。已确认未出现在远端 main 的原 commit 才可显式继续；远端变化时拒绝覆盖，可明确结束记录、保留历史后重新预览。结束记录不撤回已公开内容，私有草稿保留。
+
+Pages 检查按确切 commit 匹配现有 `deploy.yml` 的 push/main 运行及 `github-pages` 环境部署记录；CI 成功本身不代表 Pages 已部署。暂无结果/排队保留待完成；读取失败保留待核对，后续刷新不会再次推送。部署失败可打开对应 GitHub Actions 查看/处理，应用不自动重跑 workflow 或制造新提交。“部署成功”是 GitHub 对该 commit 的环境记录，不是浏览器/CDN 内容实测。
+
+本轮只完成代码和本地 bare / 模拟 API 验证，没有真实 commit/push、Pages 设置或 workflow 修改。未来服务器 SSH 写权限、可信 host key 与 HTTPS 管理入口仍由用户安全配置。推送 URL 固定 SSH，启用 BatchMode 和严格 host key 校验；不提供密钥网页入口、不创建密钥、不调用 Git credential helper。公开 GitHub 状态读取无需在应用内保存 token；暂不可读时按未知状态处理。服务作者固定 `DevOS Admin`，提交信息含记录 ID。
+
+`state/publisher/journal.json` 为 0600，保存当前完整预览、commit、远端回读与 Pages 结果，另保留最近 20 条历史摘要。发布工作区和中断现场位于 0700 私有目录，内容备份不包括它们；需另行安全备份整个 state。记录缺失、目录/来源异常和未明结果均保留现场，不能随意删除 Git 工作区或清除记录。异常锁须核实 `publish.lock/owner.json` 对应进程已结束后处理。
+
+无需为 Admin 增加 npm 依赖；继续使用 Node.js 22+、Git 与系统 SSH。state 需容纳独立 Git clone、最大 128 MiB 内容快照和临时校验副本；Git 历史会增长。本批没有安装服务器软件、守护服务或 TLS 配置。
+
+仅用隔离目录与合成 demo 执行发布定向检查：
+```sh
+DEVOS_TEST_DIR=/path/to/disposable-tests DEVOS_DEMO_SOURCE=/path/to/sanitized-demo \
+  TMPDIR=/path/to/disposable-tests/tmp node scripts/check-admin-publish.mjs
+```
+
+状态语义参考：[GitHub workflow runs](https://docs.github.com/en/rest/actions/workflow-runs)、[deployments](https://docs.github.com/en/rest/deployments/deployments)、[deployment statuses](https://docs.github.com/en/rest/deployments/statuses)。提交对象按 [Git 对象格式](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) 固定内容并先记录 SHA。

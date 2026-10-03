@@ -11,16 +11,32 @@ import { Buffer } from 'node:buffer'
 import { CFG_ID, validateCfgLibrary, readCfgContent, saveCfgRecord, deleteCfgRecord, rollbackCfgRecord } from './cfg-library.mjs'
 import { assertProjects, assertNoteRelations, assertAIWorkflows } from '../shared/content-validation.js'
 import { MAX_PROJECT_BODY_BYTES, prepareProjectUpload, validateProjectDownloads, commitProjectDownload } from './project-downloads.mjs'
-import { exportSiteBackup, previewSiteRestore, restoreSiteBackup, publishingStatus, MAX_BACKUP_BYTES } from './site-backup.mjs'
+import { exportSiteBackup, previewSiteRestore, restoreSiteBackup, publishingStatus, validateStaged, MAX_BACKUP_BYTES } from './site-backup.mjs'
 import {
   IMPORT_LIMITS, assertManifest, detectFormat, extractHtmlMeta, inspectTool,
   normalizeManifest, scanHtmlCompat, slugifyId, suggestPermissionsFromHtml,
   uniqueToolId, validateZipEntries,
 } from './tool-manifest.mjs'
 
-const root = fileURLToPath(new URL('..', import.meta.url))
+import { privateDirectory, loadPasswordRecord, createAuth } from './admin-auth.mjs'
+import { createAiService } from './admin-ai.mjs'
+import { createPublisher } from './admin-publish.mjs'
+import { prepareDrafts, draftPreview } from './admin-state.mjs'
+
+const codeRoot = fileURLToPath(new URL('..', import.meta.url))
+const mode = process.env.ADMIN_MODE || 'local'
+if (!['local', 'cloud'].includes(mode)) throw new Error('ADMIN_MODE 仅接受 local 或 cloud')
+const cloud = mode === 'cloud'
+if (cloud && (!process.env.ADMIN_STATE_DIR || !process.env.ADMIN_ORIGIN)) throw new Error('云模式必须明确私有 state 目录和 HTTPS origin')
+const stateDir = cloud ? await privateDirectory(process.env.ADMIN_STATE_DIR, codeRoot) : null
+const aiService = createAiService({ directory: stateDir })
+const auth = cloud ? createAuth({ record: await loadPasswordRecord(stateDir), origin: process.env.ADMIN_ORIGIN, directory: stateDir }) : null
+const root = cloud ? await prepareDrafts(codeRoot, stateDir) : codeRoot
+const publisher = cloud ? createPublisher({ codeRoot, stateDir, draftRoot: root }) : null
+const tempDir = cloud ? join(stateDir, 'tmp') : tmpdir()
+if (cloud) await mkdir(tempDir, { recursive: true, mode: 0o700 })
 const dataDir = resolve(root, 'src/data')
-const adminDir = resolve(root, 'admin')
+const adminDir = resolve(codeRoot, 'admin')
 const publicDir = resolve(root, 'public')
 const toolsDir = join(publicDir, 'tools')
 const cfgDir = join(publicDir, 'cfgs')
@@ -530,7 +546,7 @@ async function deleteTool(id) {
 async function exportTool(id) {
   await findStaticToolDir(id)
   const manifest = await readJsonFile(join(toolsDir, id, 'manifest.json'), {})
-  const temp = await mkdtemp(join(tmpdir(), 'tool-export-'))
+  const temp = await mkdtemp(join(tempDir, 'tool-export-'))
   try {
     const zipPath = join(temp, 'tool.zip')
     await execFileAsync('zip', ['-qr', zipPath, '.', '-x', 'manifest.json'], { cwd: join(toolsDir, id) })
@@ -710,8 +726,11 @@ async function handleRequest(req, res) {
   try {
     const url = new URL(req.url || '/', 'http://127.0.0.1')
     if (url.pathname.startsWith('/api/')) {
+      if (!cloud) {
       const localOrigin = `http://${req.headers.host || ''}`, host = new URL(localOrigin)
       if (!['127.0.0.1', 'localhost', '[::1]'].includes(host.hostname) || Number(host.port || 80) !== req.socket.localPort || (req.headers.origin && req.headers.origin !== localOrigin) || req.headers['sec-fetch-site'] === 'cross-site') return send(res, 403, { error: '管理接口仅允许本机 Admin 同源访问' })
+      }
+      if (url.pathname === '/api/drafts/preview' && req.method === 'GET') return send(res, 200, cloud ? await draftPreview(codeRoot, root) : { mode: 'local', publishing: false, message: '本地模式直接修改源码；停用仅控制展示，不保证保密。' })
       if (url.pathname === '/api/backup' && req.method === 'GET') return send(res, 200, await exportSiteBackup(root))
       if (url.pathname === '/api/backup/preview' && req.method === 'POST') {
         for (const [token, item] of restorePreviews) if (Date.now() - item.created > 30 * 60 * 1000) { await rm(item.stage, { recursive: true, force: true }); restorePreviews.delete(token) }
@@ -719,7 +738,7 @@ async function handleRequest(req, res) {
           const [oldestToken, oldest] = restorePreviews.entries().next().value
           await rm(oldest.stage, { recursive: true, force: true }); restorePreviews.delete(oldestToken)
         }
-        const preview = await previewSiteRestore(root, (await body(req, MAX_BACKUP_BYTES * 2)).content)
+        const preview = await previewSiteRestore(root, (await body(req, MAX_BACKUP_BYTES * 2)).content, staged => validateStaged(codeRoot, staged))
         restorePreviews.set(preview.token, preview)
         const { token, files, bytes, changes } = preview; return send(res, 200, { token, files, bytes, changes })
       }
@@ -729,10 +748,17 @@ async function handleRequest(req, res) {
         const result = await restoreSiteBackup(root, preview)
         restorePreviews.delete(token); await refresh(); return send(res, 200, result)
       }
-      if (url.pathname === '/api/publishing' && req.method === 'GET') return send(res, 200, await publishingStatus(root))
+      if (url.pathname === '/api/publishing' && req.method === 'GET') return send(res, 200, cloud ? await publisher.status() : await publishingStatus(root))
+      const publishAction = url.pathname.match(/^\/api\/publishing\/(prepare|publish|refresh|abandon)$/)
+      if (publishAction && req.method === 'POST') {
+        if (!cloud) return send(res, 403, { error: '显式发布仅用于已登录的云端私有草稿模式' })
+        const action = publishAction[1], payload = await body(req)
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.keys(payload).some(key => !['id','confirmed'].includes(key)) || (['prepare','refresh'].includes(action) && Object.keys(payload).length)) throw new Error('发布请求不接受 remote、branch、命令或额外参数')
+        return send(res, 200, await publisher[action](payload))
+      }
       if (url.pathname === '/api/publishing/validate' && req.method === 'POST') {
         const report = await runValidation()
-        try { await execFileAsync(process.execPath, [join(root, 'scripts/validate-data.mjs')], { cwd: root, timeout: 30000, maxBuffer: 1024 * 1024 }) }
+        try { await execFileAsync(process.execPath, [join(codeRoot, 'scripts/validate-data.mjs'), root], { cwd: codeRoot, timeout: 30000, maxBuffer: 1024 * 1024 }) }
         catch (error) { report.ok = false; report.issues.push((error.stderr || error.message).slice(0, 3000)) }
         return send(res, 200, report)
       }
@@ -770,8 +796,8 @@ async function handleRequest(req, res) {
         return send(res, 405, { error: 'Method not allowed' })
       }
       if (url.pathname === '/api/system' && req.method === 'GET') {
-        const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
-        return send(res, 200, { version: pkg.version, admin: 'running', runtime: 'ready', index: 'synced' })
+        const pkg = JSON.parse(await readFile(join(codeRoot, 'package.json'), 'utf8'))
+        return send(res, 200, { version: pkg.version, mode, admin: 'running', runtime: 'ready', index: 'synced' })
       }
       if (url.pathname === '/api/tags' && req.method === 'GET') return send(res, 200, await collectTagUsage())
       if (url.pathname === '/api/tags' && req.method === 'POST') return send(res, 201, await addTag(await body(req)))
@@ -837,11 +863,12 @@ async function handleRequest(req, res) {
       return send(res, 405, { error: 'Method not allowed' })
     }
     if (url.pathname.startsWith('/shared/')) {
-      const file = resolve(join(root, 'shared'), `.${url.pathname.slice('/shared'.length)}`)
-      if (!file.startsWith(join(root, 'shared'))) return send(res, 403, { error: 'Forbidden' })
+      const file = resolve(join(codeRoot, 'shared'), `.${url.pathname.slice('/shared'.length)}`)
+      if (!file.startsWith(join(codeRoot, 'shared') + sep)) return send(res, 403, { error: 'Forbidden' })
       try { return send(res, 200, await readFile(file), MIME_TYPES[extname(file)] || 'application/octet-stream') } catch { return send(res, 404, { error: 'Not found' }) }
     }
-    if (url.pathname === '/favicon.svg') return send(res, 200, await readFile(join(publicDir, 'favicon.svg')), MIME_TYPES['.svg'])
+    if (url.pathname === '/favicon.svg') return send(res, 200, await readFile(join(codeRoot, 'public/favicon.svg')), MIME_TYPES['.svg'])
+    if (cloud && (url.pathname.startsWith('/__tool_preview/') || url.pathname.startsWith('/tools/'))) return send(res, 403, { error: '云模式暂不运行同源导入 HTML；请在隔离预览环境确认工具' })
     if (url.pathname.startsWith('/__tool_preview/')) return servePreviewAsset(req.url || '/', res)
     if (url.pathname === '/toolbox-bridge.js') return send(res, 200, await readFile(join(toolsDir, 'toolbox-bridge.js')), MIME_TYPES['.js'])
     if (url.pathname.startsWith('/tools/')) return serveToolAsset(req.url || '/', res)
@@ -869,10 +896,83 @@ async function handleRequest(req, res) {
 }
 // ponytail: one local Admin serializes requests so no client can observe a half-restored site.
 let requestQueue = Promise.resolve()
-const server = createServer((req, res) => { const next = requestQueue.then(() => handleRequest(req, res)); requestQueue = next.catch(() => {}) })
+async function authorize(req, res) {
+  res.setHeader('x-content-type-options', 'nosniff')
+  res.setHeader('referrer-policy', 'no-referrer')
+  res.setHeader('content-security-policy', "frame-ancestors 'none'")
+  if (!cloud) {
+    if (new URL(req.url || '/', 'http://localhost').pathname === '/api/auth/session') { send(res, 200, { mode: 'local', authenticated: true }); return false }
+    return true
+  }
+  if (!auth.sameOrigin(req)) { send(res, 403, { error: '请通过配置的 HTTPS 管理入口访问' }); return false }
+  const path = new URL(req.url || '/', 'http://localhost').pathname
+  if (req.method === 'GET' && ['/admin/login.html', '/admin/login.css', '/admin/login.js'].includes(path)) {
+    send(res, 200, await readFile(join(adminDir, path.slice('/admin/'.length))), MIME_TYPES[extname(path)]); return false
+  }
+  if (path === '/api/auth/login' && req.method === 'POST') {
+    if (!auth.writeOrigin(req)) { send(res, 403, { error: '登录须为 HTTPS 同源 JSON 请求' }); return false }
+    const { username, password } = await body(req, 8192)
+    const result = await auth.login(req, username, password)
+    if (result.retryAfter) res.setHeader('retry-after', String(result.retryAfter))
+    if (result.cookie) res.setHeader('set-cookie', result.cookie)
+    send(res, result.status, result.status === 200 ? { authenticated: true, csrf: result.csrf, expiresAt: result.expiresAt } : { error: result.status === 429 ? '尝试过于频繁，请按等待时间重试' : '用户名或密码错误' })
+    return false
+  }
+  const session = auth.session(req)
+  if (!session) {
+    if (path.startsWith('/api/')) send(res, 401, { error: '会话已失效，请重新登录' })
+    else { res.writeHead(303, { location: '/admin/login.html', 'cache-control': 'no-store' }); res.end() }
+    return false
+  }
+  if (path === '/api/auth/session' && req.method === 'GET') { send(res, 200, { mode: 'cloud', authenticated: true, csrf: session.csrf, expiresAt: session.expiresAt }); return false }
+  if (!['GET', 'HEAD'].includes(req.method) && !auth.csrfValid(req, session)) { await auth.audit('csrf_rejected', req, 403); send(res, 403, { error: '请求校验失败，请刷新页面后重试' }); return false }
+  if (path === '/api/auth/logout' && req.method === 'POST') { res.setHeader('set-cookie', await auth.logout(req, session)); send(res, 200, { authenticated: false }); return false }
+  return true
+}
+async function handleAiRequest(req, res) {
+  const path = new URL(req.url || '/', 'http://localhost').pathname
+  if (!['/api/ai/status', '/api/ai/suggest'].includes(path)) return false
+  if (!cloud) { send(res, 403, { error: 'AI 辅助仅用于已登录的云端私有草稿模式' }); return true }
+  if (path === '/api/ai/status' && req.method === 'GET') { send(res, 200, await aiService.status()); return true }
+  if (path !== '/api/ai/suggest' || req.method !== 'POST') { send(res, 405, { error: 'Method not allowed' }); return true }
+  const controller = new globalThis.AbortController()
+  const closed = () => { if (!res.writableEnded) controller.abort() }
+  res.once('close', closed)
+  try {
+    const result = await aiService.suggest(await body(req, 96 * 1024), controller.signal)
+    if (!res.destroyed) {
+      if (!auth.session(req)) send(res, 401, { error: '会话已失效，请重新登录' })
+      else send(res, 200, result)
+    }
+  } catch (error) {
+    if (!res.destroyed) send(res, [429, 503].includes(error.statusCode) ? error.statusCode : 400, { error: error.message })
+  } finally {
+    res.off('close', closed)
+    await auth.audit('ai_suggest', req, res.statusCode)
+  }
+  return true
+}
+const server = createServer((req, res) => {
+  void (async () => {
+    if (!await authorize(req, res)) return
+    if (await handleAiRequest(req, res)) return
+    const next = requestQueue.then(async () => {
+      // Logout/expiry can happen while another content request holds the queue.
+      if (cloud && !auth.session(req)) return send(res, 401, { error: '会话已失效，请重新登录' })
+      await handleRequest(req, res)
+      if (cloud && req.url?.startsWith('/api/') && !['GET', 'HEAD'].includes(req.method)) await auth.audit('content_write', req, res.statusCode)
+    })
+    requestQueue = next.catch(() => {})
+    await next
+  })().catch(() => { if (!res.headersSent) send(res, 400, { error: '请求未完成，请重试或检查私有审计日志' }); else res.end() })
+})
+server.headersTimeout = 10000
+server.requestTimeout = 15000
+server.maxConnections = 64
 await refresh()
 // 历史遗留：把旧 public/tools/.staging 清掉，正式资源目录不再包含暂存文件
 await rm(legacyStagingDir, { recursive: true, force: true }).catch(() => {})
 await rebuildToolIndex().catch(error => console.error('index rebuild failed:', error.message))
 const port = Number(process.env.ADMIN_PORT || 4174)
+if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('ADMIN_PORT 无效')
 server.listen(port, '127.0.0.1', () => console.log(`Admin: http://127.0.0.1:${server.address().port}/admin`))

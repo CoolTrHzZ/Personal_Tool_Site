@@ -1,6 +1,8 @@
-export function mountSiteManagement({ request, el, button, toast, openModal, downloadBase64, fileToPayload, reload }) {
+import { mountPublishPanel } from './publish-panel.js'
+
+export function mountSiteManagement({ request, el, button, toast, openModal, downloadBase64, fileToPayload, reload, cloud = false }) {
   function backup(host) {
-    host.append(el('p', 'muted', '完整备份包含站点全部公开 JSON、桌面工具 EXE、CFG（含历史）、静态工具文件、内置工具配置与工具索引。恢复会替换这些内容；不包含浏览器个人数据、草稿或应用源码。'))
+    host.append(el('p', 'muted', cloud ? '此备份包含服务器私有草稿的全部内容文件；不含认证、运行配置、浏览器草稿和源码。恢复仅替换私有草稿，不修改仓库或线上站点。' : '完整备份包含站点全部公开 JSON、桌面工具 EXE、CFG（含历史）、静态工具文件、内置工具配置与工具索引。恢复会替换这些内容；不包含浏览器个人数据、草稿或应用源码。'))
     const exportButton = button('导出完整站点备份', {}, 'ui-button ui-button-primary')
     const upload = document.createElement('input'); upload.type = 'file'; upload.accept = '.gz,.devos.gz'; upload.className = 'ui-input'; upload.setAttribute('aria-label', '选择完整站点备份')
     const result = el('div', 'admin-management-result'); result.setAttribute('aria-live', 'polite')
@@ -32,10 +34,11 @@ export function mountSiteManagement({ request, el, button, toast, openModal, dow
     }
   }
   async function publishing(host) {
+    if (cloud) return mountPublishPanel(host, { request, el, button, openModal, toast })
     const panel = el('section', 'admin-management-result'); host.append(panel)
     const refresh = button('刷新待发布清单'), validate = button('运行发布前校验', {}, 'ui-button ui-button-primary')
     const list = el('ul', 'admin-file-list'), status = el('p', 'muted', '正在读取 Git 状态…')
-    panel.append(el('h3', '', '发布前检查'), el('p', 'muted', '下面是本地 Git 尚未提交的真实变更。此页面不提交或推送代码；已提交但未推送的更改请用终端确认。'), refresh, validate, status, list)
+    panel.append(el('h3', '', '发布前检查'), el('p', 'muted', cloud ? '下面是服务器私有草稿相对当前代码快照的变更。保存和校验不会提交或推送；显式发布入口尚未接入。' : '下面是本地 Git 尚未提交的真实变更。此页面不提交或推送代码；已提交但未推送的更改请用终端确认。'), refresh, validate, status, list)
     const load = async () => {
       refresh.disabled = true
       try {
@@ -49,7 +52,7 @@ export function mountSiteManagement({ request, el, button, toast, openModal, dow
     refresh.onclick = load
     validate.onclick = async () => {
       validate.disabled = true; status.textContent = '正在检查公开数据、关联与工具文件…'
-      try { const info = await request('publishing/validate', { method: 'POST' }); status.textContent = info.ok ? '发布前校验通过。可在终端检查改动后提交发布。' : `校验未通过：${info.issues.join('；')}` }
+      try { const info = await request('publishing/validate', { method: 'POST' }); status.textContent = info.ok ? cloud ? '私有草稿校验通过，尚未发布。' : '发布前校验通过。可在终端检查改动后提交发布。' : `校验未通过：${info.issues.join('；')}` }
       catch (error) { status.textContent = error.message } finally { validate.disabled = false }
     }
     await load()

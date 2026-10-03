@@ -155,6 +155,20 @@ export async function runServices(directory, { frontendPort = 5173, adminPort = 
 }
 
 async function main() {
+  if (process.argv[2] === 'cloud') {
+    if (Number(process.versions.node.split('.')[0]) < 22) throw new Error('云模式需要 Node.js 22+')
+    if (!existsSync(join(scriptDirectory, 'scripts/admin-maintain.mjs'))) {
+      const { values, positionals } = parseArgs({ args: process.argv.slice(3), allowPositionals: true, options: { project: { type: 'string' }, state: { type: 'string' }, origin: { type: 'string' }, port: { type: 'string' } } })
+      if (positionals.length !== 1 || positionals[0] !== 'install' || !values.project || !values.state || !process.stdin.isTTY) throw new Error('独立云安装器需交互终端：cloud install --project 新目录 --state 私有目录 --origin https://域名:端口 [--port 内部端口]')
+      const directory = resolve(values.project), state = resolve(values.state), origin = new URL(values.origin || '')
+      if (existsSync(directory) || state === directory || state.startsWith(directory + '/') || origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('目标须不存在、state 须在项目之外、origin 须为 HTTPS（可带端口）')
+      await prepareProject({ directory, repository: DEFAULT_REPOSITORY })
+      const { cloudMain } = await import(pathToFileURL(join(directory, 'scripts/admin-maintain.mjs')).href)
+      return cloudMain(['setup', ...process.argv.slice(4)], directory)
+    }
+    const { cloudMain } = await import(pathToFileURL(join(scriptDirectory, 'scripts/admin-maintain.mjs')).href)
+    return cloudMain(process.argv.slice(3), scriptDirectory)
+  }
   const { values, positionals } = parseArgs({ allowPositionals: true, options: { dir: { type: 'string' }, repo: { type: 'string' }, 'no-open': { type: 'boolean' }, 'no-start': { type: 'boolean' }, help: { type: 'boolean', short: 'h' } } })
   if (values.help) {
     console.log(`DevOS 本地一键部署（Node.js 22+、npm、Git）\n\nnode deploy.mjs [run|update] [--dir 安装目录] [--repo 仓库URL] [--no-open] [--no-start]\n\nrun     安装缺失的项目/依赖并启动，保留本地改动，不拉取更新。\nupdate  首次下载或快进更新 main，备份内容后启动；拒绝覆盖本地修改。\n\n项目内默认 run；单独下载的 deploy.mjs 默认 update，安装到 ~/DevOS。\n--no-open 不自动打开浏览器；--no-start 仅准备项目，不启动服务。\n更新前先按 Ctrl+C 停止服务；本地内容请先提交或自行备份处理。`)

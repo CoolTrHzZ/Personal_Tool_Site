@@ -471,6 +471,9 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
   .tool-edit-modal { width: calc(100% - 16px); max-height: calc(100dvh - 16px); }
 }
 @media (max-width: 760px) {
+  .ui-table:has(td.cell-actions) th:last-child, .ui-table td.cell-actions { position: sticky; right: 0; z-index: 1; background: var(--surface-card); box-shadow: -1px 0 0 var(--border-default), -6px 0 10px #0001; }
+  .ui-table td.cell-actions { padding-inline: 10px; }
+  .ui-table .kebab-toggle { min-width: 44px; min-height: 44px; }
   .tag-toolbar { grid-template-columns: 1fr 1fr; }
   .dashboard-hero { align-items: flex-start; flex-direction: column; }
   .admin-get-started { flex: none; width: 100%; padding: 14px 0 0; border-inline-start: 0; border-top: 1px solid var(--border-default); }
@@ -569,3 +572,13 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .cfg-admin-history { display: grid; gap: 12px; border-top: 1px solid var(--border-default); padding-top: 16px; margin-top: 16px; min-width: 0; }
 .cfg-admin-history-code { min-width: 0; max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--surface-raised); font-size: 12px; }
 @media (max-width: 640px) { .admin-collection-row { align-items: stretch; flex-direction: column; } .admin-collection-row .toolbar-actions { justify-content: flex-start; } }
+
+/* Two inline collection panels; suggestion text is never inserted as HTML. */
+.quick-collect { margin: 12px 0 20px; padding: 14px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-panel); }
+.quick-collect summary { cursor: pointer; font-weight: 600; }
+.quick-collect-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.quick-collect-diffs { display: grid; gap: 8px; max-height: 300px; overflow-y: auto; }
+.quick-collect-diff { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.quick-collect-diff > span { display: grid; gap: 4px; min-width: 0; }
+.quick-collect-diff span span { white-space: pre-wrap; overflow-wrap: anywhere; }
+.quick-collect-diff small { color: var(--text-faint); }

@@ -1,3 +1,4 @@
+import { resolve, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { URL } from 'node:url'
@@ -7,7 +8,8 @@ import { validateProjectDownloads } from './project-downloads.mjs'
 import { fileURLToPath } from 'node:url'
 import { assertProjects, assertNoteRelations, assertAIWorkflows } from '../shared/content-validation.js'
 
-const load = name => readFile(new URL(`../src/data/${name}.json`, import.meta.url), 'utf8').then(JSON.parse)
+const contentRoot = resolve(process.argv[2] || fileURLToPath(new URL('..', import.meta.url)))
+const load = name => readFile(join(contentRoot, 'src/data', name + '.json'), 'utf8').then(JSON.parse)
 const isISODate = value => {
   const time = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? Date.parse(`${value}T00:00:00Z`) : NaN
   return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value
@@ -24,15 +26,15 @@ const projects = await load('projects')
 const workflows = await load('ai-workflows')
 const tags = await load('tags')
 const site = await load('site')
-const cfgs = await validateCfgLibrary(fileURLToPath(new URL('../src/data/cfgs.json', import.meta.url)), fileURLToPath(new URL('../public/cfgs/', import.meta.url)))
+const cfgs = await validateCfgLibrary(join(contentRoot, 'src/data/cfgs.json'), join(contentRoot, 'public/cfgs/'))
 assertProjects(projects, cfgs)
-await validateProjectDownloads(projects, fileURLToPath(new URL('../public/downloads/', import.meta.url)))
+await validateProjectDownloads(projects, join(contentRoot, 'public/downloads/'))
 assertNoteRelations(notes, projects, cfgs)
 assertAIWorkflows(workflows, aiResources)
 const registry = await readFile(new URL('../src/tools/registry.ts', import.meta.url), 'utf8')
 const registryTools = [...registry.matchAll(/\{\s*id:\s*'([^']+)'[\s\S]*?path:\s*'([^']+)'/g)].map(([, id, path]) => ({ id, path }))
-const coreManifests = JSON.parse(await readFile(new URL('../src/tools/manifests/core.json', import.meta.url), 'utf8'))
-const publicManifests = JSON.parse(await readFile(new URL('../public/tools-manifests.json', import.meta.url), 'utf8'))
+const coreManifests = JSON.parse(await readFile(join(contentRoot, 'src/tools/manifests/core.json'), 'utf8'))
+const publicManifests = JSON.parse(await readFile(join(contentRoot, 'public/tools-manifests.json'), 'utf8'))
 for (const field of ['title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'name', 'footer', 'logo']) if (typeof site[field] !== 'string') throw new Error(`invalid site.${field}`)
 for (const field of ['title', 'description', 'github', 'name']) if (!site[field].trim()) throw new Error(`invalid site.${field}`)
 if (!/^https?:$/.test(new URL(site.github).protocol)) throw new Error(`invalid site.github: ${site.github}`)
@@ -90,7 +92,7 @@ const checkManifests = (manifests, label) => {
   for (const manifest of manifests) {
     if (seen.has(manifest.id)) throw new Error(`duplicate tool manifest in ${label}: ${manifest.id}`)
     seen.add(manifest.id)
-    const hasEntry = manifest.runtime === 'static' ? existsSync(new URL(`../public/tools/${manifest.id}/${manifest.entry}`, import.meta.url)) : undefined
+    const hasEntry = manifest.runtime === 'static' ? existsSync(join(contentRoot, 'public/tools', manifest.id, manifest.entry)) : undefined
     const errors = validateManifest(manifest, { hasEntry })
     if (errors.length) throw new Error(`${label} ${manifest.id}: ${errors[0]}`)
     for (const field of ['author', 'updated', 'tags', 'status', 'readme', 'license']) if (manifest[field] === undefined) throw new Error(`${label} ${manifest.id}: missing ${field}`)
