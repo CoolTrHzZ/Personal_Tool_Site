@@ -16,6 +16,7 @@ async function mockDesktopAdmin(page) {
     if (url.pathname.startsWith('/api/')) {
       const [key, id] = url.pathname.slice(5).split('/'), method = route.request().method()
       const reply = json => route.fulfill({ json })
+      if (key === 'auth' && id === 'session' && method === 'GET') return reply({ mode: 'local', authenticated: true })
       if (key === 'system') return reply({ version: 'test', admin: 'running' })
       if (key === 'validate') return reply({ ok: true, issues: [] })
       if (key === 'tools') return reply([])

@@ -28,6 +28,7 @@ async function mockAdmin(page, override) {
       if (override && await override(route, url, collections)) return
       const [key, id] = url.pathname.slice(5).split('/'), method = route.request().method()
       const respond = value => route.fulfill({ json: value })
+      if (key === 'auth' && id === 'session' && method === 'GET') return respond({ mode: 'local', authenticated: true })
       if (key === 'system') return respond({ version: 'test', admin: 'running' })
       if (key === 'validate') return respond({ ok: true, issues: [] })
       if (key === 'tags') return respond({ items: [], navigationTagCount: 0, toolTagCount: 0, aiResourceTagCount: 0 })
