@@ -1,3 +1,4 @@
+import { parseSiteDisplayUrl } from '../shared/site-display-url.js'
 import { resolve, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -38,7 +39,7 @@ const publicManifests = JSON.parse(await readFile(join(contentRoot, 'public/tool
 for (const field of ['title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'name', 'footer', 'logo']) if (typeof site[field] !== 'string') throw new Error(`invalid site.${field}`)
 for (const field of ['title', 'description', 'github', 'name']) if (!site[field].trim()) throw new Error(`invalid site.${field}`)
 if (!/^https?:$/.test(new URL(site.github).protocol)) throw new Error(`invalid site.github: ${site.github}`)
-for (const field of ['publicUrl', 'adminUrl']) if (site[field] !== undefined && (typeof site[field] !== 'string' || (site[field] && !/^https?:$/.test(new URL(site[field]).protocol)))) throw new Error(`invalid site.${field}: ${site[field]}`)
+for (const field of ['github', 'publicUrl', 'adminUrl']) if (site[field] !== undefined) { try { parseSiteDisplayUrl(site[field]) } catch { throw new Error(`invalid site.${field}: expected credential-free HTTP(S) URL`) } }
 if (site.basePath != null && (typeof site.basePath !== 'string' || !/^(\.\/|\/)/.test(site.basePath))) throw new Error(`invalid site.basePath: ${site.basePath}`)
 if (!Number.isFinite(site.todayContinueLimit) || !Number.isInteger(site.todayContinueLimit) || site.todayContinueLimit < 1 || site.todayContinueLimit > 8) throw new Error(`invalid site.todayContinueLimit: ${site.todayContinueLimit}`)
 for (const [key, items] of Object.entries({ navigation, categories, library, notes, aiResources })) {

@@ -1,20 +1,26 @@
-import { confirmedFields, collectionFields, displayValue, blank, applyBlankSuggestions } from '/shared/form-collection.js'
+import { confirmedFields, normalizeFields, collectionFields, displayValue, blank, applyBlankSuggestions } from '/shared/form-collection.js'
 
 const labels = { name: '名称', url: 'URL', description: '描述', tags: '标签', kind: '类型', install: '安装方式', content: '配置内容' }
 const node = (tag, text = '', className = '') => { const item = document.createElement(tag); item.textContent = text; item.className = className; return item }
-export function mountQuickCollect(form, { target, request, changed }) {
+export function mountQuickCollect(form, { target, request, changed, aiAvailable = true, showSetup }) {
   const panel = node('details', '', 'quick-collect')
   panel.append(node('summary', '快速收集与 AI 补空'))
-  const hint = node('p', '仅分析粘贴内容，不自动读取网址。先查看逐字段差异，勾选后应用；已有值和后续手动编辑保留。', 'muted')
-  const source = node('textarea', '', 'ui-input'); source.rows = 4; source.maxLength = 12000; source.setAttribute('aria-label', '粘贴文本或 URL'); source.placeholder = '名称：示例工具\nURL：https://example.com\n描述：用于…\n标签：开发, 日常'
+  const hint = node('p', '粘贴文本或 URL；不自动读取网址。', 'muted')
+  const source = node('textarea', '', 'ui-input'); source.rows = 2; source.maxLength = 12000; source.setAttribute('aria-label', '粘贴文本或 URL'); source.placeholder = '名称：示例工具\nURL：https://example.com\n描述：用于…\n标签：开发, 日常'
   const actions = node('div', '', 'quick-collect-actions')
   const makeButton = text => { const button = node('button', text, 'ui-button ui-button-ghost ui-button-sm'); button.type = 'button'; return button }
-  const extract = makeButton('提取明确字段'), ai = makeButton('AI 补空建议'), apply = makeButton('应用勾选建议')
-  const disclosure = node('p', '点击 AI 会把粘贴材料和本表单字段发送给配置的 AI 服务；建议只修改表单，仍需点击保存私有草稿。', 'field-hint')
+  const extract = makeButton('提取字段'), ai = makeButton('AI 建议'), apply = makeButton('应用建议')
+  for (const [button, label] of [[extract,'提取明确字段'],[ai,'AI 补空建议'],[apply,'应用勾选建议']]) button.setAttribute('aria-label', label)
+  const disclosure = node('p', aiAvailable ? 'AI 会向已配置服务发送材料与表单字段；确认后应用，仍需保存，不自动发布。' : '明确字段只在浏览器分析粘贴内容；本地保存写入项目，不自动发布。AI 建议仅用于已登录的云端模式。', 'field-hint')
+  const providerStatus = node('p', '', 'field-hint'); providerStatus.setAttribute('role', 'status'); providerStatus.dataset.aiConfiguration = 'true'
+  const setup = makeButton('AI 服务设置说明'), refresh = makeButton('刷新 AI 配置状态')
+  setup.hidden = !showSetup; refresh.hidden = !aiAvailable
+  setup.addEventListener('click', () => showSetup?.())
+  const setupActions = node('div', '', 'quick-collect-actions'); setupActions.append(setup, refresh)
   const status = node('p', '', 'field-hint'); status.setAttribute('role', 'status')
   const differences = node('div', '', 'quick-collect-diffs')
-  actions.append(extract, ai, apply); panel.append(hint, source, actions, disclosure, status, differences)
-  form.querySelector('.form-intro')?.after(panel)
+  actions.append(extract, ai, apply); panel.append(hint, source, actions, providerStatus, setupActions, disclosure, status, differences)
+  ;[...form.querySelectorAll(':scope > .form-section')].at(-1)?.after(panel)
   const names = collectionFields(target), versions = {}, choices = new Map()
   let lifecycle = 0, revision = 0, controller, configured = false, busy = false, proposals = {}, snapshot = {}, expectedVersions = {}
   const current = () => Object.fromEntries(names.map(key => {
@@ -37,19 +43,27 @@ export function mountQuickCollect(form, { target, request, changed }) {
     }
     apply.disabled = !Object.keys(eligible).length
   }
-  const propose = fields => { proposals = fields; choices.clear(); render() }
+  const propose = fields => { proposals = normalizeFields(target, fields); choices.clear(); render() }
   const begin = () => { snapshot = current(); expectedVersions = { ...versions } }
+  const checkProvider = async () => {
+    if (!aiAvailable) { configured = false; ai.disabled = true; providerStatus.textContent = '本地模式：可提取明确字段；AI 建议需登录云端管理后使用。'; return }
+    const turn = lifecycle
+    refresh.disabled = true; providerStatus.textContent = '正在检查私有 AI 配置…'
+    try {
+      const value = await request('ai/status')
+      if (turn !== lifecycle) return
+      configured = value.configured === true; ai.disabled = !configured || busy
+      providerStatus.textContent = configured ? 'AI 配置就绪（连接尚需验证）。' : 'AI 未配置或不可用。'
+    } catch { if (turn === lifecycle) { configured = false; ai.disabled = true; providerStatus.textContent = 'AI 配置状态不可用；手填和明确字段提取仍可用。' } }
+    finally { if (turn === lifecycle) refresh.disabled = false }
+  }
+  refresh.addEventListener('click', checkProvider)
   const reset = () => {
     lifecycle++; revision++; controller?.abort(); source.value = ''; proposals = {}; snapshot = {}; expectedVersions = {}; busy = false; configured = false
     for (const key of names) versions[key] = 0
     differences.replaceChildren(); apply.disabled = true; ai.disabled = true; panel.open = !form.elements.originalId?.value
-    status.textContent = '正在检查 AI 服务；确定性提取和手填始终可用。'
-    const turn = lifecycle, materialTurn = revision
-    request('ai/status').then(value => {
-      if (turn !== lifecycle) return
-      configured = value.configured; ai.disabled = !configured || busy
-      if (materialTurn === revision && !busy) status.textContent = configured ? 'AI 服务已配置。保存仅写入私有草稿，不发布。' : 'AI 未配置；可提取明确字段或继续手填。'
-    }).catch(() => { if (turn === lifecycle && materialTurn === revision && !busy) status.textContent = 'AI 服务状态暂不可用；可提取明确字段或继续手填。' })
+    status.textContent = ''
+    void checkProvider()
   }
   const invalidate = () => { revision++; controller?.abort(); proposals = {}; differences.replaceChildren(); apply.disabled = true; busy = false; ai.disabled = !configured }
   source.addEventListener('input', () => { invalidate(); status.textContent = '粘贴内容已更新；可提取明确字段或继续手填。' })

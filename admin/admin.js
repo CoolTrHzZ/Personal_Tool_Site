@@ -11,6 +11,8 @@ import { mountTechField } from '/shared/tech-field.js'
 import { mountCfgLibrary } from './cfg-library.js'
 import { createEditProtection } from './edit-protection.js'
 import { mountQuickCollect } from './quick-collect.js'
+import { mountCollectionLayout, aiSetupGuide } from './collection-flow.js'
+import { mountSiteDisplayPreview } from './site-display-preview.js'
 import { assistForm, showFormError } from './form-assistance.js'
 import { mountSiteManagement } from './site-management.js'
 import { mountContentCollections } from './content-collections.js'
@@ -71,9 +73,10 @@ const request = async (path, options = {}) => {
   if (!response.ok) throw Error(data.error || i18n.t('msg.request'))
   return data
 }
-const quickCollectors = authSession.mode === 'cloud' ? Object.fromEntries([
-  ['nav-form', 'navigation'], ['ai-resource-form', 'ai-resources'],
-].map(([id, target]) => [id, mountQuickCollect(document.getElementById(id), { target, request, changed: form => protectForm.changed(form) })])) : {}
+const collectionTargets = [['nav-form', 'navigation'], ['ai-resource-form', 'ai-resources']]
+const collectionLayouts = Object.fromEntries(collectionTargets.map(([id, target]) => [id, mountCollectionLayout($('#' + id), { target })]))
+const quickCollectors = Object.fromEntries(collectionTargets.map(([id, target]) => [id, mountQuickCollect($('#' + id), { target, request, aiAvailable: authSession.mode === 'cloud', changed: form => { collectionLayouts[id].sync(); protectForm.changed(form) }, showSetup: () => openModal({ title: 'AI 服务设置说明', body: aiSetupGuide({ cloud: authSession.mode === 'cloud' }) }) })]))
+
 const text = (tag, value) => { const element = document.createElement(tag); element.textContent = value ?? ''; return element }
 const el = (tag, className, value) => { const element = text(tag, value); if (className) element.className = className; return element }
 const button = (label, data = {}, className = 'ui-button ui-button-ghost ui-button-sm', type = 'button') => {
@@ -158,6 +161,9 @@ function showView(view, updateHistory = true) {
   document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view))
   const navView = view === 'note-editor' ? 'notes' : view
   document.querySelectorAll('.nav-item[data-view]').forEach(item => { item.classList.toggle('active', item.dataset.view === navView); if (item.dataset.view === navView) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current') })
+  const activeNavigation = document.querySelector('.nav-item[aria-current="page"]')
+  const navigationGroup = activeNavigation?.closest('details.admin-nav-group')
+  if (navigationGroup) navigationGroup.open = true
   $('#page-title').textContent = view === 'cfg-library' ? 'CFG 配置库' : contentCollections.titles[view] || i18n.t(`title.${view}`)
   const title = $('#page-title')
   title.classList.remove('title-swap')
@@ -234,21 +240,22 @@ function renderSite() {
   extra.replaceChildren()
   if (settingsTab === 'general') {
     form.hidden = false
-    const basics = el('fieldset', 'form-section'), pages = el('fieldset', 'form-section')
-    basics.append(el('legend', '', i18n.t('form.basics')))
-    pages.append(el('legend', '', i18n.t('form.pageDescriptions')))
+    const basics = el('fieldset', 'form-section'), details = el('details', 'form-advanced'), pages = el('div', 'form-advanced-fields')
+    basics.append(el('legend', '', '站点展示与入口'))
+    details.append(el('summary', '', '更多展示设置 · 页面标题、说明与外观'), pages)
     const required = new Set(['name', 'title', 'description', 'github'])
-    for (const name of ['name', 'tagline', 'title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github']) (name.endsWith('Description') ? pages : basics).append(input(name, state.site[name], labels[name], { required: required.has(name), type: name === 'github' ? 'url' : 'text' }))
+    const common = ['name', 'tagline', 'description', 'footer', 'github', 'publicUrl', 'adminUrl']
+    for (const name of common) basics.append(input(name, state.site[name] ?? '', labels[name], { required: required.has(name), type: ['github','publicUrl','adminUrl'].includes(name) ? 'url' : 'text' }))
+    basics.append(el('p', 'field-hint', '这些字段属于公开站点内容。显示链接不能配置登录 origin、监听地址、密钥或服务代理。'))
+    for (const name of ['title', 'logo', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription']) pages.append(input(name, state.site[name] ?? '', labels[name], { required: required.has(name) }))
     const limitField = input('todayContinueLimit', state.site.todayContinueLimit ?? 3, labels.todayContinueLimit, { required: true, type: 'number' })
-    const limitInput = limitField.querySelector('input')
-    limitInput.min = '1'
-    limitInput.max = '8'
-    limitInput.step = '1'
-    basics.append(limitField)
-    form.append(basics, pages)
-    form.append(button(i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
+    const limitInput = limitField.querySelector('input'); limitInput.min = '1'; limitInput.max = '8'; limitInput.step = '1'
+    pages.append(limitField)
+    form.append(basics, details)
+    const refreshDisplay = mountSiteDisplayPreview(form)
+    form.append(button(authSession.mode === 'cloud' ? '保存展示草稿' : i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
     prepareForm(form)
-    protectForm.begin(form, { key: `site:${settingsTab}` })
+    protectForm.begin(form, { key: `site:${settingsTab}`, afterRestore: refreshDisplay })
     if (settingsTab === 'deploy') void siteManagement.publishing(extra)
     return
   }
@@ -870,7 +877,11 @@ function showEditorModal(form) {
   quickCollectors[form.getAttribute('id')]?.reset()
   editorReturnFocus = document.activeElement
   renderEditorPickers(form)
-  if (!['cfg-form', 'content-collection-form'].includes(form.getAttribute('id'))) protectForm.begin(form)
+  collectionLayouts[form.getAttribute('id')]?.reset()
+  if (authSession.mode === 'cloud' && collectionLayouts[form.getAttribute('id')]) {
+    const save = form.querySelector('[type="submit"]'); save.removeAttribute('data-i18n'); save.textContent = '保存私有草稿'
+  }
+  if (!['cfg-form', 'content-collection-form'].includes(form.getAttribute('id'))) protectForm.begin(form, { afterRestore: () => collectionLayouts[form.getAttribute('id')]?.sync() })
   drawer.hidden = false
   $('#editor-drawer-body').scrollTop = 0
   requestAnimationFrame(() => {
@@ -1054,7 +1065,7 @@ function openAIResourceDrawer(item) {
   else {
     form.reset()
     form.elements.originalId.value = ''
-    form.elements.kind.value = 'skill'
+    form.elements.kind.value = 'app'
     form.elements.updated.value = new Date().toISOString().slice(0, 10)
   }
   showEditorModal(form)
@@ -1545,6 +1556,7 @@ function setAdminMenu(open) {
   $('#admin-sidebar').inert = mobileMenu.matches && !visible
   $('.admin-content').inert = visible
 }
+function closeMenuForAction() { const wasOpen = $('.admin-shell').classList.contains('nav-open'); setAdminMenu(false); if (wasOpen) $('#admin-menu').focus() }
 bind('#admin-menu', 'click', () => setAdminMenu(!$('.admin-shell').classList.contains('nav-open')))
 bind('#admin-menu-backdrop', 'click', () => { setAdminMenu(false); $('#admin-menu').focus() })
 mobileMenu.addEventListener('change', () => setAdminMenu(false))
@@ -1771,6 +1783,20 @@ bind('#ai-resource-form', 'submit', async event => {
 document.addEventListener('click', async event => {
   const element = event.target.closest('button')
   if (!element) return
+  if (element.dataset.collect) {
+    closeMenuForAction()
+    if (element.dataset.collect === 'navigation') openWebsiteDrawer()
+    else if (element.dataset.collect === 'ai-resources') openAIResourceDrawer()
+    return
+  }
+  if (element.dataset.aiHelp) { closeMenuForAction(); await openModal({ title: 'AI 服务设置说明', body: aiSetupGuide({ cloud: authSession.mode === 'cloud' }) }); return }
+  if (element.dataset.settingsShortcut) {
+    if (!showView('settings') || !protectForm.mayLeave($('#site'))) return
+    protectForm.end($('#site'))
+    settingsTab = element.dataset.settingsShortcut === 'deploy' ? 'deploy' : 'general'
+    renderSite()
+    return
+  }
   if (element.dataset.view) return showView(element.dataset.view)
   if (element.dataset.noteTab) { setNoteTab(element.dataset.noteTab); return }
   if (element.dataset.md) { insertMarkdown(element.dataset.md); return }
@@ -1887,15 +1913,19 @@ if (authSession.mode === 'cloud') {
   if (localLabel) { localLabel.textContent = '私有草稿 · 保存不发布'; localLabel.title = '私有管理入口；回环服务经独立 HTTPS 端口访问' }
   $('#status').removeAttribute('data-i18n'); $('#status').textContent = '云端私有草稿'
   const hint = document.querySelector('.admin-get-started .muted')
-  if (hint) hint.textContent = '先添加内容并保存私有草稿，再预览变更与校验；显式发布尚未接入。'
+  if (hint) { hint.removeAttribute('data-i18n'); hint.textContent = '先添加内容并保存私有草稿，再预览变更与校验；到系统设置 → 发布与域名生成发布清单，确认后发布。' }
   $('#admin-preview').hidden = true
   $('#admin-logout').hidden = false
   $('#admin-draft-preview').hidden = false
+  $('#sidebar-draft-preview').hidden = false
+  const sidebarMode = document.querySelector('.sidebar-status [data-i18n]')
+  if (sidebarMode) { sidebarMode.removeAttribute('data-i18n'); sidebarMode.textContent = '私有草稿 · 保存不发布' }
   bind('#admin-logout', 'click', async () => {
     if (!await protectForm.mayLeave()) return
     try { await request('auth/logout', { method: 'POST', body: '{}' }); location.replace('/admin/login.html') } catch (error) { toastError(error.message) }
   })
-  bind('#admin-draft-preview', 'click', async () => {
+  const showDraftPreview = async () => {
+    closeMenuForAction()
     try {
       const report = await request('drafts/preview')
       const validation = await request('publishing/validate', { method: 'POST', body: '{}' })
@@ -1907,7 +1937,9 @@ if (authSession.mode === 'cloud') {
       content.append(list)
       await openModal({ title: '私有草稿变更预览', body: content })
     } catch (error) { toastError(error.message) }
-  })
+  }
+  bind('#admin-draft-preview', 'click', showDraftPreview)
+  bind('#sidebar-draft-preview', 'click', showDraftPreview)
 }
 const siteManagement = mountSiteManagement({ request, el, button, toast, openModal, downloadBase64, fileToPayload, reload, cloud: authSession.mode === 'cloud' })
 const contentCollections = mountContentCollections({ request, el, button, toast, openModal, showEditorModal, closeEditorDrawer, hideEditorForms, protectForm, getState: () => state })

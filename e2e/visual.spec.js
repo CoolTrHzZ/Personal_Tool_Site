@@ -1,3 +1,4 @@
+import { adminNavigation } from './helpers/admin-navigation.js'
 import { test, expect } from '@playwright/test'
 
 test('Admin dashboard 一屏展示真实项目配置并可直达管理页', async ({ page, request }) => {
@@ -57,7 +58,7 @@ test('Admin dashboard 一屏展示真实项目配置并可直达管理页', asyn
 
 test('Admin 可编辑各内容页说明', async ({ page }) => {
   await page.goto('/admin/')
-  await page.click('.nav-item[data-view="settings"]')
+  await (await adminNavigation(page, '.nav-item[data-view="settings"]')).click()
   const fields = ['toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription']
   for (const name of fields) await expect(page.locator(`#site [name="${name}"]`)).toBeVisible()
   await expect(page.locator('#site [name="name"]')).toHaveAttribute('required', '')
@@ -128,7 +129,7 @@ test('Admin dashboard 窄屏保持单列且不横向溢出', async ({ page }) =>
 
 test('Admin websites 使用居中编辑弹窗和遮罩', async ({ page }) => {
   await page.goto('/admin/')
-  await page.click('.nav-item[data-view="websites"]')
+  await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
   await expect(page.locator('#nav-form')).toBeHidden()
   await page.click('[data-add-website]')
   await expect(page.locator('#editor-drawer')).toBeVisible()
@@ -172,7 +173,7 @@ test('Admin 配置表单互斥且操作菜单不残留', async ({ page }) => {
   ]
 
   for (const [view, table, action, activeForm] of editors) {
-    await page.click(`.nav-item[data-view="${view}"]`)
+    await (await adminNavigation(page, `.nav-item[data-view="${view}"]`)).click()
     const row = page.locator(`${table} tr`).first()
     await expect(row).toBeVisible()
     await row.locator('.kebab-toggle').click()
@@ -184,7 +185,7 @@ test('Admin 配置表单互斥且操作菜单不残留', async ({ page }) => {
     await page.click('#editor-drawer-close')
   }
 
-  await page.click('.nav-item[data-view="settings"]')
+  await (await adminNavigation(page, '.nav-item[data-view="settings"]')).click()
   for (const tab of ['general', 'appearance', 'deploy']) {
     await page.click(`[data-settings-tab="${tab}"]`)
     await expect(page.locator('#site')).toBeVisible()
@@ -195,13 +196,13 @@ test('Admin 配置表单互斥且操作菜单不残留', async ({ page }) => {
     await expect(page.locator('#settings-extra')).not.toBeEmpty()
   }
 
-  await page.click('.nav-item[data-view="tags"]')
+  await (await adminNavigation(page, '.nav-item[data-view="tags"]')).click()
   await page.locator('[data-view-tag]').first().click()
   await expect(page.locator('#tag-drawer')).toBeVisible()
   await expect(page.locator('#editor-drawer')).toBeHidden()
   await page.click('#tag-drawer-close')
 
-  await page.click('.nav-item[data-view="tools"]')
+  await (await adminNavigation(page, '.nav-item[data-view="tools"]')).click()
   let row = page.locator('#tools tr').filter({ hasText: 'static' }).first()
   await row.locator('.kebab-toggle').click()
   await page.locator('.kebab-menu:not([hidden]) [data-edit-tool]').click()
@@ -214,7 +215,7 @@ test('Admin 配置表单互斥且操作菜单不残留', async ({ page }) => {
   await expect(page.locator('#modal')).toBeVisible()
   await page.click('#modal-cancel')
 
-  await page.click('.nav-item[data-view="websites"]')
+  await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
   row = page.locator('#navigation tr').first()
   await row.locator('.kebab-toggle').click()
   await page.locator('.kebab-menu:not([hidden]) [data-delete]').click()
@@ -222,7 +223,7 @@ test('Admin 配置表单互斥且操作菜单不残留', async ({ page }) => {
   await expect(page.locator('#modal')).toBeVisible()
   await page.click('#modal-cancel')
 
-  await page.click('.nav-item[data-view="notes"]')
+  await (await adminNavigation(page, '.nav-item[data-view="notes"]')).click()
   await page.click('[data-add-note]')
   await expect(page.locator('#note-tab-write')).toBeVisible()
   await expect(page.locator('#note-tab-json')).toBeHidden()

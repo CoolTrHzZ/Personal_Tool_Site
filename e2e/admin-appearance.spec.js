@@ -1,3 +1,4 @@
+import { adminNavigation } from './helpers/admin-navigation.js'
 import { test, expect } from '@playwright/test'
 import { Buffer } from 'node:buffer'
 
@@ -40,7 +41,7 @@ test('Admin 黑色面板与彩色操作层级、主题及动效偏好保持一�
   await theme.selectOption('light')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await expectTokenColor(page.locator('body'), 'background-color', '--surface-page')
-  await page.click('.nav-item[data-view="websites"]')
+  await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
   await expectTokenColor(page.locator('[data-add-website]'), 'background-color', '--accent')
   await expectTokenColor(page.locator('[data-add-website]'), 'color', '--on-accent')
   await page.screenshot({ path: 'e2e/screenshots/admin-light-list.png', fullPage: true })
@@ -77,7 +78,7 @@ test('Admin 主题在同源标签页同步，窄屏导航关闭后可使用编�
   await expect(page.locator('#locale-select')).toBeVisible()
   await expect(page.locator('.site-link')).toBeVisible()
   await page.screenshot({ path: 'e2e/screenshots/admin-mobile-menu.png' })
-  await page.locator('.nav-item[data-view="websites"]').click()
+  await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
   await expect(page.locator('#admin-menu')).toHaveAttribute('aria-expanded', 'false')
   await expect(page.locator('#admin-sidebar')).toHaveAttribute('inert', '')
   await expect(page.locator('#page-title')).toBeFocused()
@@ -95,7 +96,7 @@ test('Admin 主题在同源标签页同步，窄屏导航关闭后可使用编�
 
 test('Admin 按钮、操作菜单及弹窗具有交互反馈并尊重减少动效', async ({ page }) => {
   await page.goto('/admin/')
-  await page.locator('.nav-item[data-view="websites"]').click()
+  await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
   const create = page.locator('[data-add-website]')
   await expectTokenColor(create, 'background-color', '--accent')
   await expect(create).toHaveCSS('border-radius', '6px')
@@ -152,7 +153,7 @@ test.describe('Admin 手机触控目标', () => {
       await assertFits(target)
     }
     await page.locator('#admin-menu').click()
-    await page.locator('.nav-item[data-view="websites"]').click()
+    await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
     const action = page.locator('#navigation .kebab-toggle').first()
     await action.scrollIntoViewIfNeeded()
     const box = await action.boundingBox()
@@ -178,7 +179,7 @@ test('Admin 导入向导在黑色与手机视口可读，模拟分析不写实�
   })
   await page.route('**/__tool_preview/appearance-preview/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body style="background:#111;color:#eee"><h1>Preview</h1></body></html>' }))
   await page.goto('/admin/')
-  await page.locator('.nav-item[data-view="import"]').click()
+  await (await adminNavigation(page, '.nav-item[data-view="import"]')).click()
   await page.locator('#tool-file-input').setInputFiles({ name: 'preview.html', mimeType: 'text/html', buffer: Buffer.from('<h1>Preview</h1>') })
   const dialog = page.getByRole('dialog', { name: '导入向导' })
   await expect(dialog).toBeVisible()

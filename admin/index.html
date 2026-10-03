@@ -27,18 +27,40 @@
       </div>
       <nav aria-label="管理导航">
         <button class="nav-item active" data-view="dashboard" data-i18n="nav.dashboard">仪表盘</button>
-        <button class="nav-item" data-view="websites" data-i18n="nav.websites">网站管理</button>
-        <button class="nav-item" data-view="library" data-i18n="nav.library">收藏仓库</button>
-        <button class="nav-item" data-view="ai-resources" data-i18n="nav.aiResources">AI Hub 资源</button>
-        <button class="nav-item" data-view="notes" data-i18n="nav.notes">笔记文章</button>
-        <button class="nav-item" data-view="tools" data-i18n="nav.tools">工具管理</button>
-        <button class="nav-item" data-view="cfg-library">CFG 配置库</button>
-        <button class="nav-item" data-view="marketplace" data-i18n="nav.marketplace">工具市场</button>
-        <button class="nav-item" data-view="categories" data-i18n="nav.categories">分类管理</button>
-        <button class="nav-item" data-view="tags" data-i18n="nav.tags">标签管理</button>
-        <button class="nav-item" data-view="validate" data-i18n="nav.validate">数据校验</button>
-        <button class="nav-item" data-view="import" data-i18n="nav.import">导入向导</button>
-        <button class="nav-item" data-view="settings" data-i18n="nav.settings">系统设置</button>
+        <section class="admin-nav-section" aria-label="快速收集">
+          <h2 data-i18n="nav.quickCollect">快速收集</h2>
+          <button type="button" class="nav-item" data-collect="navigation" data-i18n="nav.collectWebsite">收集网站</button>
+          <button type="button" class="nav-item" data-collect="ai-resources" data-i18n="nav.collectAIResource">收集 AI 资源</button>
+        </section>
+        <details class="admin-nav-group" id="admin-content-nav">
+          <summary data-i18n="nav.contentManagement">内容管理</summary>
+          <div class="admin-nav-items">
+            <button class="nav-item" data-view="websites" data-i18n="nav.websites">网站管理</button>
+            <button class="nav-item" data-view="ai-resources" data-i18n="nav.aiResources">AI Hub 资源</button>
+            <button class="nav-item" data-view="library" data-i18n="nav.library">收藏仓库</button>
+            <button class="nav-item" data-view="notes" data-i18n="nav.notes">笔记文章</button>
+            <button class="nav-item" data-view="tools" data-i18n="nav.tools">工具管理</button>
+          </div>
+        </details>
+        <section class="admin-nav-section" aria-label="预览与发布">
+          <h2 data-i18n="nav.previewPublishing">预览与发布</h2>
+          <button type="button" class="nav-item" id="sidebar-draft-preview" hidden>预览草稿变更</button>
+          <button type="button" class="nav-item" data-settings-shortcut="deploy" data-i18n="nav.publishSettings">发布与域名</button>
+          <button class="nav-item" data-view="validate" data-i18n="nav.validate">数据校验</button>
+          <button type="button" class="nav-item" data-settings-shortcut="general" data-i18n="nav.siteDisplay">站点展示与入口</button>
+        </section>
+        <details class="admin-nav-group" id="admin-maintenance-nav">
+          <summary data-i18n="nav.maintenance">设置与维护</summary>
+          <div class="admin-nav-items">
+            <button class="nav-item" data-view="settings" data-i18n="nav.settings">系统设置</button>
+            <button type="button" class="nav-item" data-ai-help="true">AI 服务设置说明</button>
+            <button class="nav-item" data-view="cfg-library">CFG 配置库</button>
+            <button class="nav-item" data-view="categories" data-i18n="nav.categories">分类管理</button>
+            <button class="nav-item" data-view="tags" data-i18n="nav.tags">标签管理</button>
+            <button class="nav-item" data-view="import" data-i18n="nav.import">导入向导</button>
+            <button class="nav-item" data-view="marketplace" data-i18n="nav.marketplace">工具市场</button>
+          </div>
+        </details>
       </nav>
       <div class="sidebar-footer">
         <label class="locale-control"><span class="sr-only">Language</span><select id="locale-select" class="ui-input" aria-label="Language"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
@@ -75,7 +97,8 @@
             <h3 id="get-started-title" data-i18n="dash.getStarted">第一次使用，从这里开始</h3>
             <p class="muted" data-i18n="dash.getStartedHint">先添加一项内容，保存后打开本地预览。确认效果后再发布站点。</p>
             <div class="admin-start-actions">
-              <button type="button" class="ui-button ui-button-primary ui-button-sm" id="dashboard-add-website" data-i18n="dash.startWebsite">添加第一个网址</button>
+              <button type="button" class="ui-button ui-button-primary ui-button-sm" id="dashboard-add-website" data-i18n="nav.collectWebsite">收集网站</button>
+              <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="dashboard-add-ai-resource" data-collect="ai-resources" data-i18n="nav.collectAIResource">收集 AI 资源</button>
               <button type="button" class="ui-button ui-button-ghost ui-button-sm" id="dashboard-import-tool" data-i18n="dash.startImport">导入 HTML / ZIP 工具</button>
               <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-view="settings" data-i18n="dash.startSettings">修改站点信息</button>
             </div>
@@ -113,9 +136,14 @@
               </ul>
               <div id="dashboard-runtime-mix" class="dashboard-runtime-mix"></div>
             </section>
-            <section class="ui-card panel dash-module">
+            <section class="ui-card panel dash-module" id="dashboard-publishing">
               <h2 data-i18n="dash.publishing">站点与发布</h2>
               <dl id="dashboard-site-config" class="dashboard-site-config"></dl>
+              <p class="field-hint" data-i18n="dash.publishingHint">这里是已保存的站点配置，不代表已部署结果。字段会随显式发布公开；publicUrl 可能生成 CNAME，basePath 影响资源路径；Admin 显示链接不修改登录安全 origin。勿填 Key 或秘密 URL。</p>
+              <div class="shortcut-grid">
+                <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-settings-shortcut="general" data-i18n="nav.siteDisplay">站点展示与入口</button>
+                <button type="button" class="ui-button ui-button-ghost ui-button-sm" data-settings-shortcut="deploy" data-i18n="nav.publishSettings">发布与域名</button>
+              </div>
             </section>
           </aside>
         </div>

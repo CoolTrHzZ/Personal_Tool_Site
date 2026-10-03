@@ -1,7 +1,8 @@
+import { adminField } from './helpers/admin-navigation.js'
 import { test, expect } from '@playwright/test'
 
 for (const width of [1280, 390]) {
-  test(`常用表单隐藏低频设置并保持保存可见（${width}px）`, async ({ browser }) => {
+  test(`常用表单隐藏低频设置并保持保存可见（${width}px）`, async ({ browser }, testInfo) => {
     const context = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width === 390, isMobile: width === 390, reducedMotion: 'reduce' })
     const page = await context.newPage()
     const writes = [], errors = []
@@ -22,7 +23,7 @@ for (const width of [1280, 390]) {
         await expect(page.locator('#stat-websites')).not.toHaveText('—')
         await page.locator(`.dash-kpi[data-view="${view}"]`).click()
         await page.locator(add).click()
-        const form = page.locator(`#${id}`), advanced = form.locator('.form-advanced')
+        const form = page.locator(`#${id}`), advanced = form.locator(':scope > .form-advanced').last()
         await expect(form.locator('[name="name"]')).toBeFocused()
         await expect(advanced).not.toHaveAttribute('open')
         await expect(form.locator('[name="id"]')).toBeHidden()
@@ -31,9 +32,9 @@ for (const width of [1280, 390]) {
         expect(await page.locator('.editor-modal').evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
         await form.locator('[name="name"]').fill(`常用表单 ${view}`)
         await form.locator('[name="url"]').fill('https://example.com/start')
-        await form.locator('[name="description"]').fill('记录用途，便于以后查找。')
+        await (await adminField(form, '[name="description"]')).fill('记录用途，便于以后查找。')
         await page.locator('#editor-drawer-body').evaluate(node => { node.scrollTop = 0 })
-        await page.screenshot({ path: `/tmp/devos-static-forms-${width}-${id}.png` })
+        await page.screenshot({ path: testInfo.outputPath(`static-forms-${width}-${id}.png`) })
         if (id === 'nav-form') {
           await advanced.locator('summary').press('Enter')
           await form.locator('[name="id"]').fill('Invalid ID')

@@ -582,3 +582,15 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .quick-collect-diff > span { display: grid; gap: 4px; min-width: 0; }
 .quick-collect-diff span span { white-space: pre-wrap; overflow-wrap: anywhere; }
 .quick-collect-diff small { color: var(--text-faint); }
+
+/* Common capture first; native groups retain their original view/hash targets. */
+.admin-nav-section { display: grid; gap: 4px; }
+.admin-nav-section h2 { margin: 10px 12px 4px; font-size: 11px; font-weight: 600; color: var(--text-faint); }
+.admin-nav-group > summary { padding: 12px; min-height: 44px; border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer; font-size: 13px; }
+.admin-nav-group > summary:is(:hover, :focus-visible) { color: var(--accent); background: var(--accent-soft); }
+.admin-nav-items { display: grid; gap: 4px; }
+.admin-nav-group:not([open]) > :not(summary), .form-advanced:not([open]) > :not(summary) { display: none; }
+.collection-complete { justify-self: start; }
+.collection-preview-links { display: grid; gap: 8px; overflow-wrap: anywhere; }
+.collection-preview-links a { color: var(--accent); }
+.site-display-preview p { overflow-wrap: anywhere; margin: 0; }

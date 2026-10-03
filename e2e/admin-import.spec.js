@@ -1,3 +1,4 @@
+import { adminNavigation } from './helpers/admin-navigation.js'
 import { test, expect } from '@playwright/test'
 
 // v3.0.1 四十二/四十三：CS2 HTML 走完整 6 步导入 —— 以后再改 Wizard，这条链路坏了会立刻暴露。
@@ -8,7 +9,7 @@ test('HTML 工具：拖入 → 识别 → 元数据 → 权限 → 兼容性 →
   await request.delete(`/api/tools/${TOOL_ID}`).catch(() => {})
 
   await page.goto('/admin/')
-  await page.click('.nav-item[data-view="tools"]')
+  await (await adminNavigation(page, '.nav-item[data-view="tools"]')).click()
 
   // Step 1 识别：上传 fixture HTML
   await page.setInputFiles('#tool-file-input', 'tests/fixtures/tools/cs2-rainbow.html')

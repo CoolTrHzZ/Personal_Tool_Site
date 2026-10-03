@@ -1,3 +1,4 @@
+import { adminNavigation, adminField } from './helpers/admin-navigation.js'
 import { test, expect } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
 
@@ -7,22 +8,22 @@ const AI_RESOURCE_ID = 'e2e-ai-resource'
 
 test('编辑弹窗阻止背景切页，关闭后可正常导航', async ({ page }) => {
   await page.goto('/admin/')
-  await page.click('.nav-item[data-view="websites"]')
+  await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
   const row = page.locator('#navigation tr').first()
   await row.locator('.kebab-toggle').click()
   await page.locator('.kebab-menu:not([hidden]) [data-edit]').click()
   await expect(page.locator('#editor-drawer')).toBeVisible()
-  const categoryNav = await page.locator('.nav-item[data-view="categories"]').boundingBox()
+  const categoryNav = await (await adminNavigation(page, '.nav-item[data-view="categories"]')).boundingBox()
   await page.mouse.click(categoryNav.x + 20, categoryNav.y + 20)
   await expect(page.locator('[data-view-panel="websites"]')).toBeVisible()
   await expect(page.locator('#editor-drawer')).toBeHidden()
-  await page.click('.nav-item[data-view="categories"]')
+  await (await adminNavigation(page, '.nav-item[data-view="categories"]')).click()
   await expect(page.locator('[data-view-panel="categories"]')).toBeVisible()
 })
 
 test('编辑器管理分类和标签按钮可导航到对应面板', async ({ page }) => {
   await page.goto('/admin/')
-  await page.click('.nav-item[data-view="websites"]')
+  await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
 
   const websiteRow = page.locator('#navigation tr').first()
   await websiteRow.locator('.kebab-toggle').click()
@@ -32,14 +33,14 @@ test('编辑器管理分类和标签按钮可导航到对应面板', async ({ pa
   await expect(page.locator('#editor-drawer')).toBeHidden()
   await expect(page.locator('[data-view-panel="categories"]')).toBeVisible()
 
-  await page.click('.nav-item[data-view="websites"]')
+  await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
   await page.locator('#navigation tr').first().locator('.kebab-toggle').click()
   await page.locator('.kebab-menu:not([hidden]) [data-edit]').click()
   await page.locator('#nav-form [data-view="tags"]').click()
   await expect(page.locator('#editor-drawer')).toBeHidden()
   await expect(page.locator('[data-view-panel="tags"]')).toBeVisible()
 
-  await page.click('.nav-item[data-view="ai-resources"]')
+  await (await adminNavigation(page, '.nav-item[data-view="ai-resources"]')).click()
   const aiResourceRow = page.locator('#ai-resources tr').first()
   await aiResourceRow.locator('.kebab-toggle').click()
   await page.locator('.kebab-menu:not([hidden]) [data-edit-ai-resource]').click()
@@ -68,12 +69,12 @@ test('Admin 管理 AI Hub 资源并校验数据', async ({ page, request, contex
   expect(infinite.status()).toBe(400)
   try {
     await page.goto('/admin/')
-    await page.click('.nav-item[data-view="ai-resources"]')
+    await (await adminNavigation(page, '.nav-item[data-view="ai-resources"]')).click()
     await page.getByRole('button', { name: '添加资源' }).click()
     const form = page.locator('#ai-resource-form')
     await form.locator('[name="name"]').fill('E2E AI Product')
     await form.locator('[name="kind"]').selectOption('app')
-    await form.locator('[name="description"]').fill('Admin managed resource')
+    await (await adminField(form, '[name="description"]')).fill('Admin managed resource')
     await form.locator('[name="url"]').fill('https://example.com/ai')
     await form.locator('details.form-advanced > summary').click()
     await form.locator('[name="id"]').fill(AI_RESOURCE_ID)
@@ -127,7 +128,7 @@ test('Admin 分类标签图标控件可保存并重新打开', async ({ page, re
     await request.post('/api/tags', { data: { name: pickerTag } })
     await page.goto('/admin/')
 
-    await page.click('.nav-item[data-view="websites"]')
+    await (await adminNavigation(page, '.nav-item[data-view="websites"]')).click()
     let row = page.locator('#navigation tr').first()
     await row.locator('.kebab-toggle').click()
     await page.locator('.kebab-menu:not([hidden]) [data-edit]').click()
@@ -143,7 +144,7 @@ test('Admin 分类标签图标控件可保存并重新打开', async ({ page, re
     expect(savedWebsite.category).toBe(categories[0].id)
     expect(savedWebsite.tags).toContain(pickerTag)
 
-    await page.click('.nav-item[data-view="ai-resources"]')
+    await (await adminNavigation(page, '.nav-item[data-view="ai-resources"]')).click()
     row = page.locator('#ai-resources tr').first()
     await row.locator('.kebab-toggle').click()
     await page.locator('.kebab-menu:not([hidden]) [data-edit-ai-resource]').click()
@@ -153,7 +154,7 @@ test('Admin 分类标签图标控件可保存并重新打开', async ({ page, re
     await aiForm.locator('button[type="submit"]').click()
     await expect.poll(async () => (await (await request.get('/api/ai-resources')).json()).find(item => item.id === originalAI.id)?.tags || []).toContain(pickerTag)
 
-    await page.click('.nav-item[data-view="categories"]')
+    await (await adminNavigation(page, '.nav-item[data-view="categories"]')).click()
     row = page.locator('#categories tr').first()
     await row.locator('.kebab-toggle').click()
     await page.locator('.kebab-menu:not([hidden]) [data-edit-category]').click()
@@ -165,7 +166,7 @@ test('Admin 分类标签图标控件可保存并重新打开', async ({ page, re
     await expect(page.locator('#category-form [data-icon-option="Wrench"]')).toHaveAttribute('aria-pressed', 'true')
     await page.click('#category-cancel')
 
-    await page.click('.nav-item[data-view="tags"]')
+    await (await adminNavigation(page, '.nav-item[data-view="tags"]')).click()
     await page.locator('[data-add-tag]').click()
     await page.locator('#modal-body input').fill(tag)
     await page.locator('#modal-ok').click()
@@ -196,7 +197,7 @@ test('工具管理可切换打开即全屏并写入 manifest', async ({ page, re
   const height = original.display?.height ?? 'auto'
   try {
     await page.goto('/admin/')
-    await page.click('.nav-item[data-view="tools"]')
+    await (await adminNavigation(page, '.nav-item[data-view="tools"]')).click()
     await expect(page.locator('#tools')).toContainText(TOOL_ID, { timeout: 10_000 })
     const toggle = page.locator('#tools tr', { hasText: TOOL_ID }).locator('.ui-switch')
     await expect(toggle).toBeVisible()
@@ -244,7 +245,7 @@ test('笔记摘要过长时截断且不覆盖更新日期', async ({ page, reque
   expect(created.ok()).toBeTruthy()
   try {
     await page.goto('/admin/')
-    await page.click('.nav-item[data-view="notes"]')
+    await (await adminNavigation(page, '.nav-item[data-view="notes"]')).click()
     const row = page.locator('#notes tr', { hasText: 'E2E clip' })
     await expect(row).toBeVisible()
     const summary = row.locator('td.cell-clip')
@@ -268,7 +269,7 @@ test('内置 React 工具可从列表删除', async ({ page, request }) => {
   const id = 'url'
   try {
     await page.goto('/admin/')
-    await page.click('.nav-item[data-view="tools"]')
+    await (await adminNavigation(page, '.nav-item[data-view="tools"]')).click()
     const row = page.locator('#tools tr', { hasText: id })
     await expect(row).toBeVisible()
     await row.locator('.kebab-toggle').click()

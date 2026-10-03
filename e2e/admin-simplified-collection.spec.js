@@ -1,0 +1,219 @@
+import { test, expect } from '@playwright/test'
+import { mockAdmin } from './helpers/admin-mock.js'
+import { adminNavigation } from './helpers/admin-navigation.js'
+
+async function cloudAdmin(page, { configured = false, seed = {}, suggest = {} } = {}) {
+  return mockAdmin(page, async (route, url) => {
+    if (url.pathname === '/api/auth/session') { await route.fulfill({ json: { mode:'cloud', authenticated:true, csrf:'synthetic-csrf' } }); return true }
+    if (url.pathname === '/api/ai/status') { await route.fulfill({ json:{ configured } }); return true }
+    if (url.pathname === '/api/ai/suggest') { await route.fulfill({ json:{ fields:suggest } }); return true }
+    if (url.pathname === '/api/publishing') { await route.fulfill({ json:{ cloud:true, available:true, repository:'CoolTrHzZ/Personal_Tool_Site', branch:'main', job:null, history:[] } }); return true }
+    if (url.pathname === '/api/drafts/preview') { await route.fulfill({ json:{ message:'合成草稿预览', changes:[] } }); return true }
+    if (url.pathname === '/api/publishing/validate') { await route.fulfill({ json:{ ok:true, issues:[] } }); return true }
+    return false
+  }, seed)
+}
+async function openMenu(page) {
+  const menu = page.locator('#admin-menu')
+  if (await menu.isVisible() && await menu.getAttribute('aria-expanded') !== 'true') await menu.click()
+}
+const visibleFields = form => form.evaluate(node => [...node.elements].filter(field => field.name && field.type !== 'hidden' && !field.closest('[hidden], details:not([open])') && field.getClientRects().length).map(field => field.name))
+const writes = requests => requests.filter(item => item.method !== 'GET')
+
+for (const width of [1280, 390]) {
+  test.describe(width + 'px simplified admin', () => {
+    test.beforeEach(async ({ page }) => { await page.setViewportSize({ width, height:width === 390 ? 844 : 900 }) })
+
+    test('website capture exposes two fields, explains missing AI, and saves only after confirmation', async ({ page }, testInfo) => {
+      const { collections, requests, errors } = await cloudAdmin(page)
+      await expect(page.locator('#admin-content-nav')).not.toHaveAttribute('open', '')
+      await expect(page.locator('#admin-maintenance-nav')).not.toHaveAttribute('open', '')
+      await page.locator('#dashboard-add-website').click()
+      const form = page.locator('#nav-form')
+      expect(await visibleFields(form)).toEqual(['name','url'])
+      await expect(form.locator('[data-ai-configuration]')).toContainText('AI 未配置')
+      await expect(form.getByRole('button', { name:'AI 补空建议', exact:true })).toBeDisabled()
+      await form.getByRole('button', { name:'AI 服务设置说明', exact:true }).click()
+      await expect(page.locator('#modal-body')).toContainText('当前界面没有凭据保存表单')
+      await expect(page.locator('#modal-body input[type="password"]')).toHaveCount(0)
+      await page.locator('#modal-cancel').click()
+      await form.getByLabel('粘贴文本或 URL', { exact:true }).fill('名称：候选合成网站\nURL：https://example.invalid/capture')
+      await form.getByRole('button', { name:'提取明确字段', exact:true }).click()
+      await form.getByRole('button', { name:'应用勾选建议', exact:true }).click()
+      await expect(form.locator('[name="name"]')).toHaveValue('候选合成网站')
+      await expect(form.locator('[name="id"]')).toHaveValue(/^item-[a-f0-9]{8}$/)
+      await expect(form.locator('[name="category"]')).toHaveValue('development')
+      expect(writes(requests)).toEqual([])
+      const id = await form.locator('[name="id"]').inputValue()
+      await form.getByRole('button', { name:'保存私有草稿', exact:true }).click()
+      await expect(page.locator('#editor-drawer')).toBeHidden()
+      expect(collections.navigation.find(item => item.id === id)).toMatchObject({ name:'候选合成网站', url:'https://example.invalid/capture', category:'development', order:10, enabled:true })
+      expect(writes(requests).map(item => item.path)).toEqual(['/api/navigation'])
+      await openMenu(page)
+      await page.locator('#admin-sidebar [data-collect="navigation"]').click()
+      await expect(form).toBeVisible()
+      await page.locator('#nav-cancel').click()
+      if (width === 390) await expect(page.locator('#admin-menu')).toBeFocused()
+      expect(errors).toEqual([])
+      await testInfo.attach('capture-metrics', { body:JSON.stringify({ width, initialFields:['name','url'], manualFromDashboard:4, pasteFromDashboard:5, humanRequired:2, realAiCalled:false }), contentType:'application/json' })
+    })
+
+    test('AI suggestions preserve manual text and unchecked fields, then explicitly save a synthetic resource', async ({ page }) => {
+      const { collections, requests, errors } = await cloudAdmin(page, { configured:true, suggest:{ name:'应保留手写名称', url:'https://example.invalid/ai-resource', description:'未勾选的说明', tags:['synthetic'], id:'must-not-apply' } })
+      await page.locator('#dashboard-add-ai-resource').click()
+      const form = page.locator('#ai-resource-form')
+      expect(await visibleFields(form)).toEqual(['name','kind','url'])
+      await expect(form.locator('[name="kind"]')).toHaveValue('app')
+      await form.locator('[name="name"]').fill('我的合成资源')
+      await form.getByLabel('粘贴文本或 URL', { exact:true }).fill('只用于本地候选验收的合成资源材料。')
+      await expect(form.getByRole('button', { name:'AI 补空建议', exact:true })).toBeEnabled()
+      await form.getByRole('button', { name:'AI 补空建议', exact:true }).click()
+      await expect(form.locator('.quick-collect-diffs input[data-field="name"]')).toBeDisabled()
+      await form.locator('.quick-collect-diffs input[data-field="description"]').uncheck()
+      await expect(form.locator('.quick-collect-diffs input[data-field="id"]')).toHaveCount(0)
+      await form.getByRole('button', { name:'应用勾选建议', exact:true }).click()
+      await expect(form.locator('[name="name"]')).toHaveValue('我的合成资源')
+      await expect(form.locator('[name="description"]')).toHaveValue('')
+      await expect(form.locator('[name="url"]')).toHaveValue('https://example.invalid/ai-resource')
+      expect(writes(requests).map(item => item.path)).toEqual(['/api/ai/suggest'])
+      const payload = writes(requests)[0].body
+      expect(payload.target).toBe('ai-resources')
+      expect(payload.current.name).toBe('我的合成资源')
+      expect(payload.current).not.toHaveProperty('id')
+      expect(payload).not.toHaveProperty('apiKey')
+      const id = await form.locator('[name="id"]').inputValue()
+      await form.getByRole('button', { name:'保存私有草稿', exact:true }).click()
+      await expect(page.locator('#editor-drawer')).toBeHidden()
+      expect(collections['ai-resources'].find(item => item.id === id)).toMatchObject({ name:'我的合成资源', kind:'app', url:'https://example.invalid/ai-resource', description:'', tags:['synthetic'], order:10, enabled:true })
+      expect(writes(requests).map(item => item.path)).toEqual(['/api/ai/suggest','/api/ai-resources'])
+      expect(errors).toEqual([])
+    })
+
+    test('old browser drafts keep ID and all action fields through type changes and complete-form fallback', async ({ page }, testInfo) => {
+      const values = { originalId:'', id:'old-custom-id', name:'旧合成草稿', kind:'skill', url:'https://example.invalid/old', install:'合成安装说明', content:'合成配置内容', description:'旧说明', tags:'synthetic', enabled:'on', order:'37', updated:'2026-10-01' }
+      const saved = { values:Object.entries(values).map(([name,value]) => ({ name, type:name === 'enabled' ? 'checkbox' : 'text', value, checked:name === 'enabled' })) }
+      await page.addInitScript(draft => localStorage.setItem('devos-admin-draft:ai-resource-form:new', JSON.stringify(draft)), saved)
+      const { requests, errors } = await cloudAdmin(page)
+      await page.locator('#dashboard-add-ai-resource').click()
+      const form = page.locator('#ai-resource-form')
+      await form.getByRole('button', { name:'恢复草稿', exact:true }).click()
+      for (const key of ['id','name','url','install','content','order','updated']) await expect(form.locator('[name="' + key + '"]')).toHaveValue(values[key])
+      await form.locator('[name="kind"]').selectOption('prompt')
+      await expect(form.locator('[name="content"]')).toBeVisible()
+      for (const key of ['url','install','content']) await expect(form.locator('[name="' + key + '"]')).toHaveValue(values[key])
+      await form.getByRole('button', { name:'显示完整表单', exact:true }).click()
+      for (const key of ['url','install','content','id']) await expect(form.locator('[name="' + key + '"]')).toBeVisible()
+      page.once('dialog', dialog => dialog.dismiss())
+      await page.locator('#ai-resource-cancel').click()
+      await expect(form).toBeVisible()
+      page.once('dialog', dialog => dialog.accept())
+      await page.locator('#ai-resource-cancel').click()
+      await page.locator('#dashboard-add-ai-resource').click()
+      await form.getByRole('button', { name:'恢复草稿', exact:true }).click()
+      await expect(form.locator('[name="id"]')).toHaveValue('old-custom-id')
+      await expect(form.locator('[name="kind"]')).toHaveValue('prompt')
+      for (const key of ['url','install','content']) await expect(form.locator('[name="' + key + '"]')).toHaveValue(values[key])
+      expect(writes(requests)).toEqual([])
+      expect(errors).toEqual([])
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      await page.screenshot({ path:testInfo.outputPath('restored-collection-' + width + '.png') })
+    })
+
+    test('existing settings and CFG hashes, display draft preview, safe URLs and explicit draft preview remain usable', async ({ page }, testInfo) => {
+      const old = { values:[{name:'name',value:'旧展示草稿'},{name:'title',value:'旧标题'},{name:'description',value:'旧简介'},{name:'tagline',value:'旧小标签'},{name:'github',value:'https://example.invalid/repo'}] }
+      await page.addInitScript(value => { if (!sessionStorage.getItem('synthetic-site-draft-seeded')) { localStorage.setItem('devos-admin-draft:site:general', JSON.stringify(value)); sessionStorage.setItem('synthetic-site-draft-seeded','true') } }, old)
+      const { requests, collections, errors } = await cloudAdmin(page)
+      await openMenu(page)
+      await page.locator('#admin-sidebar [data-settings-shortcut="general"]').click()
+      await expect(page).toHaveURL(/#settings$/)
+      const form = page.locator('#site')
+      await form.getByRole('button', { name:'恢复草稿', exact:true }).click()
+      await expect(form.locator('[name="name"]')).toHaveValue('旧展示草稿')
+      await expect(form.locator('[name="tagline"]')).toHaveValue('旧小标签')
+      await form.locator('[name="name"]').fill('<img src=x onerror=alert(1)> 合成名称')
+      await expect(form.locator('.site-display-preview')).toContainText('<img src=x onerror=alert(1)> 合成名称')
+      await expect(form.locator('.site-display-preview img')).toHaveCount(0)
+      await form.locator('[name="publicUrl"]').fill('javascript:alert(1)')
+      await form.getByRole('button', { name:'保存展示草稿', exact:true }).click()
+      expect(writes(requests)).toEqual([])
+      await form.locator('[name="publicUrl"]').fill('https://owner:synthetic@example.invalid/')
+      expect(await form.locator('[name="publicUrl"]').evaluate(node => node.checkValidity())).toBe(false)
+      await form.locator('[name="publicUrl"]').fill('https://example.invalid/launch')
+      await form.locator('[name="adminUrl"]').fill('https://example.invalid/admin-display')
+      await form.getByRole('button', { name:'保存展示草稿', exact:true }).click()
+      await expect(page.locator('#toasts')).toContainText('站点配置已保存')
+      await expect(form).not.toHaveAttribute('aria-busy','true')
+      await expect(form.getByRole('button', { name:'恢复草稿', exact:true })).toHaveCount(0)
+      expect(collections.site).toMatchObject({ name:'<img src=x onerror=alert(1)> 合成名称', publicUrl:'https://example.invalid/launch', adminUrl:'https://example.invalid/admin-display', basePath:'./' })
+      expect(collections.site).not.toHaveProperty('origin')
+      expect(collections.site).not.toHaveProperty('apiKey')
+      await page.goto('http://admin.mock/admin/#cfgs')
+      await expect(page.locator('[data-view-panel="cfg-library"]')).toHaveClass(/active/)
+      await expect(page.locator('#admin-maintenance-nav')).toHaveAttribute('open', '')
+      await (await adminNavigation(page, '.nav-item[data-view="settings"]')).click()
+      await expect(page).toHaveURL(/#settings$/)
+      await openMenu(page)
+      await expect(page.locator('.sidebar-status')).toContainText('私有草稿 · 保存不发布')
+      await page.locator('#sidebar-draft-preview').click()
+      await expect(page.locator('#modal-title')).toHaveText('私有草稿变更预览')
+      await page.locator('#modal-cancel').click()
+      expect(writes(requests).map(item => item.path)).toEqual(['/api/site','/api/publishing/validate'])
+      expect(errors).toEqual([])
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      await page.screenshot({ path:testInfo.outputPath('settings-display-' + width + '.png') })
+    })
+  })
+}
+
+test('local mode keeps deterministic capture without calling the cloud AI API', async ({ page }) => {
+  const { requests, errors } = await mockAdmin(page)
+  await page.locator('#dashboard-add-website').click()
+  const form = page.locator('#nav-form')
+  await expect(form.locator('[data-ai-configuration]')).toContainText('本地模式')
+  await expect(form.getByRole('button', { name:'AI 补空建议', exact:true })).toBeDisabled()
+  expect(requests.some(item => item.path.startsWith('/api/ai/'))).toBe(false)
+  expect(errors).toEqual([])
+})
+
+for (const locale of ['zh-CN', 'en-US']) test(locale + ' admin link publication wording', async ({ page }) => {
+  await page.addInitScript(value => localStorage.setItem('admin-locale', value), locale)
+  const { requests, errors } = await cloudAdmin(page)
+  const form = page.locator('#site')
+  const label = locale === 'zh-CN' ? 'Admin 显示链接（公开字段）' : 'Admin display link (public field)'
+  await page.locator('#admin-sidebar [data-settings-shortcut="general"]').click()
+  await expect(form.locator('[name="adminUrl"]').locator('..')).toContainText(label)
+  await page.locator('#admin-sidebar [data-settings-shortcut="deploy"]').click()
+  await expect(form.locator('[name="adminUrl"]').locator('..')).toContainText(label)
+  await expect(form).toContainText(locale === 'zh-CN' ? '会随显式发布进入公开站点' : 'becomes public when explicitly published')
+  await expect(form).toContainText(locale === 'zh-CN' ? '不要填写 Key 或需保密的 URL' : 'Do not enter keys or secret URLs')
+  await expect(form).toContainText(locale === 'zh-CN' ? '不会配置登录安全 origin、监听地址或认证' : 'does not configure the login security origin, listener address, or authentication')
+  await expect(form).not.toContainText(locale === 'zh-CN' ? '不会随 Pages 发布' : 'not published with Pages')
+  expect(writes(requests)).toEqual([])
+  expect(errors).toEqual([])
+})
+
+test('site publishing card settings shortcuts and boundary notice', async ({ page }) => {
+  await page.setViewportSize({ width:390, height:844 })
+  const { collections, requests, errors } = await cloudAdmin(page)
+  const card = page.locator('#dashboard-publishing')
+  for (const locale of ['zh-CN', 'en-US']) {
+    if (locale === 'en-US') await page.locator('#locale-select').selectOption(locale)
+    await expect(page.locator('html')).toHaveAttribute('lang', locale)
+    await expect(card.locator('#dashboard-site-config')).toContainText(collections.site.adminUrl)
+    await expect(card).toContainText(locale === 'zh-CN' ? 'Admin 显示链接（公开字段）' : 'Admin display link (public field)')
+    const notice = card.locator('[data-i18n="dash.publishingHint"]')
+    for (const text of locale === 'zh-CN' ? ['不代表已部署结果','显式发布公开','publicUrl 可能生成 CNAME','basePath 影响资源路径','不修改登录安全 origin','勿填 Key 或秘密 URL'] : ['not a deployment result','public on explicit publication','publicUrl may generate CNAME','basePath affects asset paths','does not change the login security origin','Do not enter keys or secret URLs']) await expect(notice).toContainText(text)
+    for (const tab of ['general', 'deploy']) {
+      await card.locator('[data-settings-shortcut="' + tab + '"]').click()
+      await expect(page).toHaveURL(/#settings$/)
+      await expect(page.locator('.settings-tab[data-settings-tab="' + tab + '"]')).toHaveClass(/active/)
+      await expect(page.locator('#site [name="adminUrl"]')).toHaveValue(collections.site.adminUrl)
+      if (tab === 'deploy') await expect(page.locator('#site [name="basePath"]')).toHaveValue(collections.site.basePath)
+      await (await adminNavigation(page, '#admin-sidebar .nav-item[data-view="dashboard"]')).click()
+      await expect(card).toBeVisible()
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  expect(writes(requests)).toEqual([])
+  expect(errors).toEqual([])
+})

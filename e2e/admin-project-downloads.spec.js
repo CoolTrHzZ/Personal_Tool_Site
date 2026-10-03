@@ -1,3 +1,4 @@
+import { adminNavigation } from './helpers/admin-navigation.js'
 import { test, expect } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { resolve, extname } from 'node:path'
@@ -42,7 +43,7 @@ async function mockDesktopAdmin(page) {
   await page.goto('http://desktop-admin.mock/admin/')
   await expect(page.locator('#stat-websites')).not.toHaveText('—')
   if (await page.locator('#admin-menu').isVisible()) await page.locator('#admin-menu').click()
-  await page.locator('.nav-item[data-view="projects"]').click()
+  await (await adminNavigation(page, '.nav-item[data-view="projects"]')).click()
   await page.getByRole('button', { name: '新增桌面工具', exact: true }).click()
   const form = page.locator('#content-collection-form')
   await form.locator('[name="id"]').fill('model-tool')

@@ -1,3 +1,4 @@
+import { parseSiteDisplayUrl } from '../shared/site-display-url.js'
 import { createServer } from 'node:http'
 import { readFile, writeFile, readdir, rename, copyFile, mkdir, mkdtemp, rm, stat, lstat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -84,7 +85,7 @@ function validate(key, value) {
   if (key === 'site') {
     for (const field of ['name', 'title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'footer', 'logo']) if (typeof value[field] !== 'string') throw new Error(`${field} 必须是字符串`)
     for (const field of ['name', 'title', 'description', 'github']) if (!value[field].trim()) throw new Error(`${field} 不能为空`)
-    for (const field of ['github', 'publicUrl', 'adminUrl']) if (value[field] !== undefined && (typeof value[field] !== 'string' || (value[field] && !/^https?:$/.test(new URL(value[field]).protocol)))) throw new Error(`${field} 必须是 HTTP(S) 链接`)
+    for (const field of ['github', 'publicUrl', 'adminUrl']) if (value[field] !== undefined) { try { parseSiteDisplayUrl(value[field]) } catch { throw new Error(`${field} 必须是无凭据的 HTTP(S) 链接`) } }
     if (value.basePath != null && (typeof value.basePath !== 'string' || !/^(\.\/|\/)/.test(value.basePath))) throw new Error('basePath 必须以 / 或 ./ 开头')
     if (!Number.isFinite(value.todayContinueLimit) || !Number.isInteger(value.todayContinueLimit) || value.todayContinueLimit < 1 || value.todayContinueLimit > 8) throw new Error('todayContinueLimit 必须是 1-8 的整数')
     return

@@ -40,13 +40,17 @@ export function normalizeFields(target, input) {
 }
 export function confirmedFields(target, source) {
   if (typeof source !== 'string' || source.length > MAX_COLLECTION_SOURCE) throw new Error('粘贴材料最多 12000 字符')
-  const aliases = { 名称: 'name', name: 'name', 标题: 'name', title: 'name', 链接: 'url', 网址: 'url', url: 'url', 描述: 'description', 简介: 'description', description: 'description', 标签: 'tags', tags: 'tags', 类型: 'kind', kind: 'kind', 安装: 'install', install: 'install', 内容: 'content', content: 'content' }
+  const aliases = { 名称: 'name', 网站名称: 'name', name: 'name', 标题: 'name', title: 'name', 链接: 'url', 网址: 'url', url: 'url', 描述: 'description', 简介: 'description', description: 'description', 标签: 'tags', tags: 'tags', 分类: 'category', category: 'category', 类型: 'kind', kind: 'kind', 安装: 'install', install: 'install', 内容: 'content', content: 'content' }
   const fields = {}, seen = new Set(), ambiguous = new Set(), warnings = []
   let multiline = null
   for (const line of source.split(/\r?\n/)) {
     const match = line.match(/^\s*([^:：]+)\s*[:：]\s*(.*)$/)
-    const key = match && aliases[match[1].trim().toLowerCase()]
-    if (key && collectionFields(target).includes(key)) {
+    const label = match?.[1].trim().toLowerCase()
+    const key = label && Object.hasOwn(aliases, label) ? aliases[label] : null
+    if (key) {
+      // Recognized labels end multiline text even when this form does not collect that field.
+      multiline = null
+      if (!collectionFields(target).includes(key)) continue
       if (seen.has(key)) { ambiguous.add(key); delete fields[key] }
       else { fields[key] = match[2]; seen.add(key) }
       multiline = ['description', 'install', 'content'].includes(key) ? key : null
