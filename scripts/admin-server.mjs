@@ -906,28 +906,51 @@ async function authorize(req, res) {
     return true
   }
   if (!auth.sameOrigin(req)) { send(res, 403, { error: '请通过配置的 HTTPS 管理入口访问' }); return false }
-  const path = new URL(req.url || '/', 'http://localhost').pathname
-  if (req.method === 'GET' && ['/admin/login.html', '/admin/login.css', '/admin/login.js'].includes(path)) {
+  const authUrl = new URL(req.url || '/', 'http://localhost'), path = authUrl.pathname
+  if (req.method === 'GET' && ['/admin/login.html', '/admin/login.css', '/admin/login.js', '/admin/session-recovery.js'].includes(path)) {
     send(res, 200, await readFile(join(adminDir, path.slice('/admin/'.length))), MIME_TYPES[extname(path)]); return false
   }
   if (path === '/api/auth/login' && req.method === 'POST') {
     if (!auth.writeOrigin(req)) { send(res, 403, { error: '登录须为 HTTPS 同源 JSON 请求' }); return false }
-    const { username, password } = await body(req, 8192)
-    const result = await auth.login(req, username, password)
+    const { username, password, rememberDevice } = await body(req,8192)
+    if (rememberDevice !== undefined && typeof rememberDevice !== 'boolean') { send(res,400,{error:'记住设备选项必须是布尔值'});return false }
+    let result
+    try {result=await auth.login(req,username,password,rememberDevice===true)}
+    catch {send(res,503,{error:'设备记录暂不可用，请先使用未记住设备的浏览器密码登录'});return false}
     if (result.retryAfter) res.setHeader('retry-after', String(result.retryAfter))
-    if (result.cookie) res.setHeader('set-cookie', result.cookie)
+    if (result.cookies) res.setHeader('set-cookie',result.cookies)
     send(res, result.status, result.status === 200 ? { authenticated: true, csrf: result.csrf, expiresAt: result.expiresAt } : { error: result.status === 429 ? '尝试过于频繁，请按等待时间重试' : '用户名或密码错误' })
     return false
   }
-  const session = auth.session(req)
+  let session=auth.session(req),restoredSession=false
+  if (!session && path==='/api/auth/session' && req.method==='GET' && authUrl.searchParams.get('restore')!=='0') {
+    try { const restored=await auth.restore(req);if (restored) {res.setHeader('set-cookie',restored.cookies);session=restored.value;restoredSession=true} }
+    catch {send(res,503,{error:'设备恢复暂不可用，请使用密码登录'});return false}
+  }
   if (!session) {
     if (path.startsWith('/api/')) send(res, 401, { error: '会话已失效，请重新登录' })
     else { res.writeHead(303, { location: '/admin/login.html', 'cache-control': 'no-store' }); res.end() }
     return false
   }
-  if (path === '/api/auth/session' && req.method === 'GET') { send(res, 200, { mode: 'cloud', authenticated: true, csrf: session.csrf, expiresAt: session.expiresAt }); return false }
-  if (!['GET', 'HEAD'].includes(req.method) && !auth.csrfValid(req, session)) { await auth.audit('csrf_rejected', req, 403); send(res, 403, { error: '请求校验失败，请刷新页面后重试' }); return false }
-  if (path === '/api/auth/logout' && req.method === 'POST') { res.setHeader('set-cookie', await auth.logout(req, session)); send(res, 200, { authenticated: false }); return false }
+  if (path === '/api/auth/session' && req.method === 'GET') { send(res, 200, { mode: 'cloud', authenticated: true, csrf:session.csrf,expiresAt:session.expiresAt,rememberedDevice:Boolean(session.deviceId),deviceConfirmed:await auth.deviceConfirmed(req,session),reauthRequired:!auth.fresh(session),restoredSession,idleTtlMs:auth.idleMs,idleExpiresAt:session.lastSeen+auth.idleMs });return false }
+  if (!['GET', 'HEAD'].includes(req.method) && !auth.csrfValid(req, session)) { await auth.audit('csrf_rejected', req, 403); send(res,403,{code:'CSRF_MISMATCH',error:'请求校验失败，请刷新页面后重试'}); return false }
+  if (path==='/api/auth/reauth' && req.method==='POST') {
+    const {password}=await body(req,8192),result=await auth.reauthenticate(req,session,password)
+    if (result.retryAfter) res.setHeader('retry-after',String(result.retryAfter))
+    send(res,result.status,result.status===200 ? {authenticated:true} : {error:result.status===429 ? '尝试过于频繁，请稍后重试' : '密码验证未通过'});return false
+  }
+  if (path==='/api/auth/devices' && req.method==='GET') {send(res,200,{devices:await auth.listDevices(session)});return false}
+  if (path==='/api/auth/devices/revoke' && req.method==='POST') {const {id}=await body(req,8192);const cookies=await auth.revoke(req,session,id);if (cookies.length)res.setHeader('set-cookie',cookies);send(res,200,{revoked:true,current:id===session.deviceId});return false}
+  if (path==='/api/auth/remember' && req.method==='POST') {
+    if (!auth.fresh(session)) {send(res,428,{code:'REAUTH_REQUIRED',error:'请重新验证密码'});return false}
+    res.setHeader('set-cookie',await auth.remember(req,session));send(res,200,{rememberedDevice:true});return false
+  }
+  if (path==='/api/auth/logout' && req.method==='POST') {
+    const {forgetDevice=true}=await body(req,8192)
+    if (typeof forgetDevice!=='boolean') {send(res,400,{error:'忘记设备选项必须是布尔值'});return false}
+    res.setHeader('set-cookie',await auth.logout(req,session,forgetDevice));send(res,200,{authenticated:false});return false
+  }
+  if (req.method==='POST' && ['/api/publishing/publish','/api/backup/restore'].includes(path) && !auth.fresh(session)) {send(res,428,{code:'REAUTH_REQUIRED',error:'此操作需要重新验证密码'});return false}
   return true
 }
 async function handleAiRequest(req, res) {

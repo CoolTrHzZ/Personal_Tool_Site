@@ -1,5 +1,5 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DevOS 管理登录</title><link rel="stylesheet" href="/admin/login.css"></head>
 <body><main><p class="eyebrow">DEVOS · PRIVATE ADMIN</p><h1>登录个人工作站</h1><p>草稿保存于服务器私有目录，保存不会更新公开站点。</p>
-<form id="login"><label>用户名<input name="username" autocomplete="username" maxlength="64" required autofocus></label><label>密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required></label><button type="submit">登录</button><p id="message" role="status" aria-live="polite"></p></form>
+<form id="login"><label>用户名<input name="username" autocomplete="username" maxlength="64" required autofocus></label><label>密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required></label><label class="remember-choice"><input name="rememberDevice" type="checkbox">记住此浏览器 7 天，到期前自动恢复登录</label><button type="submit">登录</button><p id="message" role="status" aria-live="polite"></p></form>
 <p class="hint">连续失败会短暂等待，最长 30 秒；需要找回账号时使用服务器维护终端。</p></main><script type="module" src="/admin/login.js"></script></body></html>

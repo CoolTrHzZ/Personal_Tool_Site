@@ -1,3 +1,4 @@
+import { createDeviceStore, DEVICE_TTL_MS } from './admin-devices.mjs'
 import { randomBytes, scrypt, timingSafeEqual, createHash, createHmac } from 'node:crypto'
 import { promisify } from 'node:util'
 import { readFile, writeFile, mkdir, lstat, appendFile, rename, realpath } from 'node:fs/promises'
@@ -6,6 +7,7 @@ import { Buffer } from 'node:buffer'
 
 const derive = promisify(scrypt)
 const COOKIE = '__Host-devos_session'
+const DEVICE_COOKIE = '__Host-devos_device'
 const digest = value => createHash('sha256').update(value).digest('hex')
 export async function passwordRecord(username, password) {
   if (typeof username !== 'string' || !/^[a-zA-Z0-9_.-]{1,64}$/.test(username) || typeof password !== 'string' || password.length < 12 || Buffer.byteLength(password) > 512) throw new Error('用户名需为 1–64 位字母数字，密码至少 12 字符且不超过 512 字节')
@@ -38,6 +40,9 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
   const url = new URL(origin)
   if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('云模式需要 HTTPS origin（可带独立端口，不含路径或凭据）')
   const sessions = new Map(), failures = new Map(), auditKey = randomBytes(32)
+  const devices = createDeviceStore({ directory, fingerprint:digest(JSON.stringify(record)), now })
+  const tokenFrom = (req, name) => (req.headers.cookie || '').split(';').map(value => value.trim()).find(value => value.startsWith(name+'='))?.slice(name.length+1)
+  const revokeSessions = (id,exceptKey) => { if (id) for (const [key,value] of sessions) if (value.deviceId===id && key!==exceptKey) sessions.delete(key) }
   let credits = 5, creditTime = now()
   const identity = req => {
     // The loopback reverse proxy must overwrite, rather than append, this header.
@@ -47,7 +52,7 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
   const sameOrigin = req => req.headers.host === url.host && req.headers['x-forwarded-proto'] === 'https' && (!req.headers.origin || req.headers.origin === url.origin)
   const writeOrigin = req => sameOrigin(req) && req.headers['sec-fetch-site'] !== 'cross-site' && req.headers.origin === url.origin && /^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')
   const session = req => {
-    const raw = (req.headers.cookie || '').split(';').map(value => value.trim()).find(value => value.startsWith(COOKIE + '='))?.slice(COOKIE.length + 1)
+    const raw = tokenFrom(req,COOKIE)
     if (!/^[a-f0-9]{64}$/.test(raw || '')) return null
     const key = digest(raw), value = sessions.get(key), time = now()
     if (!value) return null
@@ -55,7 +60,9 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
     value.lastSeen = time
     return { ...value, key }
   }
-  const cookie = (token, maxAge) => `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`
+  const cookie = (token, maxAge, name=COOKIE) => `${name}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`
+  const deviceCookie = value => cookie(value?.token || '',value ? Math.max(0,Math.floor((value.expiresAt-now())/1000)) : 0,DEVICE_COOKIE)
+  const fresh = value => Number.isFinite(value.authenticatedAt) && now()-value.authenticatedAt < 5*60*1000
   let auditQueue = Promise.resolve()
   const appendAudit = async (event, req, status) => {
     const path = join(directory, 'audit.jsonl')
@@ -67,7 +74,7 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
     await appendFile(path, JSON.stringify({ at: new Date(now()).toISOString(), event, status, peer }) + '\n', { mode: 0o600 })
   }
   const audit = (event, req, status) => { const next = auditQueue.then(() => appendAudit(event, req, status)); auditQueue = next.catch(() => {}); return next }
-  const login = async (req, username, password) => {
+  const verify = async (req, username, password) => {
     const time = now(), peer = identity(req)
     for (const [key, value] of failures) if (time - value.lastFailure > 10 * 60 * 1000) failures.delete(key)
     const previous = failures.get(peer)
@@ -86,18 +93,58 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
       return { status: 401 }
     }
     failures.delete(peer)
-    const prior = session(req); if (prior) sessions.delete(prior.key)
-    for (const [key, value] of sessions) if (time >= value.expiresAt) sessions.delete(key)
-    if (sessions.size >= 16) sessions.delete(sessions.keys().next().value)
-    const token = randomBytes(32).toString('hex'), csrf = randomBytes(32).toString('hex')
-    sessions.set(digest(token), { csrf, expiresAt: time + sessionTtlMs, lastSeen: time })
-    await audit('login_success', req, 200)
-    return { status: 200, cookie: cookie(token, Math.floor(sessionTtlMs / 1000)), csrf, expiresAt: time + sessionTtlMs }
+    return {status:200}
+  }
+  const issueSession = ({deviceId,deviceExpiresAt,authenticatedAt}={}) => {
+    const time=now()
+    for (const [key,value] of sessions) if (time>=value.expiresAt) sessions.delete(key)
+    if (sessions.size>=16) sessions.delete(sessions.keys().next().value)
+    const token=randomBytes(32).toString('hex'),csrf=randomBytes(32).toString('hex'),expiresAt=Math.min(time+sessionTtlMs,deviceExpiresAt ?? Infinity)
+    const value={csrf,expiresAt,lastSeen:time,authenticatedAt,deviceId}
+    sessions.set(digest(token),value)
+    return {cookie:cookie(token,Math.floor((expiresAt-time)/1000)),csrf,expiresAt,value:{...value,key:digest(token)}}
+  }
+  const login = async (req,username,password,rememberDevice=false) => {
+    const checked=await verify(req,username,password);if (checked.status!==200) return checked
+    let device=null
+    if (rememberDevice) { device=await devices.issue(tokenFrom(req,DEVICE_COOKIE));revokeSessions(device.replacedId);revokeSessions(device.evictedId) }
+    else if (tokenFrom(req,DEVICE_COOKIE)) revokeSessions(await devices.revoke(null,tokenFrom(req,DEVICE_COOKIE)))
+    const prior=session(req);if (prior) sessions.delete(prior.key)
+    const issued=issueSession({deviceId:device?.id,authenticatedAt:now()})
+    await audit('login_success',req,200)
+    return {status:200,...issued,cookies:[issued.cookie,deviceCookie(device)],rememberedDevice:Boolean(device)}
+  }
+  const restore = async req => {
+    if (!sameOrigin(req) || req.method!=='GET') return null
+    const device=await devices.consume(tokenFrom(req,DEVICE_COOKIE));if (!device) return null
+    const issued=issueSession({deviceId:device.id,deviceExpiresAt:device.expiresAt})
+    await audit('session_restored',req,200)
+    return {...issued,cookies:[issued.cookie,deviceCookie(device)]}
+  }
+  const reauthenticate = async (req,value,password) => {
+    const checked=await verify(req,record.username,password);if (checked.status!==200) return checked
+    const active=sessions.get(value.key);if (!active) return {status:401}
+    active.authenticatedAt=now();await audit('reauth_success',req,200);return {status:200}
+  }
+  const remember = async (req,value) => {
+    if (!fresh(value)) throw Object.assign(new Error('请重新验证密码'),{statusCode:428})
+    const device=await devices.issue(tokenFrom(req,DEVICE_COOKIE));revokeSessions(device.replacedId,value.key);revokeSessions(device.evictedId,value.key)
+    const active=sessions.get(value.key);if (active) active.deviceId=device.id
+    await audit('device_remembered',req,200);return deviceCookie(device)
+  }
+  const revoke = async (req,value,id) => {
+    if (!/^[a-f0-9]{32}$/.test(id || '')) throw new Error('设备编号无效')
+    const revoked=await devices.revoke(id);revokeSessions(revoked);await audit('device_revoked',req,200)
+    return id===value.deviceId ? [cookie('',0),deviceCookie(null)] : []
   }
   const csrfValid = (req, value) => {
     const input = req.headers['x-csrf-token']
     return writeOrigin(req) && typeof input === 'string' && /^[a-f0-9]{64}$/.test(input) && timingSafeEqual(Buffer.from(input), Buffer.from(value.csrf))
   }
-  const logout = async (req, value) => { sessions.delete(value.key); await audit('logout', req, 200); return cookie('', 0) }
-  return { sameOrigin, writeOrigin, session, login, csrfValid, logout, audit }
+  const logout = async (req,value,forgetDevice=true) => {
+    sessions.delete(value.key)
+    if (forgetDevice) revokeSessions(await devices.revoke(value.deviceId,tokenFrom(req,DEVICE_COOKIE)))
+    await audit('logout',req,200);return forgetDevice ? [cookie('',0),deviceCookie(null)] : [cookie('',0)]
+  }
+  return {sameOrigin,writeOrigin,session,login,restore,reauthenticate,remember,revoke,listDevices:value=>devices.list(value.deviceId),deviceConfirmed:(req,value)=>devices.active(tokenFrom(req,DEVICE_COOKIE),value.deviceId).catch(()=>false),fresh,csrfValid,logout,audit,deviceTtlMs:DEVICE_TTL_MS,idleMs}
 }

@@ -1,3 +1,4 @@
+import { createSessionRecovery } from './session-recovery.js'
 import { loadI18n } from './i18n/index.js'
 import { renderMarkdown } from './markdown.js'
 import {
@@ -64,13 +65,53 @@ if (i18n.locale === 'en-US') {
   ;['Dark', 'Light', 'System'].forEach((label, index) => { $('#admin-theme').options[index].textContent = label })
 }
 
-const authSession = await fetch('/api/auth/session').then(response => response.json())
-if (!authSession.authenticated) location.replace('/admin/login.html')
+const authSession = {}
+const authRecovery = createSessionRecovery({ session: authSession })
+if (!await authRecovery.recover()) { location.replace('/admin/login.html'); await new Promise(() => {}) }
+let reauthenticating
+const preserveModal = async action => {
+  const modal = $('#modal'), body = $('#modal-body'), ok = $('#modal-ok'), cancel = $('#modal-cancel')
+  const saved = !modal.hidden && !body.querySelector('input[type="password"]') ? { title: $('#modal-title').textContent, nodes: [...body.childNodes], okHidden: ok.hidden, okText: ok.textContent, okClick: ok.onclick, cancelClick: cancel.onclick } : null
+  try { return await action() }
+  finally { if (saved) { $('#modal-title').textContent = saved.title; body.replaceChildren(...saved.nodes); ok.hidden = saved.okHidden; ok.textContent = saved.okText; ok.onclick = saved.okClick; cancel.onclick = saved.cancelClick; modal.hidden = false } }
+}
+const verifyPassword = () => {
+  reauthenticating ||= preserveModal(async () => {
+    const body=el('div'),password=document.createElement('input'),label=el('label','ui-field')
+    password.type='password';password.autocomplete='current-password';password.className='ui-input';password.maxLength=512
+    label.append(el('span','ui-field-label','管理员密码'),password);body.append(el('p','','此操作需要重新验证密码，设备记忆到期时间不会延长。'),label)
+    if (!await openModal({title:'重新验证密码',body,confirm:true,okText:'验证密码'})) throw Error('已取消密码验证，操作尚未执行')
+    const value=password.value;password.value=''
+    if (!value) throw Error('请输入密码')
+    authRecovery.cancel()
+    await request('auth/reauth',{method:'POST',body:JSON.stringify({password:value})})
+  }).finally(()=>{reauthenticating=null;authRecovery.resumeTimer()})
+  return reauthenticating
+}
+const confirmSensitive = path => preserveModal(() => openModal({ title: '再次确认操作', body: `密码已验证。确认${({ 'publishing/publish': '发布到 GitHub Pages', 'backup/restore': '恢复此备份', 'auth/remember': '记住此浏览器 7 天' })[path] || '执行此操作'}？`, confirm: true, okText: '确认执行' }))
 const request = async (path, options = {}) => {
-  const response = await fetch(`/api/${path}`, { ...options, headers: { 'content-type': 'application/json', ...(authSession.csrf ? { 'x-csrf-token': authSession.csrf } : {}), ...options.headers } })
-  if (response.status === 401) { location.replace('/admin/login.html'); throw Error('会话已失效，请重新登录') }
-  const data = await response.json()
+  if (authRecovery.suppressed && path !== 'auth/logout') throw Error('已暂停自动登录恢复，请使用密码登录后再操作')
+  const sendRequest=async()=>{
+    const generation=authRecovery.generation
+    const response=await fetch(`/api/${path}`,{...options,headers:{'content-type':'application/json',...(authSession.csrf ? {'x-csrf-token':authSession.csrf}:{}),...options.headers}}),data=await response.json()
+    if (generation!==authRecovery.generation && path!=='auth/logout') throw Error('登录状态已更新，请重新确认此操作')
+    return {response,data}
+  }
+  let {response,data}=await sendRequest()
+  if (!authRecovery.suppressed && (response.status===401 && path!=='auth/reauth' || response.status===403 && data.code==='CSRF_MISMATCH')) {
+    if (await authRecovery.recover()) {
+      if (!['GET','HEAD'].includes((options.method || 'GET').toUpperCase())) throw Error('登录已恢复，原操作结果尚未确认。请先检查结果，再重新确认执行；草稿仍保留。')
+      ;({response,data}=await sendRequest())
+    }
+  }
+  if (response.status===401) throw Error(path==='auth/reauth' ? data.error || '密码验证未通过，操作尚未执行' : '会话已失效。草稿仍保留，请恢复登录后重新操作')
+  if (response.status===428 && data.code==='REAUTH_REQUIRED') {
+    await verifyPassword()
+    if (!await confirmSensitive(path)) throw Error('已取消操作，草稿仍保留')
+    ;({response,data}=await sendRequest())
+  }
   if (!response.ok) throw Error(data.error || i18n.t('msg.request'))
+  authRecovery.noteActivity()
   return data
 }
 const collectionTargets = [['nav-form', 'navigation'], ['ai-resource-form', 'ai-resources']]
@@ -1622,11 +1663,12 @@ document.addEventListener('click', event => {
 document.addEventListener('keydown', event => {
   const editor = ['#modal', '#tool-edit', '#editor-drawer', '#wizard'].map($).find(node => !node.hidden)
   if (event.key === 'Tab' && editor && !editor.hidden) {
-    const focusable = [...editor.querySelectorAll('button, input:not([type="hidden"]), select, textarea, summary, a[href], [tabindex="0"]')].filter(node => !node.hidden && !node.disabled && !node.closest('[hidden], details:not([open]) > :not(summary)') && node.offsetParent)
+    const authControls = editor.id !== 'modal' && !$('#auth-recovery').hidden ? [...$('#auth-recovery').querySelectorAll('button')] : []
+    const focusable = [...editor.querySelectorAll('button, input:not([type="hidden"]), select, textarea, summary, a[href], [tabindex="0"]'), ...authControls].filter(node => !node.hidden && !node.disabled && !node.closest('[hidden], details:not([open]) > :not(summary)') && node.offsetParent)
     const [first] = focusable
     const last = focusable.at(-1)
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
-    else if (!event.shiftKey && document.activeElement === last || !editor.contains(document.activeElement)) { event.preventDefault(); first?.focus() }
+    else if (!event.shiftKey && document.activeElement === last || !editor.contains(document.activeElement) && !authControls.includes(document.activeElement)) { event.preventDefault(); first?.focus() }
     return
   }
   if (event.key !== 'Escape') return
@@ -1920,9 +1962,61 @@ if (authSession.mode === 'cloud') {
   $('#sidebar-draft-preview').hidden = false
   const sidebarMode = document.querySelector('.sidebar-status [data-i18n]')
   if (sidebarMode) { sidebarMode.removeAttribute('data-i18n'); sidebarMode.textContent = '私有草稿 · 保存不发布' }
+  const showDeviceConfirmation = session => {
+    const missing=session.rememberedDevice===true && session.deviceConfirmed===false
+    $('#auth-recovery').hidden=!missing
+    if (missing) $('#auth-recovery-message').textContent='本次短登录已生效，但 7 天设备记忆尚未确认。请检查 Cookie 设置后重新登记设备。'
+  }
+  authRecovery.setHandlers({
+    onRecovered: showDeviceConfirmation,
+    onUnavailable: message => { $('#auth-recovery-message').textContent=message;$('#auth-recovery').hidden=false },
+  })
+  showDeviceConfirmation(authSession)
+  bind('#auth-retry','click',()=>{void authRecovery.recover({manual:true})})
+  bind('#auth-signin','click',async()=>{
+    try {
+      await preserveModal(async()=>{
+        const body=el('div'),username=document.createElement('input'),password=document.createElement('input'),remember=document.createElement('input')
+        username.autocomplete='username';username.maxLength=64;username.className='ui-input'
+        password.type='password';password.autocomplete='current-password';password.maxLength=512;password.className='ui-input'
+        remember.type='checkbox';remember.checked=false
+        const userLabel=el('label','ui-field'),passwordLabel=el('label','ui-field'),rememberLabel=el('label','check-inline')
+        userLabel.append(el('span','ui-field-label','用户名'),username);passwordLabel.append(el('span','ui-field-label','密码'),password);rememberLabel.append(remember,el('span','','记住此浏览器 7 天'));body.append(userLabel,passwordLabel,rememberLabel)
+        if (!await openModal({title:'恢复登录',body,confirm:true,okText:'登录并保留草稿'})) return
+        const payload={username:username.value,password:password.value,rememberDevice:remember.checked};password.value=''
+        authRecovery.cancel()
+        const response=await fetch('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)})
+        if (!response.ok) throw Error('登录未成功，请稍后重试；草稿仍保留')
+        if (!await authRecovery.confirmPassword()) throw Error('登录会话未生效；草稿仍保留，请检查 Cookie 设置')
+      })
+    }catch(error){toastError(error.message)}
+  })
+  $('#admin-devices').hidden=false
+  bind('#admin-devices','click',async()=>{
+    try {
+      const draw=async()=>{
+        const {devices}=await request('auth/devices'),body=el('div','admin-management-result'),remember=button('记住此浏览器 7 天')
+        body.append(el('p','','选择后在短会话失效时自动恢复；固定 7 天到期。撤销当前设备也会结束该设备的会话。'),remember)
+        remember.onclick=async()=>{remember.disabled=true;try{await verifyPassword();if(!await confirmSensitive('auth/remember'))return;await request('auth/remember',{method:'POST',body:'{}'});if(!await authRecovery.confirmPassword())throw Error('登录会话未确认，请使用密码登录；草稿仍保留');await draw()}catch(error){toastError(error.message)}finally{remember.disabled=false}}
+        for(const device of devices){
+          const row=el('div','admin-management-result'),revoke=button('撤销设备')
+          row.append(el('p','',`${device.current?'当前设备':'已记住的设备'} · 到期 ${new Date(device.expiresAt).toLocaleString()}`),revoke);body.append(row)
+          revoke.onclick=async()=>{if(device.current && !await protectForm.mayLeave())return;revoke.disabled=true;if(device.current)authRecovery.suppress();try{const result=await request('auth/devices/revoke',{method:'POST',body:JSON.stringify({id:device.id})});if(result.current){location.replace('/admin/login.html?signed_out=1')}else await draw()}catch(error){toastError(error.message)}finally{revoke.disabled=false}}
+        }
+        if(!devices.length)body.append(el('p','muted','尚未记住任何设备。'))
+        void openModal({title:'登录设备',body})
+      }
+      await draw()
+    }catch(error){toastError(error.message)}
+  })
   bind('#admin-logout', 'click', async () => {
     if (!await protectForm.mayLeave()) return
-    try { await request('auth/logout', { method: 'POST', body: '{}' }); location.replace('/admin/login.html') } catch (error) { toastError(error.message) }
+    const body=el('div'),label=el('label','check-inline'),forget=document.createElement('input')
+    forget.type='checkbox';forget.checked=true;label.append(forget,el('span','','同时忘记此设备'))
+    body.append(el('p','','忘记后需重新输入密码。保留设备时，之后打开管理入口可自动恢复登录。'),label)
+    if (!await openModal({title:'退出登录',body,confirm:true,okText:'退出登录'})) return
+    authRecovery.suppress()
+    try {await request('auth/logout',{method:'POST',body:JSON.stringify({forgetDevice:forget.checked})});location.replace('/admin/login.html?signed_out=1')}catch(error){$('#auth-recovery-message').textContent='退出结果未确认。自动登录恢复已暂停，可以再次退出或使用密码登录。';$('#auth-recovery').hidden=false;toastError(error.message)}
   })
   const showDraftPreview = async () => {
     closeMenuForAction()

@@ -594,3 +594,9 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .collection-preview-links { display: grid; gap: 8px; overflow-wrap: anywhere; }
 .collection-preview-links a { color: var(--accent); }
 .site-display-preview p { overflow-wrap: anywhere; margin: 0; }
+
+/* Keep recovery reachable while an editor stays open with its unsaved draft. */
+#auth-recovery { position: fixed; z-index: 285; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); margin: 0; padding: 16px; background: var(--surface-overlay); border: 1px solid var(--border-default); box-shadow: var(--shadow-lg); }
+#auth-recovery[hidden] { display: none; }
+#auth-recovery h2 { margin: 0 0 8px; }
+#auth-recovery button { margin: 4px 8px 0 0; }
