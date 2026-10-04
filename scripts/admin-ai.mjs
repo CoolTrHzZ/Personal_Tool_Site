@@ -46,6 +46,18 @@ function material(payload) {
   }
   return { target: payload.target, untrusted_source: payload.source, current_fields: current }
 }
+function safeFailureMessage(code, providerStatus) {
+  const status = Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599 ? providerStatus : null
+  const reasons = {
+    AI_CONFIG: 'AI 私有配置不可用',
+    AI_CONNECTION: 'AI 服务连接失败',
+    AI_PROVIDER_HTTP: status === 401 ? 'AI 服务鉴权被拒绝（HTTP 401）' : status ? `AI 服务拒绝请求（HTTP ${status}）` : 'AI 服务拒绝请求',
+    AI_RESPONSE_FORMAT: 'AI 返回的格式不可用',
+    AI_TIMEOUT: 'AI 服务响应超时',
+    AI_CANCELLED: 'AI 请求已取消',
+  }
+  return (reasons[code] || 'AI 未返回可用建议') + '；已填写内容保留，可继续手填。'
+}
 export function createAiService({ directory }) {
   let busy = false
   return {
@@ -81,7 +93,7 @@ export function createAiService({ directory }) {
         return { fields, source: 'ai', publishing: false }
       } catch (error) {
         const code = error?.name === 'TimeoutError' ? 'AI_TIMEOUT' : signal?.aborted ? 'AI_CANCELLED' : failureCode
-        throw Object.assign(new Error('AI 未返回可用建议（未配置、连接、超时或格式问题）；已填写内容保留，可继续手填。'), { statusCode: 503, code, ...(providerStatus ? { providerStatus } : {}) })
+        throw Object.assign(new Error(safeFailureMessage(code, providerStatus)), { statusCode: 503, code, ...(providerStatus ? { providerStatus } : {}) })
       } finally { busy = false }
     },
   }
