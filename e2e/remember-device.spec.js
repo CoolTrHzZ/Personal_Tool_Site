@@ -163,7 +163,8 @@ test('a lost retain-device logout response suppresses all automatic recovery and
  await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));document.dispatchEvent(new Event('visibilitychange'))})
  await page.locator('#dashboard-add-website').click();const form=page.locator('#nav-form')
  await form.locator('[name="name"]').fill('退出意图后的未发送草稿');await form.locator('[name="url"]').fill('https://example.invalid/logout-intent')
- await form.getByRole('button',{name:'保存私有草稿',exact:true}).click();await expect(form.locator('[name="name"]')).toHaveValue('退出意图后的未发送草稿')
+ // The recovery notice may cover the submit button; submit the form directly to test the request guard.
+ await form.evaluate(node=>node.requestSubmit());await expect(form.locator('.form-error')).toContainText('已暂停自动登录恢复');await expect(form.locator('[name="name"]')).toHaveValue('退出意图后的未发送草稿')
  expect(logout).toBe(1);expect(sessions).toBe(1);expect(saves).toBe(0);expect(errors).toEqual([])
 })
 

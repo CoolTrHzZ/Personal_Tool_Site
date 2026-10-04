@@ -488,7 +488,14 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
   .content-header:has(+ [data-view-panel="dashboard"].active) { margin-bottom: 12px; }
   .dashboard-hero { padding-block: 14px; }
   .dashboard-kpis .status-card { padding-block: 12px; }
-  .dashboard-grid > .panel { padding: 14px; }
+  .dashboard-grid .panel { padding: 14px; }
+  .dashboard-monitor .panel h2 { margin-bottom: 10px; }
+  .dashboard-monitor .dashboard-status-lines { margin-top: 0; }
+  .dashboard-monitor .shortcut-grid { margin-bottom: 0; }
+  .dashboard-monitor { gap: 8px; }
+  .dashboard-monitor :is(.status-lines, .dashboard-site-config) { row-gap: 4px; }
+  .dashboard-monitor .dashboard-runtime-mix { margin-top: 8px; padding-top: 6px; }
+  .dashboard-monitor .field-hint { margin-block: 6px; }
   .dashboard-grid .dashboard-section-head { margin-bottom: 10px; }
   .dashboard-inventory { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dashboard-config-card { gap: 6px; padding: 9px 10px; }
