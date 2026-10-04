@@ -407,5 +407,6 @@ export default {
     tagDeleted: '标签已删除（影响 {count} 处）',
     tagAdded: '标签已新增',
     request: '请求失败',
+    invalidResponse: '管理服务未返回 JSON（HTTP {status}），已填写内容保留。',
   },
 }

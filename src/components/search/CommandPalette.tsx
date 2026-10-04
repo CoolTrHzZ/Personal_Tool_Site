@@ -13,6 +13,7 @@ import { useTools } from '../../tools/runtime/ToolCatalog'
 import { addRecentTool, saveSearch } from '../../utils/user-state'
 import Modal from '../ui/Modal'
 import Input from '../ui/Input'
+import { visiblePage, visiblePath } from '../../utils/page-display'
 
 const sites = navigation as NavigationItem[]
 const repos = library as LibraryItem[]
@@ -35,28 +36,28 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const items = useMemo(() => {
     const matches = (values: string[]) => values.join(' ').toLowerCase().includes(q)
     return [
-      ...tools.filter(tool => tool.enabled && tool.status !== 'disabled' && matches([tool.name, tool.description, ...tool.keywords, ...(tool.tags || [])])).slice(0, 8).map(tool => ({
+      ...(visiblePage('tools') ? tools : []).filter(tool => tool.enabled && tool.status !== 'disabled' && matches([tool.name, tool.description, ...tool.keywords, ...(tool.tags || [])])).slice(0, 8).map(tool => ({
         id: `tool-${tool.id}`, group: '工具', name: `打开 ${tool.name}`, hint: '↵', run: () => { addRecentTool(tool.id); navigate(tool.path, { state: location.pathname === '/tools' ? { returnTo: `${location.pathname}${location.search}` } : undefined }) },
       })),
-      ...sites.filter(item => item.enabled && matches([item.name, item.url, item.description, ...item.tags])).slice(0, 6).map(item => ({
+      ...(visiblePage('nav') ? sites : []).filter(item => item.enabled && matches([item.name, item.url, item.description, ...item.tags])).slice(0, 6).map(item => ({
         id: `site-${item.id}`, group: '网站', name: item.name, hint: new URL(item.url).hostname, run: () => { window.open(item.url, '_blank', 'noopener,noreferrer') },
       })),
-      ...repos.filter(item => item.enabled && matches([item.name, item.url, item.description, item.kind, item.language, ...item.tags])).slice(0, 6).map(item => ({
+      ...(visiblePage('library') ? repos : []).filter(item => item.enabled && matches([item.name, item.url, item.description, item.kind, item.language, ...item.tags])).slice(0, 6).map(item => ({
         id: `repo-${item.id}`, group: '收藏', name: item.name, hint: item.kind, run: () => { window.open(item.url, '_blank', 'noopener,noreferrer') },
       })),
-      ...articles.filter(item => item.enabled && matches([item.title, item.summary, item.body, ...item.tags])).slice(0, 6).map(item => ({
+      ...(visiblePage('notes') ? articles : []).filter(item => item.enabled && matches([item.title, item.summary, item.body, ...item.tags])).slice(0, 6).map(item => ({
         id: `note-${item.id}`, group: '笔记', name: item.title, hint: '笔记', run: () => navigate(`/notes/${item.id}`),
       })),
-      ...aiResources.filter(item => item.enabled && matches([item.name, item.description, item.kind, item.install, item.content, ...item.tags])).slice(0, 6).map(item => ({
+      ...(visiblePage('ai') ? aiResources : []).filter(item => item.enabled && matches([item.name, item.description, item.kind, item.install, item.content, ...item.tags])).slice(0, 6).map(item => ({
         id: `ai-${item.id}`, group: 'AI 资源', name: item.name, hint: item.kind, run: () => navigate(`/ai?resource=${encodeURIComponent(item.id)}`),
       })),
-      ...configurations.filter(item => matches([item.name, item.filename, item.description, item.category, ...item.tags])).slice(0, 6).map(item => ({
+      ...(visiblePage('cfg') ? configurations : []).filter(item => matches([item.name, item.filename, item.description, item.category, ...item.tags])).slice(0, 6).map(item => ({
         id: `cfg-${item.id}`, group: 'CFG 配置库', name: item.name, hint: item.filename, run: () => navigate(`/cfg/${item.id}`),
       })),
-      ...projectItems.filter(item => item.enabled && matches([item.name, item.description, item.kind, item.body, item.version || '', item.platform || '', item.download?.filename || '', ...item.tags])).slice(0, 6).map(item => ({
+      ...(visiblePage('projects') ? projectItems : []).filter(item => item.enabled && matches([item.name, item.description, item.kind, item.body, item.version || '', item.platform || '', item.download?.filename || '', ...item.tags])).slice(0, 6).map(item => ({
         id: `project-${item.id}`, group: '桌面工具库', name: item.name, hint: item.kind === 'desktop' ? `EXE${item.version ? ' · ' + item.version : ''}` : item.kind === 'service' ? '服务' : '项目', run: () => navigate(`/projects/${item.id}`),
       })),
-      ...workflowItems.filter(item => item.enabled && matches([item.name, item.description, item.category, ...item.tags])).slice(0, 6).map(item => ({
+      ...(visiblePage('ai') ? workflowItems : []).filter(item => item.enabled && matches([item.name, item.description, item.category, ...item.tags])).slice(0, 6).map(item => ({
         id: `workflow-${item.id}`, group: 'AI 工作流', name: item.name, hint: '工作流', run: () => navigate(`/ai?workflow=${encodeURIComponent(item.id)}`),
       })),
       ...[
@@ -67,7 +68,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         { id: 'ai', name: '打开 AI Hub', hint: 'AI 资源', path: '/ai' },
         { id: 'cfg', name: '打开 CFG 配置库', hint: 'CFG 文件', path: '/cfg' },
         { id: 'projects', name: '打开桌面工具库', hint: 'EXE 项目', path: '/projects' },
-      ].filter(item => matches([item.name, item.hint])).map(item => ({ ...item, group: '命令', run: () => navigate(item.path) })),
+      ].filter(item => visiblePath(item.path) && matches([item.name, item.hint])).map(item => ({ ...item, group: '命令', run: () => navigate(item.path) })),
     ]
   }, [tools, q, navigate, location.pathname, location.search])
   const selectedIndex = Math.min(index, Math.max(0, items.length - 1))

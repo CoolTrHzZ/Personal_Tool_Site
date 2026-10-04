@@ -325,3 +325,21 @@ it('accepts the advertised 20 MiB source after Base64 expansion and rejects over
   expect((await api('tools/analyze', 'POST', { filename: 'boundary.html', content: Buffer.concat([bytes, Buffer.from('!')]).toString('base64') })).status).toBe(400)
   for (const content of ['not-base64!', 'AB==']) expect((await api('tools/analyze', 'POST', { filename: 'invalid.html', content })).status).toBe(400)
 }, 15000)
+
+
+it('persists reversible page display settings without changing records and rejects invalid switches', async () => {
+  const sitePath=join(root,'src/data/site.json'), before=await readFile(sitePath)
+  const dataBefore=await Promise.all(fixtureKeys.map(key=>readFile(join(root,'src/data',key+'.json'))))
+  try {
+    expect((await api('site','PUT',{pageVisibility:{cfg:false,notes:false}})).status).toBe(200)
+    expect((await api('site')).data.pageVisibility).toEqual({cfg:false,notes:false})
+    const saved=await readFile(sitePath)
+    for (const value of [{admin:false},{home:false},{tools:'false'},[],null]) {
+      expect((await api('site','PUT',{pageVisibility:value})).status).toBe(400)
+      expect(await readFile(sitePath)).toEqual(saved)
+    }
+    expect((await api('site','PUT',{pageVisibility:{cfg:true,notes:true}})).status).toBe(200)
+    expect((await api('site')).data.pageVisibility).toEqual({cfg:true,notes:true})
+    expect(await Promise.all(fixtureKeys.map(key=>readFile(join(root,'src/data',key+'.json'))))).toEqual(dataBefore)
+  } finally { await writeFile(sitePath,before) }
+})

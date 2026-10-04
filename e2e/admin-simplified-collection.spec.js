@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test'
 import { mockAdmin } from './helpers/admin-mock.js'
 import { adminNavigation } from './helpers/admin-navigation.js'
 
-async function cloudAdmin(page, { configured = false, seed = {}, suggest = {} } = {}) {
+async function cloudAdmin(page, { configured = false, seed = {}, suggest = {}, suggestResponse } = {}) {
   return mockAdmin(page, async (route, url) => {
     if (url.pathname === '/api/auth/session') { await route.fulfill({ json: { mode:'cloud', authenticated:true, csrf:'synthetic-csrf' } }); return true }
     if (url.pathname === '/api/ai/status') { await route.fulfill({ json:{ configured } }); return true }
-    if (url.pathname === '/api/ai/suggest') { await route.fulfill({ json:{ fields:suggest } }); return true }
+    if (url.pathname === '/api/ai/suggest') { await route.fulfill(suggestResponse || { json:{ fields:suggest } }); return true }
     if (url.pathname === '/api/publishing') { await route.fulfill({ json:{ cloud:true, available:true, repository:'CoolTrHzZ/Personal_Tool_Site', branch:'main', job:null, history:[] } }); return true }
     if (url.pathname === '/api/drafts/preview') { await route.fulfill({ json:{ message:'合成草稿预览', changes:[] } }); return true }
     if (url.pathname === '/api/publishing/validate') { await route.fulfill({ json:{ ok:true, issues:[] } }); return true }
@@ -215,5 +215,26 @@ test('site publishing card settings shortcuts and boundary notice', async ({ pag
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
   expect(writes(requests)).toEqual([])
+  expect(errors).toEqual([])
+})
+
+
+test('AI gateway plain-text 503 preserves manual input and shows a safe error without saving', async ({ page }) => {
+  const { requests, errors } = await cloudAdmin(page, { configured:true, suggestResponse:{ status:503, contentType:'text/plain', body:'DevOS Admin is awaiting private setup or is unavailable.\n' } })
+  await page.locator('#dashboard-add-website').click()
+  const form = page.locator('#nav-form')
+  await form.locator('[name="name"]').fill('手写合成标题')
+  await form.getByLabel('粘贴文本或 URL', { exact:true }).fill('名称：合成候选\nURL：https://example.invalid/ai-failure\n描述：仅供隔离失败回归。')
+  const ai = form.getByRole('button', { name:'AI 补空建议', exact:true })
+  await expect(ai).toBeEnabled()
+  await ai.click()
+  await expect(form.locator('.quick-collect')).toContainText('管理服务未返回 JSON（HTTP 503），已填写内容保留。')
+  await expect(form.locator('.quick-collect')).not.toContainText('Unexpected token')
+  await expect(form.locator('[name="name"]')).toHaveValue('手写合成标题')
+  await expect(form.locator('[name="url"]')).toHaveValue('')
+  await expect(ai).toBeEnabled()
+  await expect(form.getByRole('button', { name:'应用勾选建议', exact:true })).toBeDisabled()
+  await expect(form.locator('.quick-collect-diffs input')).toHaveCount(0)
+  expect(writes(requests).map(item => item.path)).toEqual(['/api/ai/suggest'])
   expect(errors).toEqual([])
 })

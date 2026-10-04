@@ -407,5 +407,6 @@ export default {
     tagDeleted: 'Tag deleted ({count} place(s) affected)',
     tagAdded: 'Tag added',
     request: 'Request failed',
+    invalidResponse: 'The management service did not return JSON (HTTP {status}). Your input has been kept.',
   },
 }

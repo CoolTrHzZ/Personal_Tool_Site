@@ -57,9 +57,11 @@ export function createAiService({ directory }) {
       const data = material(payload)
       if (busy) throw Object.assign(new Error('AI 正在处理另一项建议，请稍后重试；仍可手动填写。'), { statusCode: 429 })
       busy = true
+      let failureCode = 'AI_CONFIG', providerStatus
       try {
         const config = await providerConfig(directory)
         if (!config) throw new Error('unconfigured')
+        failureCode = 'AI_CONNECTION'
         const response = await fetch(config.endpoint, {
           method: 'POST', redirect: 'error',
           signal: globalThis.AbortSignal.any([globalThis.AbortSignal.timeout(config.timeoutMs), ...(signal ? [signal] : [])]),
@@ -69,15 +71,17 @@ export function createAiService({ directory }) {
             { role: 'user', content: JSON.stringify(data) },
           ] }),
         })
-        if (!response.ok) { await response.body?.cancel(); throw new Error('provider') }
+        if (!response.ok) { failureCode = 'AI_PROVIDER_HTTP'; providerStatus = response.status; await response.body?.cancel(); throw new Error('provider') }
+        failureCode = 'AI_RESPONSE_FORMAT'
         const packet = await responseJson(response), content = packet?.choices?.[0]?.message?.content
         if (typeof content !== 'string' || content.length > 32000 || (config.apiKey && content.includes(config.apiKey))) throw new Error('invalid')
         const answer = JSON.parse(content)
         const fields = blankSuggestions(data.target, answer.fields, data.current_fields)
         if (config.apiKey && Object.values(fields).flat().some(value => value.includes(config.apiKey))) throw new Error('invalid')
         return { fields, source: 'ai', publishing: false }
-      } catch {
-        throw Object.assign(new Error('AI 未返回可用建议（未配置、连接、超时或格式问题）；已填写内容保留，可继续手填。'), { statusCode: 503 })
+      } catch (error) {
+        const code = error?.name === 'TimeoutError' ? 'AI_TIMEOUT' : signal?.aborted ? 'AI_CANCELLED' : failureCode
+        throw Object.assign(new Error('AI 未返回可用建议（未配置、连接、超时或格式问题）；已填写内容保留，可继续手填。'), { statusCode: 503, code, ...(providerStatus ? { providerStatus } : {}) })
       } finally { busy = false }
     },
   }

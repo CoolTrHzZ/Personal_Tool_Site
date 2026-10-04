@@ -54,4 +54,5 @@ export type SiteConfig = {
   publicUrl: string
   basePath: string
   todayContinueLimit: number
+  pageVisibility?: import('../shared/page-display.js').PageVisibility
 }

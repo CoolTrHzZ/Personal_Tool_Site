@@ -5,10 +5,11 @@ import { createHash } from 'node:crypto'
 import { exportSiteBackup, decodeSiteBackup, validateStaged, BACKUP_ROOTS } from './site-backup.mjs'
 import { draftPreview } from './admin-state.mjs'
 import { PERMISSION_KEYS } from './tool-manifest.mjs'
+import { assertPageVisibility } from '../shared/page-display.js'
 
 const common = ['id', 'name', 'description', 'tags', 'order', 'enabled', 'updated']
 const schemas = {
-  site: ['name','title','description','toolsDescription','navigationDescription','libraryDescription','aiHubDescription','notesDescription','github','footer','logo','publicUrl','adminUrl','basePath','tagline','todayContinueLimit'],
+  site: ['name','title','description','toolsDescription','navigationDescription','libraryDescription','aiHubDescription','notesDescription','github','footer','logo','publicUrl','adminUrl','basePath','tagline','todayContinueLimit','pageVisibility'],
   navigation: [...common, 'category', 'url', 'icon'],
   categories: ['id','name','order','icon'],
   library: [...common, 'kind', 'url', 'language'],
@@ -46,6 +47,7 @@ function fields(path, bytes) {
   if (!Array.isArray(items)) throw new Error('公开集合格式无效：' + path)
   for (const item of items) {
     object(item, schemas[kind], kind)
+    if (kind === 'site') assertPageVisibility(item.pageVisibility)
     if (item.download !== undefined) object(item.download, ['filename','size','sha256'], 'download')
     if (item.steps !== undefined) { if (!Array.isArray(item.steps)) throw new Error('steps 无效'); item.steps.forEach(step => object(step, ['title','description','resourceId'], 'workflow step')) }
     if (item.history !== undefined) { if (!Array.isArray(item.history)) throw new Error('history 无效'); item.history.forEach(row => object(row, ['id','version','filename','updated','changelog'], 'CFG history')) }
@@ -62,7 +64,7 @@ export async function publicSnapshot(codeRoot, draftRoot) {
   const toolIds = new Set(archive.files.flatMap(file => { const match = file.path.match(/^public\/tools\/([^/]+)\/manifest\.json$/); return match ? [match[1]] : [] }))
   const projects = JSON.parse(Buffer.from(archive.files.find(file => file.path === 'src/data/projects.json').content,'base64').toString('utf8'))
   if (!Array.isArray(projects)) throw new Error('项目公开列表无效')
-  const downloads = new Set(projects.filter(item => item.download).map(item => 'public/downloads/' + item.id + '/' + item.download.filename))
+  const downloads = new Set(projects.filter(item => item.download).map(item => 'public/downloads/' + item.id + '/' + item.download.sha256 + '.exe'))
   for (const file of archive.files) {
     if (file.path.startsWith('public/tools/') && file.path !== 'public/tools/toolbox-bridge.js' && !toolIds.has(file.path.split('/')[2])) throw new Error('未注册工具路径不在本批公开范围：' + file.path)
     if (file.path.startsWith('public/downloads/') && !downloads.has(file.path)) throw new Error('未登记下载路径不在本批公开范围：' + file.path)

@@ -1,3 +1,4 @@
+import { visiblePage } from '../utils/page-display'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import notes from '../data/notes.json'
@@ -38,7 +39,7 @@ export default function NotePage() {
     <main className="page note-page">
       <p className="note-back"><Link to={`/notes${params.size ? `?${params}` : ''}`}>← 全部笔记</Link></p>
       <div className="project-actions"><span className="runbook-kind">{noteKinds[note.kind || 'note']}</span><Button size="sm" onClick={copy}>复制 Markdown</Button><Button size="sm" onClick={() => downloadText(`${note.id}.md`, note.body, 'text/markdown;charset=utf-8')}>下载手册</Button><span role="status">{message}</span></div>
-      <nav className="note-related-bar" aria-label="手册关联资料">{project && <Link to={`/projects/${project.id}`}>项目：{project.name}</Link>}{relatedCfgs.map(cfg => <Link key={cfg.id} to={`/cfg/${cfg.id}`}>CFG：{cfg.name}</Link>)}</nav>
+      <nav className="note-related-bar" aria-label="手册关联资料">{visiblePage('projects') && project && <Link to={`/projects/${project.id}`}>项目：{project.name}</Link>}{visiblePage('cfg') && relatedCfgs.map(cfg => <Link key={cfg.id} to={`/cfg/${cfg.id}`}>CFG：{cfg.name}</Link>)}</nav>
       <article className="md-article">
         {note.updated && <p className="note-meta">{note.updated}</p>}
         <div dangerouslySetInnerHTML={{ __html: renderMarkdown(note.body) }} />

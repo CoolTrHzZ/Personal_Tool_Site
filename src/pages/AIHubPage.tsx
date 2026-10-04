@@ -1,3 +1,4 @@
+import { visiblePage } from '../utils/page-display'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Bot, Box, Check, Copy, Cpu, ExternalLink, MessageSquareText, Search, Sparkles } from 'lucide-react'
@@ -94,7 +95,7 @@ export default function AIHubPage() {
         code=".AI"
         caption="IDEAS INTO ACTION"
       />
-      <div className="ai-view-switch" aria-label="AI Hub 内容"><Button variant={view === 'resources' ? 'primary' : 'ghost'} onClick={() => navigate({ view: null, workflow: null, resource: null })}>资源手册</Button><Button variant={view === 'workflows' ? 'primary' : 'ghost'} onClick={() => navigate({ view: 'workflows', resource: null })}>工作流库</Button><Link className="ui-button ui-button-ghost" to="/tools/ai-context">我的 AI 任务</Link></div>
+      <div className="ai-view-switch" aria-label="AI Hub 内容"><Button variant={view === 'resources' ? 'primary' : 'ghost'} onClick={() => navigate({ view: null, workflow: null, resource: null })}>资源手册</Button><Button variant={view === 'workflows' ? 'primary' : 'ghost'} onClick={() => navigate({ view: 'workflows', resource: null })}>工作流库</Button>{visiblePage('tools') && <Link className="ui-button ui-button-ghost" to="/tools/ai-context">我的 AI 任务</Link>}</div>
       {((resourceId && !detail) || (workflowId && !workflowDetail && !resourceId)) && <div className="ai-detail-missing" role="alert"><p>这项{resourceId ? '资源' : '工作流'}已移除或不存在。</p><Button onClick={() => navigate({ resource: null, workflow: workflowDetail ? workflowId : null })}>{workflowDetail ? '返回工作流' : '返回列表'}</Button></div>}
       <div className="ai-toolbar">
         <label className="ai-search"><Search size={16} aria-hidden="true" /><Input aria-label="搜索 AI 资源" value={query} onChange={event => navigate({ q: event.target.value || null })} placeholder="搜索名称、配置或标签..." /></label>
@@ -112,7 +113,7 @@ export default function AIHubPage() {
         {view === 'workflows' && <label className="ai-workflow-filter">工作流分类<select value={workflowCategory} onChange={event => navigate({ category: event.target.value === 'all' ? null : event.target.value })}><option value="all">全部流程</option>{Object.entries(workflowCategories).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
       </div>
       <div className="ai-results-bar"><p role="status">{view === 'workflows' ? `${shownWorkflows.length} 套工作流` : `${shown.length} 项资源`}</p>{(query || (view === 'resources' ? kind !== 'all' : workflowCategory !== 'all')) && <Button size="sm" onClick={() => navigate({ q: null, ...(view === 'resources' ? { kind: null } : { category: null }) })}>清除筛选</Button>}</div>
-      {view === 'workflows' && <div className="ai-workflow-grid" aria-label="工作流列表">{shownWorkflows.map(item => <article className="ai-workflow-card" key={item.id}><span className="ai-eyebrow">{workflowCategories[item.category]} · {item.steps.length} 个步骤</span><h2>{item.name}</h2><p>{item.description}</p><ol>{item.steps.map((step, index) => <li key={index}>{step.title}</li>)}</ol><div className="ai-resource-actions"><Button size="sm" onClick={() => navigate({ view: 'workflows', workflow: item.id }, false)}>查看流程：{item.name}</Button><Link className="ui-button ui-button-primary ui-button-sm" to={`/tools/ai-context?workflow=${encodeURIComponent(item.id)}`}>创建任务包</Link></div></article>)}{!shownWorkflows.length && <p className="ai-empty">没有匹配的工作流</p>}</div>}
+      {view === 'workflows' && <div className="ai-workflow-grid" aria-label="工作流列表">{shownWorkflows.map(item => <article className="ai-workflow-card" key={item.id}><span className="ai-eyebrow">{workflowCategories[item.category]} · {item.steps.length} 个步骤</span><h2>{item.name}</h2><p>{item.description}</p><ol>{item.steps.map((step, index) => <li key={index}>{step.title}</li>)}</ol><div className="ai-resource-actions"><Button size="sm" onClick={() => navigate({ view: 'workflows', workflow: item.id }, false)}>查看流程：{item.name}</Button>{visiblePage('tools') && <Link className="ui-button ui-button-primary ui-button-sm" to={`/tools/ai-context?workflow=${encodeURIComponent(item.id)}`}>创建任务包</Link>}</div></article>)}{!shownWorkflows.length && <p className="ai-empty">没有匹配的工作流</p>}</div>}
       {view === 'resources' && <div className="ai-chapters" role="region" aria-label="资源概览">
           {displayedKinds.map(value => {
             const chapterItems = shown.filter(item => item.kind === value)
@@ -136,7 +137,7 @@ export default function AIHubPage() {
       <Modal open={Boolean(workflowDetail && !resourceId)} title={workflowDetail?.name || ''} onClose={() => navigate({ workflow: null })} className="ai-resource-modal">{workflowDetail && !resourceId && <div className="ai-detail"><ResourceCopy value={detailLink('workflow', workflowDetail.id)} label="复制页面链接" variant="ghost" /><p>{workflowDetail.description}</p><ol className="ai-workflow-steps">{workflowDetail.steps.map((step, index) => {
         const resource = items.find(item => item.id === step.resourceId)
         return <li key={index}><h3>{step.title}</h3><p>{step.description}</p>{resource && <Button size="sm" onClick={() => openResource(resource)}>关联资源：{resource.name}</Button>}</li>
-      })}</ol><Link className="ui-button ui-button-primary" to={`/tools/ai-context?workflow=${encodeURIComponent(workflowDetail.id)}`}>从此工作流创建任务包</Link></div>}</Modal>
+      })}</ol>{visiblePage('tools') && <Link className="ui-button ui-button-primary" to={`/tools/ai-context?workflow=${encodeURIComponent(workflowDetail.id)}`}>从此工作流创建任务包</Link>}</div>}</Modal>
     </main>
   )
 }

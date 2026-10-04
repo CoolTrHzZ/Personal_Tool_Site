@@ -17,6 +17,8 @@ import NotFound from '../pages/NotFound'
 import StaticToolPage from '../tools/runtime/StaticToolPage'
 import { useToolsReturnPath } from '../components/tools/ToolShell'
 import Button from '../components/ui/Button'
+import { visiblePage } from '../utils/page-display'
+import type { DisplayPage } from '../../shared/page-display.js'
 
 const siteConfig = site as SiteConfig
 
@@ -44,6 +46,11 @@ function ToolRoute() {
   return <ErrorBoundary key={tool.id} returnTo={returnTo}><Suspense fallback={<div className="tool-panel">加载工具中…</div>}><ToolComponent /></Suspense></ErrorBoundary>
 }
 
+function ComponentPage({ page, children }: { page: DisplayPage; children: ReactNode }) {
+  if (!visiblePage(page)) return <main className="page"><h1>页面当前未展示</h1><p>请从首页浏览其他内容。</p><Link className="back-link" to="/">← 返回首页</Link></main>
+  return children
+}
+
 export default function Router() {
-  return <Routes><Route path="/" element={<HomePage />} /><Route path="/projects" element={<ProjectsPage />} /><Route path="/projects/:id" element={<ProjectsPage />} /><Route path="/ai" element={<AIHubPage />} /><Route path="/cfg" element={<CfgLibraryPage />} /><Route path="/cfg/:id" element={<CfgLibraryPage />} /><Route path="/tools" element={<ToolsPage />} /><Route path="/nav" element={<NavPage />} /><Route path="/library" element={<LibraryPage />} /><Route path="/notes" element={<NotesPage />} /><Route path="/notes/:id" element={<NotePage />} /><Route path="/tools/*" element={<ToolRoute />} /><Route path="*" element={<NotFound />} /></Routes>
+  return <Routes><Route path="/" element={<HomePage />} /><Route path="/projects" element={<ComponentPage page="projects"><ProjectsPage /></ComponentPage>} /><Route path="/projects/:id" element={<ComponentPage page="projects"><ProjectsPage /></ComponentPage>} /><Route path="/ai" element={<ComponentPage page="ai"><AIHubPage /></ComponentPage>} /><Route path="/cfg" element={<ComponentPage page="cfg"><CfgLibraryPage /></ComponentPage>} /><Route path="/cfg/:id" element={<ComponentPage page="cfg"><CfgLibraryPage /></ComponentPage>} /><Route path="/tools" element={<ComponentPage page="tools"><ToolsPage /></ComponentPage>} /><Route path="/nav" element={<ComponentPage page="nav"><NavPage /></ComponentPage>} /><Route path="/library" element={<ComponentPage page="library"><LibraryPage /></ComponentPage>} /><Route path="/notes" element={<ComponentPage page="notes"><NotesPage /></ComponentPage>} /><Route path="/notes/:id" element={<ComponentPage page="notes"><NotePage /></ComponentPage>} /><Route path="/tools/*" element={<ComponentPage page="tools"><ToolRoute /></ComponentPage>} /><Route path="*" element={<NotFound />} /></Routes>
 }

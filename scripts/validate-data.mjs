@@ -1,4 +1,5 @@
 import { parseSiteDisplayUrl } from '../shared/site-display-url.js'
+import { assertPageVisibility } from '../shared/page-display.js'
 import { resolve, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -27,6 +28,7 @@ const projects = await load('projects')
 const workflows = await load('ai-workflows')
 const tags = await load('tags')
 const site = await load('site')
+assertPageVisibility(site.pageVisibility)
 const cfgs = await validateCfgLibrary(join(contentRoot, 'src/data/cfgs.json'), join(contentRoot, 'public/cfgs/'))
 assertProjects(projects, cfgs)
 await validateProjectDownloads(projects, join(contentRoot, 'public/downloads/'))

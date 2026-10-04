@@ -1,4 +1,5 @@
 import { parseSiteDisplayUrl } from '../shared/site-display-url.js'
+import { assertPageVisibility } from '../shared/page-display.js'
 import { createServer } from 'node:http'
 import { readFile, writeFile, readdir, rename, copyFile, mkdir, mkdtemp, rm, stat, lstat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -83,6 +84,7 @@ function validate(key, value) {
   if (key === 'ai-workflows') return assertAIWorkflows(value)
   if (key === 'notes') assertNoteRelations(value)
   if (key === 'site') {
+    assertPageVisibility(value.pageVisibility)
     for (const field of ['name', 'title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'footer', 'logo']) if (typeof value[field] !== 'string') throw new Error(`${field} 必须是字符串`)
     for (const field of ['name', 'title', 'description', 'github']) if (!value[field].trim()) throw new Error(`${field} 不能为空`)
     for (const field of ['github', 'publicUrl', 'adminUrl']) if (value[field] !== undefined) { try { parseSiteDisplayUrl(value[field]) } catch { throw new Error(`${field} 必须是无凭据的 HTTP(S) 链接`) } }
@@ -960,6 +962,7 @@ async function handleAiRequest(req, res) {
   if (path === '/api/ai/status' && req.method === 'GET') { send(res, 200, await aiService.status()); return true }
   if (path !== '/api/ai/suggest' || req.method !== 'POST') { send(res, 405, { error: 'Method not allowed' }); return true }
   const controller = new globalThis.AbortController()
+  let failureEvent
   const closed = () => { if (!res.writableEnded) controller.abort() }
   res.once('close', closed)
   try {
@@ -969,9 +972,14 @@ async function handleAiRequest(req, res) {
       else send(res, 200, result)
     }
   } catch (error) {
-    if (!res.destroyed) send(res, [429, 503].includes(error.statusCode) ? error.statusCode : 400, { error: error.message })
+    const codes = ['AI_CONFIG', 'AI_CONNECTION', 'AI_PROVIDER_HTTP', 'AI_RESPONSE_FORMAT', 'AI_TIMEOUT', 'AI_CANCELLED']
+    const code = codes.includes(error.code) ? error.code : null
+    const providerStatus = code === 'AI_PROVIDER_HTTP' && Number.isInteger(error.providerStatus) && error.providerStatus >= 100 && error.providerStatus <= 599 ? error.providerStatus : null
+    if (code) failureEvent = 'ai_suggest_failure_' + code + (providerStatus ? '_http_' + providerStatus : '')
+    if (!res.destroyed) send(res, [429, 503].includes(error.statusCode) ? error.statusCode : 400, { error: error.message, ...(code ? { code } : {}), ...(providerStatus ? { providerStatus } : {}) })
   } finally {
     res.off('close', closed)
+    if (failureEvent) await auth.audit(failureEvent, req, res.statusCode)
     await auth.audit('ai_suggest', req, res.statusCode)
   }
   return true

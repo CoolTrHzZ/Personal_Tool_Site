@@ -1,3 +1,4 @@
+import { visiblePage } from '../utils/page-display'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowUpRight, BookOpen, Download, FileCode2, FolderGit2, Github, Monitor, Package, Pin, Server } from 'lucide-react'
@@ -97,8 +98,8 @@ export default function ProjectsPage() {
         <article className="project-panel md-article">{item.body ? <div dangerouslySetInnerHTML={{ __html: renderMarkdown(item.body) }} /> : <><h2>工具说明</h2><p>说明正在整理，可通过本页查看已发布的文件与相关资源。</p></>}</article>
         <aside className="project-related">
           {(item.kind === 'desktop' || item.download) && <ReleaseInfo item={item} checksum />}
-          <section className="project-panel"><h2><BookOpen size={17} />关联手册 <small>{relatedNotes.length}</small></h2>{relatedNotes.length ? relatedNotes.map(note => <Link className="project-related-link" key={note.id} to={`/notes/${note.id}`}><span>{note.title}<small>{noteKinds[note.kind || 'note']}</small></span><ArrowUpRight size={14} /></Link>) : <p>暂无关联手册。</p>}</section>
-          <section className="project-panel"><h2><FileCode2 size={17} />配置文件 <small>{relatedCfgs.length}</small></h2>{relatedCfgs.length ? relatedCfgs.map(cfg => <Link className="project-related-link" key={cfg.id} to={`/cfg/${cfg.id}`}><span>{cfg.name}<small>{cfg.filename}</small></span><ArrowUpRight size={14} /></Link>) : <p>暂无关联 CFG。</p>}</section>
+          {visiblePage('notes') && <section className="project-panel"><h2><BookOpen size={17} />关联手册 <small>{relatedNotes.length}</small></h2>{relatedNotes.length ? relatedNotes.map(note => <Link className="project-related-link" key={note.id} to={`/notes/${note.id}`}><span>{note.title}<small>{noteKinds[note.kind || 'note']}</small></span><ArrowUpRight size={14} /></Link>) : <p>暂无关联手册。</p>}</section>}
+          {visiblePage('cfg') && <section className="project-panel"><h2><FileCode2 size={17} />配置文件 <small>{relatedCfgs.length}</small></h2>{relatedCfgs.length ? relatedCfgs.map(cfg => <Link className="project-related-link" key={cfg.id} to={`/cfg/${cfg.id}`}><span>{cfg.name}<small>{cfg.filename}</small></span><ArrowUpRight size={14} /></Link>) : <p>暂无关联 CFG。</p>}</section>}
           {item.kind !== 'desktop' && !item.download && <section className="project-panel"><h2>维护信息</h2><p>状态：{statuses[item.status]}</p><p>更新：<time dateTime={item.updated}>{item.updated}</time></p></section>}
         </aside>
       </div>

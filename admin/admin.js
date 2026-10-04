@@ -18,6 +18,7 @@ import { assistForm, showFormError } from './form-assistance.js'
 import { mountSiteManagement } from './site-management.js'
 import { mountContentCollections } from './content-collections.js'
 import { noteKinds, runbookTemplates } from '/shared/runbook-templates.js'
+import { DISPLAY_PAGES, pageVisible } from '/shared/page-display.js'
 
 const readPreference = (key, fallback) => { try { return localStorage.getItem(key) || fallback } catch { return fallback } }
 let themePreference = readPreference('theme', 'dark')
@@ -93,24 +94,27 @@ const request = async (path, options = {}) => {
   if (authRecovery.suppressed && path !== 'auth/logout') throw Error('已暂停自动登录恢复，请使用密码登录后再操作')
   const sendRequest=async()=>{
     const generation=authRecovery.generation
-    const response=await fetch(`/api/${path}`,{...options,headers:{'content-type':'application/json',...(authSession.csrf ? {'x-csrf-token':authSession.csrf}:{}),...options.headers}}),data=await response.json()
+    const response=await fetch(`/api/${path}`,{...options,headers:{'content-type':'application/json',...(authSession.csrf ? {'x-csrf-token':authSession.csrf}:{}),...options.headers}})
+    let data
+    try { data = await response.json() }
+    catch { throw Error(i18n.t('msg.invalidResponse', { status: String(response.status) })) }
     if (generation!==authRecovery.generation && path!=='auth/logout') throw Error('登录状态已更新，请重新确认此操作')
     return {response,data}
   }
   let {response,data}=await sendRequest()
-  if (!authRecovery.suppressed && (response.status===401 && path!=='auth/reauth' || response.status===403 && data.code==='CSRF_MISMATCH')) {
+  if (!authRecovery.suppressed && (response.status===401 && path!=='auth/reauth' || response.status===403 && data?.code==='CSRF_MISMATCH')) {
     if (await authRecovery.recover()) {
       if (!['GET','HEAD'].includes((options.method || 'GET').toUpperCase())) throw Error('登录已恢复，原操作结果尚未确认。请先检查结果，再重新确认执行；草稿仍保留。')
       ;({response,data}=await sendRequest())
     }
   }
-  if (response.status===401) throw Error(path==='auth/reauth' ? data.error || '密码验证未通过，操作尚未执行' : '会话已失效。草稿仍保留，请恢复登录后重新操作')
-  if (response.status===428 && data.code==='REAUTH_REQUIRED') {
+  if (response.status===401) throw Error(path==='auth/reauth' ? data?.error || '密码验证未通过，操作尚未执行' : '会话已失效。草稿仍保留，请恢复登录后重新操作')
+  if (response.status===428 && data?.code==='REAUTH_REQUIRED') {
     await verifyPassword()
     if (!await confirmSensitive(path)) throw Error('已取消操作，草稿仍保留')
     ;({response,data}=await sendRequest())
   }
-  if (!response.ok) throw Error(data.error || i18n.t('msg.request'))
+  if (!response.ok) throw Error(data?.error || i18n.t('msg.request'))
   authRecovery.noteActivity()
   return data
 }
@@ -292,7 +296,15 @@ function renderSite() {
     const limitField = input('todayContinueLimit', state.site.todayContinueLimit ?? 3, labels.todayContinueLimit, { required: true, type: 'number' })
     const limitInput = limitField.querySelector('input'); limitInput.min = '1'; limitInput.max = '8'; limitInput.step = '1'
     pages.append(limitField)
-    form.append(basics, details)
+    const display = el('fieldset', 'form-section')
+    display.append(el('legend', '', '页面显示'), el('p', 'field-hint', '选择前台展示的组件页。关闭会同步隐藏导航、首页入口与搜索结果，数据保留，可随时恢复。首页、后台管理与设置始终可用。'))
+    for (const page of DISPLAY_PAGES) {
+      const label = el('label', 'check-inline'), checkbox = document.createElement('input')
+      checkbox.type = 'checkbox'; checkbox.name = 'pageVisibility.' + page.id; checkbox.checked = pageVisible(state.site.pageVisibility, page.id)
+      label.append(checkbox, el('span', '', page.label)); display.append(label)
+    }
+    display.append(el('p', 'field-hint', authSession.mode === 'cloud' ? '保存为私有草稿后，请到发布面板预览并显式发布，公开站点才会生效。' : '本地模式保存到站点内容，公开站点需构建并显式发布后生效。'), el('p', 'field-hint', '这是展示设置，不是访问控制；静态文件中仍可能包含原数据或资源。'))
+    form.append(basics, display, details)
     const refreshDisplay = mountSiteDisplayPreview(form)
     form.append(button(authSession.mode === 'cloud' ? '保存展示草稿' : i18n.t('form.saveSite'), {}, 'ui-button ui-button-primary', 'submit'))
     prepareForm(form)
@@ -1736,6 +1748,10 @@ const withBusy = async (form, fn) => {
 bind('#site', 'submit', async event => {
   event.preventDefault()
   const data = Object.fromEntries(new FormData(event.target))
+  if (DISPLAY_PAGES.some(page => event.target.elements.namedItem('pageVisibility.' + page.id))) {
+    data.pageVisibility = Object.fromEntries(DISPLAY_PAGES.map(page => [page.id, event.target.elements.namedItem('pageVisibility.' + page.id).checked]))
+    for (const page of DISPLAY_PAGES) delete data['pageVisibility.' + page.id]
+  }
   if (data.todayContinueLimit === undefined || data.todayContinueLimit === '') delete data.todayContinueLimit
   else data.todayContinueLimit = Number(data.todayContinueLimit)
   try { await withBusy(event.target, async () => { await request('site', { method: 'PUT', body: JSON.stringify({ ...state.site, ...data }) }); protectForm.clean(event.target); await reload(i18n.t('msg.savedSite')) }) } catch (error) { toastError(error.message) }

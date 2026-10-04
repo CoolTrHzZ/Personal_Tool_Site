@@ -4,6 +4,8 @@ import { Activity, Pause, Search, Settings2 } from 'lucide-react'
 import site from '../../data/site.json'
 import type { SiteConfig } from '../../types'
 import { MotionContext, SearchContext } from './Layout'
+import { DISPLAY_PAGES } from '../../../shared/page-display.js'
+import { visiblePage } from '../../utils/page-display'
 
 const siteConfig = site as SiteConfig
 
@@ -59,13 +61,7 @@ export default function Header() {
       <Link className="brand" to="/"><span className="mark-tile mark-tile-brand brand-mark"><img className="brand-symbol" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" /></span><span>{siteConfig.name}<small>PERSONAL STATION</small></span></Link>
       <nav className="top-nav" aria-label="主导航">
         <NavLink end to="/">首页</NavLink>
-        <NavLink to="/projects">桌面工具</NavLink>
-        <NavLink to="/ai">AI Hub</NavLink>
-        <NavLink to="/tools">工具</NavLink>
-        <NavLink to="/cfg">CFG 库</NavLink>
-        <NavLink to="/nav">导航</NavLink>
-        <NavLink to="/library">收藏</NavLink>
-        <NavLink to="/notes">笔记</NavLink>
+        {DISPLAY_PAGES.filter(page => visiblePage(page.id)).map(page => <NavLink key={page.id} to={page.path}>{page.label}</NavLink>)}
       </nav>
       <div className="topbar-end">
         {import.meta.env.DEV && <a className="local-admin-link" href={siteConfig.adminUrl} target="_blank" rel="noreferrer" aria-label="本地 Admin 管理" title="本地 Admin 管理"><Settings2 size={15} /><span>Admin</span></a>}

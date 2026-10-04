@@ -16,6 +16,7 @@ import type { ToolDefinition } from '../tools/types'
 import EmptyState from '../components/ui/EmptyState'
 import MarkTile from '../components/ui/MarkTile'
 import WorkspacePanel from '../components/workspace/WorkspacePanel'
+import { visiblePage, visiblePath } from '../utils/page-display'
 
 const navItems = navigation as NavigationItem[]
 const enabledLibrary = (library as LibraryItem[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
@@ -77,7 +78,7 @@ export default function HomePage() {
           <summary className="manual-toc-toggle">工作区目录</summary>
           <div className="toc-label"><Terminal size={13} /> WORKSPACE</div>
           <nav className="manual-toc" aria-label="章节目录">
-            {chapters.filter(chapter => personal || chapter.id !== 'workspace').map((chapter, index) => <a key={chapter.id} href={`#${chapter.id}`} onClick={event => { event.preventDefault(); const section = document.getElementById(chapter.id); section?.focus({ preventScroll: true }); section?.scrollIntoView({ behavior: 'auto', block: 'start' }) }}><span>0{index + 1}</span>{chapter.id === 'today' && !personal ? '精选工具' : chapter.label}</a>)}
+            {chapters.filter(chapter => (personal || chapter.id !== 'workspace') && (chapter.id === 'workspace' || visiblePath('/' + (chapter.id === 'today' ? 'tools' : chapter.id === 'sites' ? 'nav' : chapter.id)))).map((chapter, index) => <a key={chapter.id} href={`#${chapter.id}`} onClick={event => { event.preventDefault(); const section = document.getElementById(chapter.id); section?.focus({ preventScroll: true }); section?.scrollIntoView({ behavior: 'auto', block: 'start' }) }}><span>0{index + 1}</span>{chapter.id === 'today' && !personal ? '精选工具' : chapter.label}</a>)}
           </nav>
           <div className="toc-foot"><span className="status-dot" />本地优先<span>你的工具，你的空间。</span></div>
         </details>
@@ -90,10 +91,10 @@ export default function HomePage() {
                 <span className="hero-eyebrow">{personal ? '想法就绪 · 即刻启程' : '无需注册 · 打开即用'}</span>
                 <h1>开发者工作台<span>{personal ? '让创造，进入轨道。' : '发现工具，保持创造。'}</span></h1>
                 <p>{personal ? <>工具、灵感与专注，在此汇合。<br />为你的下一次创造，准备就绪。</> : <>先用示例试一试，再换成自己的内容。<br />处理完成，即可复制或下载结果。</>}</p>
-                <div className="intro-actions">
+                {visiblePage('tools') && <div className="intro-actions">
                   <Link className="station-launch" to={!personal && starterTool ? starterTool.path : '/tools'}><Zap size={15} />{personal ? '启动工具箱' : starterTool ? '试用 JSON 工具' : '探索工具箱'}<ArrowUpRight size={15} /></Link>
                   {!personal && starterTool && <Link className="intro-all-tools" to="/tools">浏览全部工具<ArrowRight size={13} /></Link>}
-                </div>
+                </div>}
               </div>
               <div className="orbital-display" aria-hidden="true">
                 <svg viewBox="0 0 240 240" fill="none"><path className="orbital-crosshair" d="M120 0v35m0 170v35M0 120h35m170 0h35M25 25l13 13m164 164 13 13M25 215l13-13M202 38l13-13" /><circle cx="120" cy="120" r="107" className="orbital-outer" /><g className="orbital-ring"><circle cx="120" cy="120" r="90" strokeDasharray="2 7" /><path d="M120 30a90 90 0 0 1 90 90M120 210a90 90 0 0 1-90-90" strokeWidth="3" /><circle cx="210" cy="120" r="4" fill="currentColor" /></g><g className="orbital-inner"><ellipse cx="120" cy="120" rx="72" ry="36" transform="rotate(-35 120 120)" /><ellipse cx="120" cy="120" rx="72" ry="36" transform="rotate(35 120 120)" /></g><circle className="orbital-core" cx="120" cy="120" r="45" /><m.path className="orbital-terminal" d="m99 106 14 14-14 14m23 0h20" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: motionEnabled ? 0 : 1 }} animate={{ pathLength: 1 }} transition={{ duration: motionEnabled ? 1.1 : 0, delay: motionEnabled ? .25 : 0 }} /><circle cx="120" cy="13" r="3" fill="currentColor" /></svg>
@@ -102,46 +103,46 @@ export default function HomePage() {
             </div>
             <button type="button" className="atlas-search" onClick={openPalette} aria-label="打开命令面板"><Search size={17} /><span>搜索工具、网站、资源、笔记…</span><kbd>⌘ / Ctrl K</kbd></button>
           </m.section>
-          <div className="station-metrics" aria-label="工作区概览">{[{ path: '/tools', value: enabledTools.length, label: '可用工具', icon: Terminal }, { path: '/nav', value: enabledNav.length, label: '导航站点', icon: Globe }, { path: '/ai', value: aiItems.length, label: 'AI 资源', icon: Layers }, { path: '/notes', value: enabledNotes.length, label: '知识笔记', icon: FileText }].map(({ path, value, label, icon: Icon }) => <Link to={path} key={path}><Icon size={16} /><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span><ArrowUpRight size={12} /></Link>)}</div>
-          <m.section id="today" tabIndex={-1} className="manual-section" aria-label={personal ? '今天继续' : '精选工具'} {...reveal}>
+          <div className="station-metrics" aria-label="工作区概览">{[{ path: '/tools', value: enabledTools.length, label: '可用工具', icon: Terminal }, { path: '/nav', value: enabledNav.length, label: '导航站点', icon: Globe }, { path: '/ai', value: aiItems.length, label: 'AI 资源', icon: Layers }, { path: '/notes', value: enabledNotes.length, label: '知识笔记', icon: FileText }].filter(item => visiblePath(item.path)).map(({ path, value, label, icon: Icon }) => <Link to={path} key={path}><Icon size={16} /><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span><ArrowUpRight size={12} /></Link>)}</div>
+          {visiblePage('tools') && <m.section id="today" tabIndex={-1} className="manual-section" aria-label={personal ? '今天继续' : '精选工具'} {...reveal}>
             <div className="manual-heading"><span>01 /</span><h2>{personal ? '今天继续' : '精选工具'}</h2><small>{personal && recent.length ? '最近打开的工具' : '从常用工具开始'}</small></div>
             <div className="product-stage">{pathTools.length ? pathTools.map((tool, index) => <m.div key={tool.id} {...reveal} transition={{ delay: motionEnabled ? index * .06 : 0, duration: motionEnabled ? .3 : 0 }}><ToolCard tool={tool} pathIndex={index + 1} /></m.div>) : <EmptyState title="暂无工具" />}</div>
-          </m.section>
-          <m.section id="tools" tabIndex={-1} className="manual-section" {...reveal}>
+          </m.section>}
+          {visiblePage('tools') && <m.section id="tools" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>02</span><h2>工具</h2><Link to="/tools">查看全部</Link></div>
             <div className="resource-list">{enabledTools.filter(tool => !toolsById.has(tool.id)).map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>
-          </m.section>
-          <m.section id="sites" tabIndex={-1} className="manual-section" {...reveal}>
+          </m.section>}
+          {visiblePage('nav') && <m.section id="sites" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>03</span><h2>网站</h2><Link to="/nav">全部站点 ↗</Link></div>
             <div className="resource-list">{enabledNav.slice(0, 6).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} icon={item.icon} /><b>{item.name}</b><span>{item.description}</span><small>{item.category}</small></a>)}</div>
-          </m.section>
-          <m.section id="ai" tabIndex={-1} className="manual-section" {...reveal}>
+          </m.section>}
+          {visiblePage('ai') && <m.section id="ai" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>04</span><h2>AI 资源</h2><Link to="/ai">打开 AI Hub</Link></div>
             <div className="resource-list">{aiItems.slice(0, 4).map(item => { const KindIcon = aiKindIcons[item.kind]; return <Link className="resource-row" key={item.id} to={`/ai?resource=${encodeURIComponent(item.id)}`}><MarkTile name={item.name}><KindIcon size={16} aria-hidden="true" /></MarkTile><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></Link> })}</div>
-          </m.section>
-          <m.section id="library" tabIndex={-1} className="manual-section" {...reveal}>
+          </m.section>}
+          {visiblePage('library') && <m.section id="library" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>05</span><h2>收藏</h2><Link to="/library">打开收藏</Link></div>
             <div className="resource-list">{enabledLibrary.slice(0, 4).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} /><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></a>)}</div>
-          </m.section>
-          <m.section id="notes" tabIndex={-1} className="manual-section" {...reveal}>
+          </m.section>}
+          {visiblePage('notes') && <m.section id="notes" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>06</span><h2>笔记</h2><Link to="/notes">打开笔记</Link></div>
             <div className="resource-list">{enabledNotes.slice(0, 4).map(item => <Link className="resource-row" key={item.id} to={`/notes/${item.id}`}><MarkTile name={item.title} /><b>{item.title}</b><span>{item.summary}</span><small>笔记</small></Link>)}</div>
-          </m.section>
+          </m.section>}
         </div>
         <aside id="workspace" tabIndex={-1} className="manual-notes" aria-label={personal ? '个人工作区' : '探索指南'}>
           <div className="workspace-aside-title"><span className="status-dot" /> {personal ? 'PERSONAL SPACE' : 'OPEN WORKSPACE'} <span>{personal ? '仅此浏览器' : '开放探索'}</span></div>
           {personal ? <>
             <p className="personal-space-hint">待办与便笺仅保存在你当前的浏览器中。</p>
             <WorkspacePanel />
-            {starred.length > 0 && <div className="starred-shortcuts"><span className="manual-note-label">已收藏工具 · {starred.length}</span>{starred.slice(0, 4).map(tool => <Link key={tool.id} to={tool.path}>{tool.name}<ArrowUpRight size={12} /></Link>)}</div>}
+            {visiblePage('tools') && starred.length > 0 && <div className="starred-shortcuts"><span className="manual-note-label">已收藏工具 · {starred.length}</span>{starred.slice(0, 4).map(tool => <Link key={tool.id} to={tool.path}>{tool.name}<ArrowUpRight size={12} /></Link>)}</div>}
           </> : <>
             <section className="visitor-about"><span className="visitor-eyebrow">BUILT FOR THE CURIOUS</span><h2>一个人的工作站，<br />也是你的工具箱。</h2><p>把日常用得上的工具和资源收集在一起，留出更多时间，做真正想做的事。</p>{siteConfig.github && <a href={siteConfig.github} target="_blank" rel="noreferrer"><Github size={14} />浏览项目源码<ArrowUpRight size={13} /></a>}</section>
-            <nav className="visitor-routes" aria-label="探索资源"><Link to="/projects"><Layers size={17} /><span><b>桌面工具库</b><small>我的 EXE 作品、版本说明与下载</small></span><ArrowUpRight size={13} /></Link><Link to="/cfg"><FileCode2 size={17} /><span><b>CS2 配置档案</b><small>预览配置、换机下载</small></span><ArrowUpRight size={13} /></Link><Link to="/tools"><Terminal size={17} /><span><b>随手用的小工具</b><small>格式化、转换、编码</small></span><ArrowUpRight size={13} /></Link><Link to="/ai"><Sparkles size={17} /><span><b>AI 灵感与资源</b><small>Skills、Prompts 与应用</small></span><ArrowUpRight size={13} /></Link><Link to="/nav"><Globe size={17} /><span><b>值得收藏的站点</b><small>开发、设计与效率</small></span><ArrowUpRight size={13} /></Link></nav>
+            <nav className="visitor-routes" aria-label="探索资源">{visiblePath('/projects') && <Link to="/projects"><Layers size={17} /><span><b>桌面工具库</b><small>我的 EXE 作品、版本说明与下载</small></span><ArrowUpRight size={13} /></Link>}{visiblePath('/cfg') && <Link to="/cfg"><FileCode2 size={17} /><span><b>CS2 配置档案</b><small>预览配置、换机下载</small></span><ArrowUpRight size={13} /></Link>}{visiblePath('/tools') && <Link to="/tools"><Terminal size={17} /><span><b>随手用的小工具</b><small>格式化、转换、编码</small></span><ArrowUpRight size={13} /></Link>}{visiblePath('/ai') && <Link to="/ai"><Sparkles size={17} /><span><b>AI 灵感与资源</b><small>Skills、Prompts 与应用</small></span><ArrowUpRight size={13} /></Link>}{visiblePath('/nav') && <Link to="/nav"><Globe size={17} /><span><b>值得收藏的站点</b><small>开发、设计与效率</small></span><ArrowUpRight size={13} /></Link>}</nav>
             <section className="visitor-personal"><PanelRight size={19} /><h2>也给自己一个工作区</h2><p>记下待办，捕捉灵感，专注一会儿。每位访客都可以使用自己的工作区。</p><button type="button" onClick={() => { focusWorkspace.current = true; chooseView(true) }}>开启我的工作区<ArrowRight size={13} /></button></section>
           </>}
           <span className="manual-note-label">工作站笔记</span>
-          {enabledNotes[0] && <Link className="manual-note-card" to={`/notes/${enabledNotes[0].id}`}><strong>{enabledNotes[0].title}</strong><span>{enabledNotes[0].summary}</span></Link>}
-          <nav className="manual-shortcuts" aria-label="快捷入口"><Link to="/projects">桌面工具库</Link><Link to="/cfg">CFG 配置库</Link><Link to="/library">收藏</Link><Link to="/ai">AI Hub</Link></nav>
+          {visiblePage('notes') && enabledNotes[0] && <Link className="manual-note-card" to={`/notes/${enabledNotes[0].id}`}><strong>{enabledNotes[0].title}</strong><span>{enabledNotes[0].summary}</span></Link>}
+          <nav className="manual-shortcuts" aria-label="快捷入口">{visiblePath('/projects') && <Link to="/projects">桌面工具库</Link>}{visiblePath('/cfg') && <Link to="/cfg">CFG 配置库</Link>}{visiblePath('/library') && <Link to="/library">收藏</Link>}{visiblePath('/ai') && <Link to="/ai">AI Hub</Link>}</nav>
         </aside>
       </div>
     </main>
