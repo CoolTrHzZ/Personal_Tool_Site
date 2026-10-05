@@ -22,6 +22,7 @@ export function createEditProtection({ notify = () => {} } = {}) {
       const serialized = capture(form, state)
       if (new Blob([serialized]).size > 2 * 1024 * 1024) throw new Error('草稿超过 2 MiB')
       localStorage.setItem(prefix + state.key, serialized)
+      state.lastWrittenDraft = serialized
       state.status.textContent = '有未保存修改 · 草稿已保存在此浏览器'
     } catch { state.status.textContent = '有未保存修改 · 草稿保存失败，请保持页面开启或复制内容'; if (!state.warned) { notify('浏览器无法保存草稿，请保持页面开启或复制内容。', 'error'); state.warned = true } }
   }
@@ -30,9 +31,17 @@ export function createEditProtection({ notify = () => {} } = {}) {
     if (!state || state.busy) return
     state.left = false
     state.dirty = comparable(snapshot(form, state), state) !== state.baseline
-    if (state.dirty) state.keepLegacyDefaultDraft = false
     state.status.textContent = state.dirty ? '有未保存修改' : state.cleanText
-    if (!state.dirty) { try { if (!state.keepLegacyDefaultDraft) localStorage.removeItem(prefix + state.key) } catch { notify('未能清理浏览器旧草稿。', 'error') }; state.banner.querySelectorAll('button').forEach(button => button.remove()) }
+    if (!state.dirty) {
+      try {
+        const draftKey = prefix + state.key
+        if (state.legacyDefaultSnapshot) {
+          // Undo keeps the restored snapshot, without replacing another editor's draft.
+          if (localStorage.getItem(draftKey) === state.lastWrittenDraft) localStorage.setItem(draftKey, state.legacyDefaultSnapshot)
+        } else localStorage.removeItem(draftKey)
+      } catch { notify('未能保留或清理浏览器旧草稿。', 'error') }
+      state.banner.querySelectorAll('button').forEach(button => button.remove())
+    }
     clearTimeout(state.timer)
     state.timer = setTimeout(() => write(form, state), 250)
   }
@@ -86,6 +95,7 @@ export function createEditProtection({ notify = () => {} } = {}) {
           const legacyDefault = legacyDefaultDraft(saved, form, state)
           // Preserve ambiguous old ID-only snapshots; no stored user data is removed by this inference.
           state.keepLegacyDefaultDraft = legacyDefault
+          state.legacyDefaultSnapshot = legacyDefault ? draft : undefined
           state.legacyDefaultId = legacyDefault ? saved.values.find(entry => entry.name === 'id').value : ''
           for (const entry of saved.values) {
             const field = form.elements.namedItem(entry.name)
@@ -112,7 +122,7 @@ export function createEditProtection({ notify = () => {} } = {}) {
   }
   const clean = form => {
     const state = states.get(form); if (!state) return
-    clearTimeout(state.timer); state.dirty = false; state.busy = false; state.keepLegacyDefaultDraft = false; state.baseline = comparable(snapshot(form, state), state); state.cleanText = '所有修改已保存'; state.status.textContent = state.cleanText; state.banner.querySelectorAll('button').forEach(button => button.remove())
+    clearTimeout(state.timer); state.dirty = false; state.busy = false; state.keepLegacyDefaultDraft = false; state.legacyDefaultSnapshot = undefined; state.lastWrittenDraft = undefined; state.baseline = comparable(snapshot(form, state), state); state.cleanText = '所有修改已保存'; state.status.textContent = state.cleanText; state.banner.querySelectorAll('button').forEach(button => button.remove())
     try { localStorage.removeItem(prefix + state.key) } catch { notify('内容已保存，但浏览器旧草稿未能清理。', 'error') }
   }
   const busy = (form, value) => {

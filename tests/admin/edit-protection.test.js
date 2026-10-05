@@ -183,3 +183,120 @@ it('real collection edits still confirm, including manually adopted automatic-lo
   expect(JSON.parse(localStorage.getItem('devos-admin-draft:nav-form:new')).collectionSource).toBe(source.value)
   guard.end(form)
 })
+
+
+const followupCollection = run => {
+  vi.useFakeTimers()
+  const form = newCollectionForm(), guard = createEditProtection(), confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+  try { run({ form, guard, confirm }) }
+  finally { guard.end(form); vi.useRealTimers() }
+}
+const legacyDefaultsFor = form => JSON.stringify({ values: [...form.elements].filter(field => field.name && field.type !== 'file').map(field => ({ name: field.name, type: field.type, value: field.name === 'id' ? 'item-1234abcd' : field.value, checked: field.checked, selected: field.multiple ? [...field.selectedOptions].map(option => option.value) : undefined })) })
+const restoreFollowupDraft = form => [...form.querySelectorAll('button')].find(button => button.textContent === '恢复草稿').click()
+
+it('default undo follow-up: fresh Chinese automatic ID stays clean after name undo', () => followupCollection(({ form, guard, confirm }) => {
+  guard.begin(form)
+  typeCollectionField(form, 'name', '合成保护验收')
+  vi.advanceTimersByTime(300)
+  typeCollectionField(form, 'name', '')
+  vi.advanceTimersByTime(300)
+  expect(guard.hasChanges(form)).toBe(false)
+  expect(guard.mayLeave(form)).toBe(true)
+  expect(confirm).not.toHaveBeenCalled()
+  expect(localStorage.getItem('devos-admin-draft:nav-form:new')).toBeNull()
+}))
+
+it('default undo follow-up: fresh English automatic slug stays clean after name undo', () => followupCollection(({ form, guard, confirm }) => {
+  guard.begin(form)
+  typeCollectionField(form, 'name', 'Synthetic Name')
+  expect(form.elements.id.value).toMatch(/^synthetic-name-[a-f0-9]{8}$/)
+  vi.advanceTimersByTime(300)
+  typeCollectionField(form, 'name', '')
+  expect(guard.hasChanges(form)).toBe(false)
+  expect(guard.mayLeave(form)).toBe(true)
+  expect(confirm).not.toHaveBeenCalled()
+}))
+
+it('default undo follow-up: explicit adopted or handwritten IDs remain protected', () => {
+  followupCollection(({ form, guard, confirm }) => {
+    guard.begin(form)
+    typeCollectionField(form, 'name', 'Synthetic Name')
+    const adopted = form.elements.id.value
+    typeCollectionField(form, 'id', adopted)
+    typeCollectionField(form, 'name', '')
+    expect(guard.mayLeave(form)).toBe(false)
+    expect(confirm).toHaveBeenCalled()
+    expect(form.elements.id.value).toBe(adopted)
+    expect(localStorage.getItem('devos-admin-draft:nav-form:new')).not.toBeNull()
+  })
+  for (const explicit of ['item-1234abcd', 'my-handwritten-id']) followupCollection(({ form, guard, confirm }) => {
+    const saved = legacyDefaultsFor(form)
+    localStorage.setItem('devos-admin-draft:nav-form:new', saved)
+    guard.begin(form); restoreFollowupDraft(form)
+    typeCollectionField(form, 'id', explicit)
+    typeCollectionField(form, 'name', 'Synthetic Name')
+    typeCollectionField(form, 'name', '')
+    expect(guard.hasChanges(form)).toBe(true)
+    expect(guard.mayLeave(form)).toBe(false)
+    expect(confirm).toHaveBeenCalled()
+    expect(form.elements.id.value).toBe(explicit)
+    expect(localStorage.getItem('devos-admin-draft:nav-form:new')).not.toBeNull()
+  })
+})
+
+it('default undo follow-up: legacy restore name undo keeps original snapshot and other drafts', () => {
+  followupCollection(({ form, guard, confirm }) => {
+    const key = 'devos-admin-draft:nav-form:new', saved = legacyDefaultsFor(form)
+    localStorage.setItem(key, saved); localStorage.setItem('devos-admin-draft:other:new', 'unrelated synthetic draft')
+    guard.begin(form); restoreFollowupDraft(form)
+    typeCollectionField(form, 'name', 'Synthetic Name')
+    expect(guard.hasChanges(form)).toBe(true)
+    vi.advanceTimersByTime(300)
+    expect(JSON.parse(localStorage.getItem(key)).values.find(field => field.name === 'name').value).toBe('Synthetic Name')
+    typeCollectionField(form, 'name', '')
+    vi.advanceTimersByTime(300)
+    expect(form.elements.id.value).toBe('item-1234abcd')
+    expect(form.elements.id.dataset.suggestedId).toBeUndefined()
+    expect(guard.hasChanges(form)).toBe(false)
+    expect(guard.mayLeave(form)).toBe(true)
+    expect(confirm).not.toHaveBeenCalled()
+    expect(localStorage.getItem(key)).toBe(saved)
+    expect(localStorage.getItem('devos-admin-draft:other:new')).toBe('unrelated synthetic draft')
+  })
+  followupCollection(({ form, guard }) => {
+    const key = 'devos-admin-draft:nav-form:new', saved = legacyDefaultsFor(form)
+    localStorage.setItem(key, saved); guard.begin(form); restoreFollowupDraft(form)
+    typeCollectionField(form, 'name', 'Synthetic Name'); vi.advanceTimersByTime(300)
+    const otherEditorDraft = JSON.stringify({ values: [{ name: 'id', type: 'text', value: 'other-handwritten-id' }] })
+    localStorage.setItem(key, otherEditorDraft)
+    typeCollectionField(form, 'name', '')
+    expect(guard.hasChanges(form)).toBe(false)
+    expect(localStorage.getItem(key)).toBe(otherEditorDraft)
+  })
+})
+
+it('default undo follow-up: legacy restore material undo keeps original snapshot', () => followupCollection(({ form, guard, confirm }) => {
+  const key = 'devos-admin-draft:nav-form:new', saved = legacyDefaultsFor(form)
+  localStorage.setItem(key, saved); guard.begin(form); restoreFollowupDraft(form)
+  const source = form.querySelector('.quick-collect textarea')
+  source.value = '仅合成材料'; source.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(guard.hasChanges(form)).toBe(true); vi.advanceTimersByTime(300)
+  expect(JSON.parse(localStorage.getItem(key)).collectionSource).toBe('仅合成材料')
+  source.value = ''; source.dispatchEvent(new Event('input', { bubbles: true })); vi.advanceTimersByTime(300)
+  expect(guard.hasChanges(form)).toBe(false)
+  expect(guard.mayLeave(form)).toBe(true)
+  expect(confirm).not.toHaveBeenCalled()
+  expect(localStorage.getItem(key)).toBe(saved)
+}))
+
+it('default undo follow-up: restored generated ID provenance stays clean after undo', () => followupCollection(({ form, guard, confirm }) => {
+  const key = 'devos-admin-draft:nav-form:new'
+  guard.begin(form); typeCollectionField(form, 'name', 'Synthetic Name'); vi.advanceTimersByTime(300)
+  expect(JSON.parse(localStorage.getItem(key)).values.find(field => field.name === 'id').generated).toBe(true)
+  guard.end(form); form.reset(); form.elements.category.value = 'development'; assistForm(form); guard.begin(form); restoreFollowupDraft(form)
+  typeCollectionField(form, 'name', '')
+  expect(guard.hasChanges(form)).toBe(false)
+  expect(guard.mayLeave(form)).toBe(true)
+  expect(confirm).not.toHaveBeenCalled()
+  expect(localStorage.getItem(key)).toBeNull()
+}))
