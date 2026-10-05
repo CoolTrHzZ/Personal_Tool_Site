@@ -8,6 +8,7 @@ import EmptyState from '../components/ui/EmptyState'
 import PageHero from '../components/ui/PageHero'
 import site from '../data/site.json'
 import type { SiteConfig } from '../types'
+import { displayCopy } from '../utils/page-display'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Button from '../components/ui/Button'
@@ -30,14 +31,10 @@ export default function NavPage() {
   return (
     <main className="page nav-page">
       <PageHero
-        eyebrow="DIRECTORY / WEB NAVIGATION"
-        title="网站导航"
-        subtitle="常用入口，一步直达。"
-        description={siteConfig.navigationDescription}
+        {...displayCopy('nav', { eyebrow: 'DIRECTORY / WEB NAVIGATION', title: '网站导航', subtitle: '常用入口，一步直达。', description: siteConfig.navigationDescription, caption: 'YOUR NEXT DESTINATION' })}
         stats={[{ value: enabled.length, label: '个网站' }, { value: availableCategories.length, label: '个分类' }]}
         icon={Compass}
         code=".NAV"
-        caption="YOUR NEXT DESTINATION"
       />
       <div className="content-toolbar"><Input aria-label="搜索网站" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索网站、域名、说明或标签…" /><label>网站分类<Select aria-label="网站分类" value={category} onChange={event => setFilter('category', event.target.value)}><option value="">全部分类</option>{category && !availableCategories.some(item => item.id === category) && <option value={category} disabled>已失效：{category}</option>}{availableCategories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label><label>标签<Select aria-label="网站标签" value={tag} onChange={event => setFilter('tag', event.target.value)}><option value="">全部标签</option>{tag && !tags.includes(tag) && <option value={tag} disabled>已失效：{tag}</option>}{tags.map(value => <option key={value}>{value}</option>)}</Select></label>{(query || category || tag) && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
       <p className="content-count" role="status">{shown.length} 个网站 · {groups.length} 个分类</p>

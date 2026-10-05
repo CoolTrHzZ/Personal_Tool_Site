@@ -1,5 +1,5 @@
 import { parseSiteDisplayUrl } from '../shared/site-display-url.js'
-import { assertPageVisibility } from '../shared/page-display.js'
+import { assertPageVisibility, assertPageCopy } from '../shared/page-display.js'
 import { createServer } from 'node:http'
 import { readFile, writeFile, readdir, rename, copyFile, mkdir, mkdtemp, rm, stat, lstat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -33,6 +33,7 @@ if (cloud && (!process.env.ADMIN_STATE_DIR || !process.env.ADMIN_ORIGIN)) throw 
 const stateDir = cloud ? await privateDirectory(process.env.ADMIN_STATE_DIR, codeRoot) : null
 const aiService = createAiService({ directory: stateDir })
 const auth = cloud ? createAuth({ record: await loadPasswordRecord(stateDir), origin: process.env.ADMIN_ORIGIN, directory: stateDir }) : null
+if (auth) await auth.ready
 const root = cloud ? await prepareDrafts(codeRoot, stateDir) : codeRoot
 const publisher = cloud ? createPublisher({ codeRoot, stateDir, draftRoot: root }) : null
 const tempDir = cloud ? join(stateDir, 'tmp') : tmpdir()
@@ -85,6 +86,7 @@ function validate(key, value) {
   if (key === 'notes') assertNoteRelations(value)
   if (key === 'site') {
     assertPageVisibility(value.pageVisibility)
+    assertPageCopy(value.pageCopy, value.headerLabel)
     for (const field of ['name', 'title', 'description', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription', 'github', 'footer', 'logo']) if (typeof value[field] !== 'string') throw new Error(`${field} 必须是字符串`)
     for (const field of ['name', 'title', 'description', 'github']) if (!value[field].trim()) throw new Error(`${field} 不能为空`)
     for (const field of ['github', 'publicUrl', 'adminUrl']) if (value[field] !== undefined) { try { parseSiteDisplayUrl(value[field]) } catch { throw new Error(`${field} 必须是无凭据的 HTTP(S) 链接`) } }
@@ -934,8 +936,9 @@ async function authorize(req, res) {
     else { res.writeHead(303, { location: '/admin/login.html', 'cache-control': 'no-store' }); res.end() }
     return false
   }
-  if (path === '/api/auth/session' && req.method === 'GET') { send(res, 200, { mode: 'cloud', authenticated: true, csrf:session.csrf,expiresAt:session.expiresAt,rememberedDevice:Boolean(session.deviceId),deviceConfirmed:await auth.deviceConfirmed(req,session),reauthRequired:!auth.fresh(session),restoredSession,idleTtlMs:auth.idleMs,idleExpiresAt:session.lastSeen+auth.idleMs });return false }
+  if (path === '/api/auth/session' && req.method === 'GET') { send(res, 200, { mode: 'cloud', authenticated: true, csrf:session.csrf,expiresAt:session.expiresAt,rememberedDevice:Boolean(session.deviceId),deviceConfirmed:await auth.deviceConfirmed(req,session),reauthRequired:!auth.fresh(session),restoredSession,idleTtlMs:auth.idleMs,idleExpiresAt:session.lastSeen+auth.idleMs,user:{...auth.profile(),role:"owner"} });return false }
   if (!['GET', 'HEAD'].includes(req.method) && !auth.csrfValid(req, session)) { await auth.audit('csrf_rejected', req, 403); send(res,403,{code:'CSRF_MISMATCH',error:'请求校验失败，请刷新页面后重试'}); return false }
+  if (path === "/api/auth/profile" && req.method === "PUT") { const user = await auth.saveProfile(await body(req, 4096)); await auth.audit("profile_saved", req, 200); send(res, 200, { user: { ...user, role: "owner" }, publishing: false }); return false }
   if (path==='/api/auth/reauth' && req.method==='POST') {
     const {password}=await body(req,8192),result=await auth.reauthenticate(req,session,password)
     if (result.retryAfter) res.setHeader('retry-after',String(result.retryAfter))

@@ -1,6 +1,8 @@
 import site from '../data/site.json'
 import type { SiteConfig } from '../types'
-import { DISPLAY_PAGES, pageVisible, type DisplayPage } from '../../shared/page-display.js'
+import { DISPLAY_PAGES, pageVisible, type DisplayPage, type PageCopy } from '../../shared/page-display.js'
+
+export const displayCopy = (page: DisplayPage | 'home', defaults: Required<PageCopy>) => ({ ...defaults, ...(site as SiteConfig).pageCopy?.[page] })
 
 export const visiblePage = (page: DisplayPage) => pageVisible((site as SiteConfig).pageVisibility, page)
 export const visiblePath = (path: string) => {

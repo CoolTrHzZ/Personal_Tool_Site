@@ -5,11 +5,11 @@ import { createHash } from 'node:crypto'
 import { exportSiteBackup, decodeSiteBackup, validateStaged, BACKUP_ROOTS } from './site-backup.mjs'
 import { draftPreview } from './admin-state.mjs'
 import { PERMISSION_KEYS } from './tool-manifest.mjs'
-import { assertPageVisibility } from '../shared/page-display.js'
+import { assertPageVisibility, assertPageCopy } from '../shared/page-display.js'
 
 const common = ['id', 'name', 'description', 'tags', 'order', 'enabled', 'updated']
 const schemas = {
-  site: ['name','title','description','toolsDescription','navigationDescription','libraryDescription','aiHubDescription','notesDescription','github','footer','logo','publicUrl','adminUrl','basePath','tagline','todayContinueLimit','pageVisibility'],
+  site: ['name','title','description','toolsDescription','navigationDescription','libraryDescription','aiHubDescription','notesDescription','github','footer','logo','publicUrl','adminUrl','basePath','tagline','todayContinueLimit','pageVisibility','pageCopy','headerLabel'],
   navigation: [...common, 'category', 'url', 'icon'],
   categories: ['id','name','order','icon'],
   library: [...common, 'kind', 'url', 'language'],
@@ -47,7 +47,7 @@ function fields(path, bytes) {
   if (!Array.isArray(items)) throw new Error('公开集合格式无效：' + path)
   for (const item of items) {
     object(item, schemas[kind], kind)
-    if (kind === 'site') assertPageVisibility(item.pageVisibility)
+    if (kind === 'site') { assertPageVisibility(item.pageVisibility); assertPageCopy(item.pageCopy, item.headerLabel) }
     if (item.download !== undefined) object(item.download, ['filename','size','sha256'], 'download')
     if (item.steps !== undefined) { if (!Array.isArray(item.steps)) throw new Error('steps 无效'); item.steps.forEach(step => object(step, ['title','description','resourceId'], 'workflow step')) }
     if (item.history !== undefined) { if (!Array.isArray(item.history)) throw new Error('history 无效'); item.history.forEach(row => object(row, ['id','version','filename','updated','changelog'], 'CFG history')) }

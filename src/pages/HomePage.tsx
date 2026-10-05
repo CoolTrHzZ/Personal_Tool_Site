@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, ArrowUpRight, Bot, Box, Compass, Cpu, FileCode2, FileText, Github, Globe, Layers, MessageSquareText, PanelRight, Search, Sparkles, Terminal, Zap } from 'lucide-react'
 import { m } from 'motion/react'
@@ -16,7 +16,7 @@ import type { ToolDefinition } from '../tools/types'
 import EmptyState from '../components/ui/EmptyState'
 import MarkTile from '../components/ui/MarkTile'
 import WorkspacePanel from '../components/workspace/WorkspacePanel'
-import { visiblePage, visiblePath } from '../utils/page-display'
+import { displayCopy, visiblePage, visiblePath } from '../utils/page-display'
 
 const navItems = navigation as NavigationItem[]
 const enabledLibrary = (library as LibraryItem[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
@@ -69,6 +69,13 @@ export default function HomePage() {
   const pathTools = (personal ? [...recent, ...recommended.filter(tool => !recentIds.includes(tool.id))] : recommended).slice(0, todayContinueLimit)
   const enabledNav = navItems.filter(item => item.enabled).sort((a, b) => a.order - b.order)
   const toolsById = new Set(pathTools.map(tool => tool.id))
+  const copy = displayCopy('home', {
+    title: '开发者工作台',
+    subtitle: personal ? '让创造，进入轨道。' : '发现工具，保持创造。',
+    eyebrow: 'DEVOS / MISSION CONTROL',
+    description: personal ? '工具、灵感与专注，在此汇合。\n为你的下一次创造，准备就绪。' : '先用示例试一试，再换成自己的内容。\n处理完成，即可复制或下载结果。',
+    caption: personal ? '想法就绪 · 即刻启程' : '无需注册 · 打开即用',
+  })
   const reveal = { initial: motionEnabled ? { opacity: 0, y: 16 } : false as const, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '0px 0px 40px 0px' } }
 
   return (
@@ -85,12 +92,12 @@ export default function HomePage() {
         <div className="manual-main">
           <div className="home-viewbar"><span>{personal ? '回到自己的节奏' : '探索，让好工具被发现'}</span><div className="home-view-switch" role="group" aria-label="首页视图"><m.span className="home-view-indicator" aria-hidden="true" initial={false} animate={{ x: personal ? '100%' : '0%' }} transition={{ duration: motionEnabled ? .3 : 0, ease: [.22, 1, .36, 1] }} /><button type="button" aria-pressed={!personal} onClick={() => chooseView(false)}><Compass size={13} />资源浏览</button><button type="button" aria-pressed={personal} onClick={event => { focusWorkspace.current = !personal && event.detail > 0; chooseView(true) }}><PanelRight size={13} />我的工作区</button></div></div>
           <m.section className="manual-intro" {...reveal}>
-            <div className="intro-topline"><p className="atlas-kicker"><span className="status-dot" /> DEVOS / MISSION CONTROL</p><time dateTime={now.toISOString()}>{now.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', weekday: 'short' })}</time></div>
+            <div className="intro-topline">{copy.eyebrow && <p className="atlas-kicker"><span className="status-dot" /> {copy.eyebrow}</p>}<time dateTime={now.toISOString()}>{now.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', weekday: 'short' })}</time></div>
             <div className="intro-content">
               <div className="intro-copy">
-                <span className="hero-eyebrow">{personal ? '想法就绪 · 即刻启程' : '无需注册 · 打开即用'}</span>
-                <h1>开发者工作台<span>{personal ? '让创造，进入轨道。' : '发现工具，保持创造。'}</span></h1>
-                <p>{personal ? <>工具、灵感与专注，在此汇合。<br />为你的下一次创造，准备就绪。</> : <>先用示例试一试，再换成自己的内容。<br />处理完成，即可复制或下载结果。</>}</p>
+                {copy.caption && <span className="hero-eyebrow">{copy.caption}</span>}
+                <h1>{copy.title}{copy.subtitle && <span>{copy.subtitle}</span>}</h1>
+                {copy.description && <p>{copy.description.split('\n').map((line, index) => <Fragment key={index}>{index > 0 && <br />}{line}</Fragment>)}</p>}
                 {visiblePage('tools') && <div className="intro-actions">
                   <Link className="station-launch" to={!personal && starterTool ? starterTool.path : '/tools'}><Zap size={15} />{personal ? '启动工具箱' : starterTool ? '试用 JSON 工具' : '探索工具箱'}<ArrowUpRight size={15} /></Link>
                   {!personal && starterTool && <Link className="intro-all-tools" to="/tools">浏览全部工具<ArrowRight size={13} /></Link>}

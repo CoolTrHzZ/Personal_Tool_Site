@@ -1,4 +1,4 @@
-import { visiblePage } from '../utils/page-display'
+import { displayCopy, visiblePage } from '../utils/page-display'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowUpRight, Download, FileCode2, FolderOpen, Search } from 'lucide-react'
@@ -14,6 +14,7 @@ import { createCfgZip, downloadCfgZip, missingCfgDependencies, MAX_CFG_PACKAGE_F
 import type { DiffLine } from '../tools/packages/config-diff/diff'
 
 const entries = (cfgs as CfgEntry[]).slice().sort((a, b) => a.order - b.order || b.updated.localeCompare(a.updated))
+const copy = displayCopy('cfg', { eyebrow: 'LOADOUT / CONFIG LIBRARY', title: 'CFG 配置库', subtitle: '配置归档，随处取用。', description: '日常、训练与社区服的配置文件，在这里统一收纳。先看内容，再下载到你的电脑。', caption: 'READY WHEN YOU ARE' })
 const assetUrl = (entry: CfgEntry, revision?: CfgRevision) => `${import.meta.env.BASE_URL}cfgs/${encodeURIComponent(entry.id)}${revision ? `.${encodeURIComponent(revision.id)}` : ''}.cfg`
 async function readAsset(entry: CfgEntry, revision?: CfgRevision, signal?: AbortSignal) {
   const response = await fetch(assetUrl(entry, revision), { signal, cache: 'no-cache' })
@@ -54,7 +55,7 @@ export default function CfgLibraryPage() {
   }, [query, category, sort])
   useEffect(() => () => { packageRun.current++ }, [])
   useEffect(() => {
-    document.title = `${selected?.name || (id ? 'CFG 不存在' : 'CFG 配置库')} | ${site.name}`
+    document.title = `${selected?.name || (id ? 'CFG 不存在' : copy.title)} | ${site.name}`
     return () => { document.title = site.title }
   }, [selected, id])
   useEffect(() => {
@@ -129,7 +130,7 @@ export default function CfgLibraryPage() {
   }
 
   return <main className="page cfg-library-page">
-    <PageHero eyebrow="LOADOUT / CONFIG LIBRARY" title="CFG 配置库" subtitle="配置归档，随处取用。" description="日常、训练与社区服的配置文件，在这里统一收纳。先看内容，再下载到你的电脑。" stats={[{ value: entries.length, label: '份配置' }, { value: categories.length, label: '个分类' }]} icon={FolderOpen} code=".CFG" caption="READY WHEN YOU ARE" note={<><FileCode2 size={15} />原文预览 · 文件下载</>} />
+    <PageHero {...copy} stats={[{ value: entries.length, label: '份配置' }, { value: categories.length, label: '个分类' }]} icon={FolderOpen} code=".CFG" note={<><FileCode2 size={15} />原文预览 · 文件下载</>} />
     <div className="cfg-library-toolbar"><label className="ai-search"><Search size={16} /><Input aria-label="搜索 CFG 配置" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索配置名称、文件或标签…" /></label><label className="cfg-library-sort">排序<select aria-label="CFG 排序" value={sort} onChange={event => setFilter('sort', event.target.value)}><option value="default">默认顺序</option>{!['default', 'updated', 'name'].includes(sort) && <option value={sort} disabled>已失效：{sort}</option>}<option value="updated">最近更新</option><option value="name">名称</option></select></label>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
     <nav className="category-route cfg-library-filters" aria-label="CFG 分类"><button type="button" className={!category ? 'active' : ''} aria-pressed={!category} onClick={() => setFilter('category', '')}>全部 <small>{entries.length}</small></button>{categories.map(value => <button type="button" key={value} className={category === value ? 'active' : ''} aria-pressed={category === value} onClick={() => setFilter('category', value)}>{value}</button>)}{category && !categories.includes(category) && <button type="button" className="active" aria-pressed="true" disabled>已失效：{category}</button>}</nav>
     {entries.length > 0 && <section className="cfg-library-package" aria-label="CFG 配置包"><div><h2>一起带走你的配置</h2><p>勾选最多 {MAX_CFG_PACKAGE_FILES} 份文件，检查依赖后下载 ZIP。</p></div><span role="status">已选 {packageIds.length} 份</span><Button disabled={!packageIds.length || packing} onClick={() => void preparePackage()}>{packing ? '正在读取…' : '预览配置包'}</Button>{packageIds.length > 0 && <Button disabled={packing} onClick={() => { setPackageIds([]); setPackageFiles(null); setPackageError('') }}>清空选择</Button>}</section>}

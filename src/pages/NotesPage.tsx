@@ -11,6 +11,7 @@ import PageHero from '../components/ui/PageHero'
 import { noteKinds } from '../../shared/runbook-templates.js'
 import site from '../data/site.json'
 import type { SiteConfig } from '../types'
+import { displayCopy } from '../utils/page-display'
 import '../styles/pages/projects.css'
 
 const items = (notes as NoteItem[]).filter(item => item.enabled).sort((a, b) => a.order - b.order)
@@ -29,14 +30,10 @@ export default function NotesPage() {
   return (
     <main className="page notes-page">
       <PageHero
-        eyebrow="KNOWLEDGE / OPERATIONS MANUAL"
-        title="笔记与运维手册"
-        subtitle="经验归档，遇事有据。"
-        description={siteConfig.notesDescription}
+        {...displayCopy('notes', { eyebrow: 'KNOWLEDGE / OPERATIONS MANUAL', title: '笔记与运维手册', subtitle: '经验归档，遇事有据。', description: siteConfig.notesDescription, caption: 'KNOWLEDGE AT HAND' })}
         stats={[{ value: items.filter(item => !item.kind || item.kind === 'note').length, label: '篇笔记' }, { value: items.filter(item => item.kind && item.kind !== 'note').length, label: '份运维手册' }]}
         icon={BookOpen}
         code=".MD"
-        caption="KNOWLEDGE AT HAND"
       />
       <div className="content-toolbar"><Input aria-label="搜索笔记" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索手册、故障现象或标签…" /><label>手册类型<Select aria-label="手册类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{kind !== 'all' && !Object.keys(noteKinds).includes(kind) && <option value={kind} disabled>已失效：{kind}</option>}{Object.entries(noteKinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>关联项目<Select aria-label="笔记关联项目" value={project} onChange={event => setFilter('project', event.target.value)}><option value="">全部项目</option>{project && !projectItems.some(item => item.id === project) && <option value={project} disabled>已失效：{project}</option>}{projectItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
       <p className="content-count" role="status">{shown.length} 篇笔记与手册</p>

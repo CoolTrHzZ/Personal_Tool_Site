@@ -1,4 +1,4 @@
-import { visiblePage } from '../utils/page-display'
+import { displayCopy, visiblePage } from '../utils/page-display'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowUpRight, BookOpen, Download, FileCode2, FolderGit2, Github, Monitor, Package, Pin, Server } from 'lucide-react'
@@ -22,6 +22,7 @@ import '../styles/pages/projects.css'
 const items = (projects as ProjectItem[]).filter(item => item.enabled)
 const articles = (notes as NoteItem[]).filter(item => item.enabled)
 const configurations = cfgs as CfgEntry[]
+const copy = displayCopy('projects', { eyebrow: 'DESKTOP / TOOL LIBRARY', title: '桌面工具库', subtitle: '我做的工具，随时带走。', description: '收纳自己的桌面工具与发布文件。查看用途、版本和使用说明，再下载到需要的电脑。', caption: 'BUILT FOR YOUR WORKFLOW' })
 const statuses = { active: '维护中', paused: '已暂停', archived: '已归档' }
 const kinds = { desktop: '桌面工具', project: '开发项目', service: '服务' }
 const platforms = { 'windows-x64': 'Windows x64', 'windows-x86': 'Windows x86', 'windows-arm64': 'Windows ARM64' }
@@ -66,7 +67,7 @@ export default function ProjectsPage() {
   const listUrl = `/projects${listSuffix}`
   const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || (key !== 'q' && value === 'all')) next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
   useEffect(() => {
-    document.title = `${item?.name || '桌面工具库'} | ${site.name}`
+    document.title = `${item?.name || copy.title} | ${site.name}`
     return () => { document.title = site.title }
   }, [item])
   useEffect(() => {
@@ -108,7 +109,7 @@ export default function ProjectsPage() {
   const q = query.trim().toLocaleLowerCase()
   const shown = items.filter(project => (kind === 'all' || project.kind === kind) && (status === 'all' || project.status === status) && (!pinnedOnly || pins.includes(project.id)) && [project.name, project.description, project.version || '', project.platform || '', project.download?.filename || '', ...project.tags].join(' ').toLocaleLowerCase().includes(q)).sort((a, b) => Number(pins.includes(b.id)) - Number(pins.includes(a.id)) || a.order - b.order || a.name.localeCompare(b.name, 'zh'))
   return <main className="page projects-page">
-    <PageHero eyebrow="DESKTOP / TOOL LIBRARY" title="桌面工具库" subtitle="我做的工具，随时带走。" description="收纳自己的桌面工具与发布文件。查看用途、版本和使用说明，再下载到需要的电脑。" stats={[{ value: items.length, label: '件作品' }, { value: items.filter(project => project.download).length, label: '份可下载文件' }]} icon={Monitor} code=".EXE" caption="BUILT FOR YOUR WORKFLOW" note={<><Download size={15} />版本信息 · 文件下载</>} />
+    <PageHero {...copy} stats={[{ value: items.length, label: '件作品' }, { value: items.filter(project => project.download).length, label: '份可下载文件' }]} icon={Monitor} code=".EXE" note={<><Download size={15} />版本信息 · 文件下载</>} />
     <div className="content-toolbar"><Input aria-label="搜索桌面工具" placeholder="搜索工具、文件名或标签…" value={query} onChange={event => setFilter('q', event.target.value)} /><label>类型<Select aria-label="项目类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{kind !== 'all' && !Object.keys(kinds).includes(kind) && <option value={kind} disabled>已失效：{kind}</option>}{Object.entries(kinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>状态<Select aria-label="维护状态" value={status} onChange={event => setFilter('status', event.target.value)}><option value="all">全部状态</option>{status !== 'all' && !Object.keys(statuses).includes(status) && <option value={status} disabled>已失效：{status}</option>}{Object.entries(statuses).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</Select></label><Button type="button" aria-pressed={pinnedOnly} icon={<Pin size={14} />} onClick={() => setFilter('pinned', pinnedOnly ? '' : '1')}>我的置顶</Button>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
     {feedbackBlock}<div className="project-list-heading"><h2>作品与发布</h2><p className="content-count" role="status">{shown.length} 个结果 · 置顶仅保存在你的浏览器</p></div>
     {shown.length ? <div className="project-grid">{shown.map((project, index) => <article className={`project-card${project.kind === 'desktop' && index === 0 ? ' project-card-featured' : ''}`} key={project.id}>

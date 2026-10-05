@@ -17,6 +17,19 @@ body { margin: 0; min-width: 320px; background: var(--surface-page); color: var(
 .admin-display-controls .ui-input { width: 110px; min-height: 32px; font-size: 12px; }
 .admin-local-label { flex-basis: 100%; color: var(--text-faint); font: 9px var(--font-mono); letter-spacing: .1em; text-align: right; }
 .admin-display-controls a { text-decoration: none; }
+.admin-account-menu { position: relative; z-index: 12; }
+.admin-account-menu summary { display: flex; align-items: center; gap: 8px; min-height: 44px; max-width: 200px; padding: 4px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-card); cursor: pointer; list-style: none; }
+.admin-account-menu summary::-webkit-details-marker { display: none; }
+.admin-account-menu summary:hover, .admin-account-menu[open] summary { border-color: var(--accent); background: var(--accent-soft); }
+#admin-account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-avatar { flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 16px; }
+.account-panel { position: absolute; right: 0; top: calc(100% + 8px); width: min(288px, calc(100vw - 40px)); padding: 16px; overflow: auto; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-panel); box-shadow: var(--shadow-lg); }
+.account-panel form, .account-panel label { display: grid; gap: 8px; }
+.account-panel form { gap: 14px; }
+.account-panel .ui-input, .account-panel .ui-button { width: 100%; min-height: 44px; }
+.account-panel > p { margin-top: 0; }
+.account-panel .field-hint { margin: 0; overflow-wrap: anywhere; }
+#admin-logout { margin-top: 14px; }
 .admin-menu-backdrop { position: fixed; inset: 0; z-index: 20; border: 0; background: #0008; backdrop-filter: blur(3px); }
 .sidebar-footer a:hover { color: var(--accent); }
 

@@ -56,9 +56,10 @@ export default function Header() {
   const motionActive = motion.enabled && !motion.systemReduced
   const motionLabel = motion.systemReduced ? '系统设置已减少动效' : motionActive ? '关闭动效' : '开启动效'
   const [theme, setTheme] = useTheme()
+  const headerLabel = siteConfig.headerLabel ?? 'PERSONAL STATION'
   return (
     <header className="topbar">
-      <Link className="brand" to="/"><span className="mark-tile mark-tile-brand brand-mark"><img className="brand-symbol" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" /></span><span>{siteConfig.name}<small>PERSONAL STATION</small></span></Link>
+      <Link className="brand" to="/"><span className="mark-tile mark-tile-brand brand-mark"><img className="brand-symbol" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" /></span><span>{siteConfig.name}{headerLabel && <small>{headerLabel}</small>}</span></Link>
       <nav className="top-nav" aria-label="主导航">
         <NavLink end to="/">首页</NavLink>
         {DISPLAY_PAGES.filter(page => visiblePage(page.id)).map(page => <NavLink key={page.id} to={page.path}>{page.label}</NavLink>)}

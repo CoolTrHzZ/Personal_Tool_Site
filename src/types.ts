@@ -40,6 +40,7 @@ export type AIResource = {
 export type SiteConfig = {
   name: string
   tagline: string
+  headerLabel?: string
   title: string
   description: string
   toolsDescription: string
@@ -55,4 +56,5 @@ export type SiteConfig = {
   basePath: string
   todayContinueLimit: number
   pageVisibility?: import('../shared/page-display.js').PageVisibility
+  pageCopy?: import('../shared/page-display.js').PageCopies
 }

@@ -18,7 +18,7 @@ import { assistForm, showFormError } from './form-assistance.js'
 import { mountSiteManagement } from './site-management.js'
 import { mountContentCollections } from './content-collections.js'
 import { noteKinds, runbookTemplates } from '/shared/runbook-templates.js'
-import { DISPLAY_PAGES, pageVisible } from '/shared/page-display.js'
+import { DISPLAY_PAGES, PAGE_COPY_FIELDS, pageVisible } from '/shared/page-display.js'
 
 const readPreference = (key, fallback) => { try { return localStorage.getItem(key) || fallback } catch { return fallback } }
 let themePreference = readPreference('theme', 'dark')
@@ -91,7 +91,7 @@ const verifyPassword = () => {
 }
 const confirmSensitive = path => preserveModal(() => openModal({ title: '再次确认操作', body: `密码已验证。确认${({ 'publishing/publish': '发布到 GitHub Pages', 'backup/restore': '恢复此备份', 'auth/remember': '记住此浏览器 7 天' })[path] || '执行此操作'}？`, confirm: true, okText: '确认执行' }))
 const request = async (path, options = {}) => {
-  if (authRecovery.suppressed && path !== 'auth/logout') throw Error('已暂停自动登录恢复，请使用密码登录后再操作')
+  if (authRecovery.suppressed && !['auth/logout', 'auth/devices/revoke'].includes(path)) throw Error('已暂停自动登录恢复，请使用密码登录后再操作')
   const sendRequest=async()=>{
     const generation=authRecovery.generation
     const response=await fetch(`/api/${path}`,{...options,headers:{'content-type':'application/json',...(authSession.csrf ? {'x-csrf-token':authSession.csrf}:{}),...options.headers}})
@@ -289,13 +289,26 @@ function renderSite() {
     basics.append(el('legend', '', '站点展示与入口'))
     details.append(el('summary', '', '更多展示设置 · 页面标题、说明与外观'), pages)
     const required = new Set(['name', 'title', 'description', 'github'])
-    const common = ['name', 'tagline', 'description', 'footer', 'github', 'publicUrl', 'adminUrl']
-    for (const name of common) basics.append(input(name, state.site[name] ?? '', labels[name], { required: required.has(name), type: ['github','publicUrl','adminUrl'].includes(name) ? 'url' : 'text' }))
+    const common = ['name', 'tagline', 'headerLabel', 'description', 'footer', 'github', 'publicUrl', 'adminUrl']
+    labels.headerLabel = '品牌小标签'
+    for (const name of common) basics.append(input(name, state.site[name] ?? (name === 'headerLabel' ? 'PERSONAL STATION' : ''), labels[name], { required: required.has(name), type: ['github','publicUrl','adminUrl'].includes(name) ? 'url' : 'text' }))
+    basics.querySelector('[name="headerLabel"]').maxLength = 80
     basics.append(el('p', 'field-hint', '这些字段属于公开站点内容。显示链接不能配置登录 origin、监听地址、密钥或服务代理。'))
     for (const name of ['title', 'logo', 'toolsDescription', 'navigationDescription', 'libraryDescription', 'aiHubDescription', 'notesDescription']) pages.append(input(name, state.site[name] ?? '', labels[name], { required: required.has(name) }))
     const limitField = input('todayContinueLimit', state.site.todayContinueLimit ?? 3, labels.todayContinueLimit, { required: true, type: 'number' })
     const limitInput = limitField.querySelector('input'); limitInput.min = '1'; limitInput.max = '8'; limitInput.step = '1'
     pages.append(limitField)
+    const copyLabels = { title: '标题', subtitle: '副标题', eyebrow: '顶部小标签', description: '说明', caption: '底部短句' }
+    for (const page of [{ id: 'home', label: '首页' }, ...DISPLAY_PAGES]) {
+      const section = el('details', 'form-advanced'), fields = el('div', 'form-advanced-fields')
+      section.append(el('summary', '', page.label + ' · 页面文案'), el('p', 'field-hint', '留空使用原有文案。仅修改展示文字，不改变内容或布局。'), fields)
+      for (const key of PAGE_COPY_FIELDS) {
+        const control = input('pageCopy.' + page.id + '.' + key, state.site.pageCopy?.[page.id]?.[key] ?? '', copyLabels[key])
+        control.querySelector('input').maxLength = key === 'description' ? 1000 : 160
+        fields.append(control)
+      }
+      pages.append(section)
+    }
     const display = el('fieldset', 'form-section')
     display.append(el('legend', '', '页面显示'), el('p', 'field-hint', '选择前台展示的组件页。关闭会同步隐藏导航、首页入口与搜索结果，数据保留，可随时恢复。首页、后台管理与设置始终可用。'))
     for (const page of DISPLAY_PAGES) {
@@ -1748,6 +1761,18 @@ const withBusy = async (form, fn) => {
 bind('#site', 'submit', async event => {
   event.preventDefault()
   const data = Object.fromEntries(new FormData(event.target))
+  if (Object.keys(data).some(key => key.startsWith('pageCopy.'))) {
+    data.pageCopy = {}
+    for (const page of [{ id: 'home' }, ...DISPLAY_PAGES]) {
+      const copy = {}
+      for (const field of PAGE_COPY_FIELDS) {
+        const key = 'pageCopy.' + page.id + '.' + field, value = data[key]?.trim()
+        if (value) copy[field] = value
+        delete data[key]
+      }
+      if (Object.keys(copy).length) data.pageCopy[page.id] = copy
+    }
+  }
   if (DISPLAY_PAGES.some(page => event.target.elements.namedItem('pageVisibility.' + page.id))) {
     data.pageVisibility = Object.fromEntries(DISPLAY_PAGES.map(page => [page.id, event.target.elements.namedItem('pageVisibility.' + page.id).checked]))
     for (const page of DISPLAY_PAGES) delete data['pageVisibility.' + page.id]
@@ -1964,6 +1989,47 @@ document.addEventListener('click', async event => {
       await reload(i18n.t('msg.deletedCategory'))
     }
   } catch (error) { toastError(error.message) }
+})
+
+const accountMenu = $('#admin-account-menu'), accountForm = $('#admin-account-form'), accountStatus = $('#admin-account-status')
+let accountProfile = { displayName: '本机维护者', avatar: 'D' }
+if (authSession.mode === 'cloud') accountProfile = { ...accountProfile, ...authSession.user }
+else {
+  try {
+    const saved = JSON.parse(localStorage.getItem('devos.admin.profile') || 'null')
+    if (saved && typeof saved.displayName === 'string' && saved.displayName.trim() && ['D', '👤', '🧑‍💻', '🚀', '🛠️', '🌙'].includes(saved.avatar)) accountProfile = saved
+  } catch { /* Personal settings remain usable when browser storage is unavailable. */ }
+}
+const renderAccount = () => {
+  $('#admin-account-avatar').textContent = accountProfile.avatar
+  $('#admin-account-name').textContent = accountProfile.displayName
+  $('#admin-account-role').textContent = authSession.mode === 'cloud' ? '站点维护者 · ' + (authSession.rememberedDevice ? '此设备保持登录 7 天' : '本次登录') : '本机维护者 · 个人设置仅存此浏览器'
+  accountForm.elements.displayName.value = accountProfile.displayName
+  accountForm.elements.avatar.value = accountProfile.avatar
+}
+renderAccount()
+const positionAccount = () => {
+  if (!accountMenu.open) return
+  const panel = accountMenu.querySelector('.account-panel'), menu = accountMenu.getBoundingClientRect()
+  panel.style.right = 'auto'
+  panel.style.left = Math.max(16, Math.min(menu.right - panel.offsetWidth, innerWidth - panel.offsetWidth - 16)) - menu.left + 'px'
+  panel.style.maxHeight = Math.max(160, innerHeight - menu.bottom - 24) + 'px'
+}
+accountMenu.addEventListener('toggle', positionAccount)
+window.addEventListener('resize', positionAccount)
+document.addEventListener('click', event => { if (!accountMenu.contains(event.target)) accountMenu.open = false })
+accountMenu.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); accountMenu.open = false; accountMenu.querySelector('summary').focus() } })
+accountForm.addEventListener('submit', async event => {
+  event.preventDefault()
+  const submit = accountForm.querySelector('button'), value = { displayName: accountForm.elements.displayName.value.trim(), avatar: accountForm.elements.avatar.value }
+  if (!value.displayName || [...value.displayName].length > 48) { accountStatus.textContent = '显示名需为 1–48 个字符。'; return }
+  submit.disabled = true; accountStatus.textContent = '正在保存…'
+  try {
+    if (authSession.mode === 'cloud') accountProfile = (await request('auth/profile', { method: 'PUT', body: JSON.stringify(value) })).user
+    else { localStorage.setItem('devos.admin.profile', JSON.stringify(value)); accountProfile = value }
+    renderAccount(); accountStatus.textContent = '个人设置已保存。'
+  } catch (error) { accountStatus.textContent = error.message || '个人设置未能保存，输入已保留。' }
+  finally { submit.disabled = false }
 })
 
 if (authSession.mode === 'cloud') {

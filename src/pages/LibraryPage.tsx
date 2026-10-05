@@ -7,6 +7,7 @@ import EmptyState from '../components/ui/EmptyState'
 import PageHero from '../components/ui/PageHero'
 import site from '../data/site.json'
 import type { SiteConfig } from '../types'
+import { displayCopy } from '../utils/page-display'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Button from '../components/ui/Button'
@@ -30,14 +31,10 @@ export default function LibraryPage() {
   return (
     <main className="page nav-page library-page">
       <PageHero
-        eyebrow="COLLECTION / RESOURCE LIBRARY"
-        title="收藏"
-        subtitle="好的资源，值得常备。"
-        description={siteConfig.libraryDescription}
+        {...displayCopy('library', { eyebrow: 'COLLECTION / RESOURCE LIBRARY', title: '收藏', subtitle: '好的资源，值得常备。', description: siteConfig.libraryDescription, caption: 'KEEP WHAT INSPIRES YOU' })}
         stats={[{ value: enabled.filter(item => item.kind === 'repo').length, label: '个仓库' }, { value: enabled.filter(item => item.kind === 'skill').length, label: '个 Skill' }]}
         icon={LibraryBig}
         code=".LIB"
-        caption="KEEP WHAT INSPIRES YOU"
       />
       <nav className="category-route" aria-label="收藏类型">
         {([['all', '全部'], ['repo', '仓库'], ['skill', 'Skill']] as const).map(([value, label]) => (

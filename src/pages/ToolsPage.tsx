@@ -12,6 +12,7 @@ import EmptyState from '../components/ui/EmptyState'
 import PageHero from '../components/ui/PageHero'
 import site from '../data/site.json'
 import type { SiteConfig } from '../types'
+import { displayCopy } from '../utils/page-display'
 
 const blob = (tool: { name: string; description: string; keywords: string[]; tags?: string[] }) => [tool.name, tool.description, ...tool.keywords, ...(tool.tags || [])].join(' ').toLowerCase()
 const categoryLabel = (value: string) => value === 'development' ? '开发' : value === 'game' ? '游戏' : value
@@ -40,14 +41,10 @@ export default function ToolsPage() {
   return (
     <main className="page tools-marketplace">
       <PageHero
-        eyebrow="WORKBENCH / TOOL DIRECTORY"
-        title="全部工具"
-        subtitle="趁手工具，即开即用。"
-        description={siteConfig.toolsDescription}
+        {...displayCopy('tools', { eyebrow: 'WORKBENCH / TOOL DIRECTORY', title: '全部工具', subtitle: '趁手工具，即开即用。', description: siteConfig.toolsDescription, caption: 'READY FOR YOUR NEXT TASK' })}
         stats={[{ value: loaded ? tools.length : '—', label: '个工具' }, { value: loaded ? categories.length : '—', label: '个分类' }]}
         icon={TerminalSquare}
         code=".TOOLS"
-        caption="READY FOR YOUR NEXT TASK"
         note={<><span role="status">{loaded ? `${filtered.length} 个匹配工具` : '正在加载工具目录…'}</span>{loaded && quickstart && !hasFilters && <Link className="tools-quickstart" to={quickstart.path} onClick={() => addRecentTool(quickstart.id)}>第一次使用？打开 JSON 示例<ArrowUpRight size={13} /></Link>}</>}
       />
       <div className="tool-filters">

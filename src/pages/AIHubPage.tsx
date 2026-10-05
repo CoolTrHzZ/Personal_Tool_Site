@@ -1,4 +1,4 @@
-import { visiblePage } from '../utils/page-display'
+import { displayCopy, visiblePage } from '../utils/page-display'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Bot, Box, Check, Copy, Cpu, ExternalLink, MessageSquareText, Search, Sparkles } from 'lucide-react'
@@ -86,14 +86,10 @@ export default function AIHubPage() {
   return (
     <main className="page ai-hub-page">
       <PageHero
-        eyebrow="INTELLIGENCE / WORKFLOW HUB"
-        title="AI Hub"
-        subtitle="从灵感，到实际行动。"
-        description={siteConfig.aiHubDescription}
+        {...displayCopy('ai', { eyebrow: 'INTELLIGENCE / WORKFLOW HUB', title: 'AI Hub', subtitle: '从灵感，到实际行动。', description: siteConfig.aiHubDescription, caption: 'IDEAS INTO ACTION' })}
         stats={[{ value: items.length, label: '项资源' }, { value: workflowItems.length, label: '套工作流' }]}
         icon={Bot}
         code=".AI"
-        caption="IDEAS INTO ACTION"
       />
       <div className="ai-view-switch" aria-label="AI Hub 内容"><Button variant={view === 'resources' ? 'primary' : 'ghost'} onClick={() => navigate({ view: null, workflow: null, resource: null })}>资源手册</Button><Button variant={view === 'workflows' ? 'primary' : 'ghost'} onClick={() => navigate({ view: 'workflows', resource: null })}>工作流库</Button>{visiblePage('tools') && <Link className="ui-button ui-button-ghost" to="/tools/ai-context">我的 AI 任务</Link>}</div>
       {((resourceId && !detail) || (workflowId && !workflowDetail && !resourceId)) && <div className="ai-detail-missing" role="alert"><p>这项{resourceId ? '资源' : '工作流'}已移除或不存在。</p><Button onClick={() => navigate({ resource: null, workflow: workflowDetail ? workflowId : null })}>{workflowDetail ? '返回工作流' : '返回列表'}</Button></div>}

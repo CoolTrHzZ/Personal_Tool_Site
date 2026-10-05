@@ -1,7 +1,7 @@
 import { createDeviceStore, DEVICE_TTL_MS } from './admin-devices.mjs'
 import { randomBytes, scrypt, timingSafeEqual, createHash, createHmac } from 'node:crypto'
 import { promisify } from 'node:util'
-import { readFile, writeFile, mkdir, lstat, appendFile, rename, realpath } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, lstat, appendFile, rename, realpath, rm } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 import { Buffer } from 'node:buffer'
 
@@ -9,6 +9,27 @@ const derive = promisify(scrypt)
 const COOKIE = '__Host-devos_session'
 const DEVICE_COOKIE = '__Host-devos_device'
 const digest = value => createHash('sha256').update(value).digest('hex')
+export const PROFILE_AVATARS = ['D', '👤', '🧑‍💻', '🚀', '🛠️', '🌙']
+function assertProfile(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['displayName', 'avatar'].includes(key)) || typeof value.displayName !== 'string' || !value.displayName.trim() || [...value.displayName].length > 48 || [...value.displayName].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127) || !PROFILE_AVATARS.includes(value.avatar)) throw new Error('显示名需为 1–48 个字符，头像请选择现有选项')
+  return { displayName: value.displayName.trim(), avatar: value.avatar }
+}
+async function privateJsonInfo(path) {
+  const info = await lstat(path).catch(error => { if (error.code === 'ENOENT') return null; throw error })
+  if (info && (!info.isFile() || info.isSymbolicLink() || info.size > 32768 || (process.getuid && (info.uid !== process.getuid() || (info.mode & 0o077))))) throw new Error('账号设置必须为运行用户拥有的 0600 普通文件且不超过 32 KiB')
+  return info
+}
+async function readPrivateJson(directory, name) {
+  const path = join(directory, name)
+  if (!await privateJsonInfo(path)) return null
+  try { return JSON.parse(await readFile(path, 'utf8')) } catch { throw new Error('私有账号设置格式无效，请在维护终端核对') }
+}
+async function writePrivateJson(directory, name, value) {
+  const path = join(directory, name), stage = path + '.' + randomBytes(8).toString('hex') + '.tmp'
+  await privateJsonInfo(path)
+  try { await writeFile(stage, JSON.stringify(value) + '\n', { flag: 'wx', mode: 0o600 }); await rename(stage, path) }
+  finally { await rm(stage, { force: true }) }
+}
 export async function passwordRecord(username, password) {
   if (typeof username !== 'string' || !/^[a-zA-Z0-9_.-]{1,64}$/.test(username) || typeof password !== 'string' || password.length < 12 || Buffer.byteLength(password) > 512) throw new Error('用户名需为 1–64 位字母数字，密码至少 12 字符且不超过 512 字节')
   const salt = randomBytes(16).toString('hex')
@@ -40,6 +61,14 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
   const url = new URL(origin)
   if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('云模式需要 HTTPS origin（可带独立端口，不含路径或凭据）')
   const sessions = new Map(), failures = new Map(), auditKey = randomBytes(32)
+  let profile = { displayName: record.username, avatar: 'D' }
+  const ready = (async () => {
+    const savedProfile = await readPrivateJson(directory, 'profile.json')
+    if (savedProfile) {
+      if (savedProfile.version !== 1) throw new Error('个人设置版本无效')
+      profile = assertProfile({ displayName: savedProfile.displayName, avatar: savedProfile.avatar })
+    }
+  })()
   const devices = createDeviceStore({ directory, fingerprint:digest(JSON.stringify(record)), now })
   const tokenFrom = (req, name) => (req.headers.cookie || '').split(';').map(value => value.trim()).find(value => value.startsWith(name+'='))?.slice(name.length+1)
   const revokeSessions = (id,exceptKey) => { if (id) for (const [key,value] of sessions) if (value.deviceId===id && key!==exceptKey) sessions.delete(key) }
@@ -105,6 +134,7 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
     return {cookie:cookie(token,Math.floor((expiresAt-time)/1000)),csrf,expiresAt,value:{...value,key:digest(token)}}
   }
   const login = async (req,username,password,rememberDevice=false) => {
+    await ready
     const checked=await verify(req,username,password);if (checked.status!==200) return checked
     let device=null
     if (rememberDevice) { device=await devices.issue(tokenFrom(req,DEVICE_COOKIE));revokeSessions(device.replacedId);revokeSessions(device.evictedId) }
@@ -146,5 +176,12 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
     if (forgetDevice) revokeSessions(await devices.revoke(value.deviceId,tokenFrom(req,DEVICE_COOKIE)))
     await audit('logout',req,200);return forgetDevice ? [cookie('',0),deviceCookie(null)] : [cookie('',0)]
   }
-  return {sameOrigin,writeOrigin,session,login,restore,reauthenticate,remember,revoke,listDevices:value=>devices.list(value.deviceId),deviceConfirmed:(req,value)=>devices.active(tokenFrom(req,DEVICE_COOKIE),value.deviceId).catch(()=>false),fresh,csrfValid,logout,audit,deviceTtlMs:DEVICE_TTL_MS,idleMs}
+  const saveProfile = async value => {
+    await ready
+    const next = assertProfile(value)
+    await writePrivateJson(directory, 'profile.json', { version: 1, ...next })
+    profile = next
+    return { ...profile }
+  }
+  return {ready,sameOrigin,writeOrigin,session,login,restore,reauthenticate,remember,revoke,listDevices:value=>devices.list(value.deviceId),deviceConfirmed:(req,value)=>devices.active(tokenFrom(req,DEVICE_COOKIE),value.deviceId).catch(()=>false),fresh,csrfValid,logout,audit,deviceTtlMs:DEVICE_TTL_MS,idleMs,profile:()=>({...profile}),saveProfile}
 }
