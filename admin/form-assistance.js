@@ -34,6 +34,7 @@ export function assistForm(form, { idHint, fixedIdHint } = {}) {
     const error = form.querySelector('.form-error')
     if (error) { error.textContent = ''; error.hidden = true }
     const id = form.elements.namedItem('id')
+    if (id && event.target === id) delete id.dataset.suggestedId
     if (!id || id.readOnly || !['name', 'title'].includes(event.target.name) || (id.value && id.value !== id.dataset.suggestedId)) return
     const name = event.target.value.trim()
     if (!name) return

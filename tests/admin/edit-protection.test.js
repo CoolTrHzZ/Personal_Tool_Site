@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, it, vi } from 'vitest'
 import { createEditProtection } from '../../admin/edit-protection.js'
+import { assistForm } from '../../admin/form-assistance.js'
+import adminMarkup from '../../admin/index.html?raw'
 beforeEach(() => { document.body.innerHTML = '<form id="editor"><input name="originalId" type="hidden" value="one"><input name="id" value="one" readonly><textarea name="body">original</textarea><button type="submit">save</button></form>'; localStorage.clear(); vi.restoreAllMocks() })
 it('uses the form attribute for draft identity when an id input shadows the DOM property', () => {
   const form = document.querySelector('form'), guard = createEditProtection()
@@ -97,4 +99,87 @@ it('ends an editor session without deleting its saved draft or reacting to reado
   expect(localStorage.getItem('devos-admin-draft:editor:one')).toBe(saved)
   guard.begin(form); [...form.querySelectorAll('button')].find(button => button.textContent === '恢复草稿').click()
   expect(form.elements.body.value).toBe('keep draft')
+})
+
+
+const collectionMarkup = adminMarkup.match(/<form id="nav-form"[\s\S]*?<\/form>/)[0]
+function newCollectionForm() {
+  document.body.innerHTML = collectionMarkup
+  const form = document.querySelector('#nav-form')
+  form.hidden = false
+  for (const field of form.querySelectorAll('.visual-picker-field input')) {
+    field.type = 'text'; field.hidden = true; field.dataset.restoreValue = 'true'
+  }
+  form.elements.category.value = 'development'
+  form.insertAdjacentHTML('beforeend', '<details class="quick-collect"><textarea aria-label="粘贴文本或 URL"></textarea></details>')
+  assistForm(form)
+  return form
+}
+const typeCollectionField = (form, name, value) => {
+  const field = form.elements.namedItem(name); field.value = value
+  field.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+it('empty new collection cancels without confirmation after an automatic ID remains', () => {
+  const form = newCollectionForm(), guard = createEditProtection(), confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+  guard.begin(form)
+  expect(guard.mayLeave(form)).toBe(true)
+  typeCollectionField(form, 'name', '临时合成名称')
+  expect(form.elements.id.value).toMatch(/^item-[a-f0-9]{8}$/)
+  typeCollectionField(form, 'name', '')
+  expect(guard.hasChanges(form)).toBe(false)
+  expect(guard.mayLeave(form)).toBe(true)
+  expect(confirm).not.toHaveBeenCalled()
+  expect(localStorage.getItem('devos-admin-draft:nav-form:new')).toBeNull()
+  guard.end(form)
+})
+
+it('legacy default-only collection restore cancels without confirmation and preserves stored drafts', () => {
+  const form = newCollectionForm(), guard = createEditProtection(), confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+  const saved = JSON.stringify({ values: [...form.elements].filter(field => field.name && field.type !== 'file').map(field => ({ name: field.name, type: field.type, value: field.name === 'id' ? 'item-1234abcd' : field.value, checked: field.checked })) })
+  const key = 'devos-admin-draft:nav-form:new', otherKey = 'devos-admin-draft:other:new'
+  localStorage.setItem(key, saved); localStorage.setItem(otherKey, 'genuine unrelated draft')
+  guard.begin(form)
+  ;[...form.querySelectorAll('button')].find(button => button.textContent === '恢复草稿').click()
+  expect(form.elements.id.value).toBe('item-1234abcd')
+  expect(form.elements.name.value).toBe('')
+  expect(form.elements.url.value).toBe('')
+  expect(form.elements.description.value).toBe('')
+  expect(guard.hasChanges(form)).toBe(false)
+  expect(guard.mayLeave(form)).toBe(true)
+  expect(confirm).not.toHaveBeenCalled()
+  expect(localStorage.getItem(key)).toBe(saved)
+  expect(localStorage.getItem(otherKey)).toBe('genuine unrelated draft')
+  // Legacy provenance is ambiguous: a later name edit must not rewrite the restored ID.
+  typeCollectionField(form, 'name', 'Synthetic follow-up')
+  expect(form.elements.id.value).toBe('item-1234abcd')
+  expect(guard.hasChanges(form)).toBe(true)
+  guard.end(form)
+})
+
+it('real collection edits still confirm, including manually adopted automatic-looking IDs', () => {
+  const form = newCollectionForm(), guard = createEditProtection(), confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+  guard.begin(form)
+  typeCollectionField(form, 'name', '真正的合成手填内容')
+  expect(guard.hasChanges(form)).toBe(true)
+  expect(guard.mayLeave(form)).toBe(false)
+  expect(confirm).toHaveBeenCalledOnce()
+  expect(form.elements.name.value).toBe('真正的合成手填内容')
+  const id = form.elements.id.value
+  typeCollectionField(form, 'id', id)
+  typeCollectionField(form, 'name', '')
+  expect(guard.hasChanges(form)).toBe(true)
+  expect(guard.mayLeave(form)).toBe(false)
+  expect(confirm).toHaveBeenCalledTimes(2)
+  expect(form.elements.id.value).toBe(id)
+  expect(JSON.parse(localStorage.getItem('devos-admin-draft:nav-form:new')).values.find(field => field.name === 'id').value).toBe(id)
+  typeCollectionField(form, 'id', '')
+  expect(guard.hasChanges(form)).toBe(false)
+  const source = form.querySelector('.quick-collect textarea')
+  source.value = '仅用于保护回归的合成材料'; source.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(guard.hasChanges(form)).toBe(true)
+  expect(guard.mayLeave(form)).toBe(false)
+  expect(confirm).toHaveBeenCalledTimes(3)
+  expect(JSON.parse(localStorage.getItem('devos-admin-draft:nav-form:new')).collectionSource).toBe(source.value)
+  guard.end(form)
 })
