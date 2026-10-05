@@ -67,6 +67,7 @@ test('device opt-in rechecks password and logout offers forgetting without autom
   if(['/api/auth/reauth','/api/auth/remember','/api/auth/logout'].includes(url.pathname)){writes.push({path:url.pathname,body:route.request().postDataJSON()});if(url.pathname==='/api/auth/remember')remembered=true;await route.fulfill({json:{authenticated:true,rememberedDevice:remembered}});return true}
   return false
  })
+ await page.locator('#admin-account-menu summary').click()
  await page.getByRole('button',{name:'登录设备',exact:true}).click()
  await page.getByRole('button',{name:'记住此浏览器 7 天',exact:true}).click()
  await expect(page.getByRole('heading',{name:'重新验证密码',exact:true})).toBeVisible()
@@ -79,6 +80,7 @@ test('device opt-in rechecks password and logout offers forgetting without autom
  await expect(page.locator('#modal-body')).toContainText('当前设备')
  expect(writes.map(item=>item.path)).toEqual(['/api/auth/reauth','/api/auth/remember'])
  await page.locator('#modal-cancel').click()
+ await page.locator('#admin-account-menu summary').click()
  await page.getByRole('button',{name:'退出登录',exact:true}).click()
  await expect(page.getByRole('checkbox',{name:'同时忘记此设备',exact:true})).toBeChecked()
  await page.getByRole('checkbox',{name:'同时忘记此设备',exact:true}).uncheck()
@@ -158,6 +160,7 @@ test('a lost retain-device logout response suppresses all automatic recovery and
   if(url.pathname==='/api/navigation'&&route.request().method()==='POST'){saves++;await route.fulfill({status:401,json:{error:'synthetic logged out'}});return true}
   return false
  })
+ await page.locator('#admin-account-menu summary').click()
  await page.getByRole('button',{name:'退出登录',exact:true}).click();await page.getByRole('checkbox',{name:'同时忘记此设备',exact:true}).uncheck();await page.locator('#modal-ok').click()
  await expect(page.locator('#auth-recovery')).toContainText('自动登录恢复已暂停')
  await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));document.dispatchEvent(new Event('visibilitychange'))})
