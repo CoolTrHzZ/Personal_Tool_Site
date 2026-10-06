@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { mockAdmin } from './helpers/admin-mock.js'
 import { DISPLAY_PAGES } from '../shared/page-display.js'
+import { adminNavigation } from './helpers/admin-navigation.js'
 
 for (const width of [1280,390]) test('page display saves only a reversible site draft at '+width+'px', async ({ page }) => {
   await page.setViewportSize({width,height:900})
@@ -33,5 +34,31 @@ for (const width of [1280,390]) test('page display saves only a reversible site 
   expect(collections.site.pageVisibility).toEqual(Object.fromEntries(DISPLAY_PAGES.map(page=>[page.id,true])))
   expect(requests.filter(item=>item.method !== 'GET').map(item=>item.path)).toEqual(['/api/site','/api/site'])
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  expect(errors).toEqual([])
+})
+
+test('saving appearance preserves fields updated by another admin page', async ({ page }) => {
+  const { collections, requests, errors } = await mockAdmin(page)
+  await (await adminNavigation(page, '.nav-item[data-view="settings"]')).click()
+  await page.locator('[data-settings-tab="appearance"]').click()
+  collections.site.title = 'Updated in another browser'
+  collections.site.basePath = '/another-deployment/'
+  await page.locator('#site [name="footer"]').fill('New footer')
+  await page.locator('#site button[type="submit"]').click()
+  await expect.poll(() => requests.filter(item => item.method === 'PUT')).toHaveLength(1)
+  expect(requests.find(item => item.method === 'PUT').body).toEqual({ logo: collections.site.logo, footer: 'New footer' })
+  expect(collections.site).toMatchObject({ title: 'Updated in another browser', basePath: '/another-deployment/', footer: 'New footer' })
+  expect(errors).toEqual([])
+})
+
+test('blocked browser storage still allows admin initialization and editing', async ({ page }) => {
+  await page.addInitScript(() => {
+    for (const method of ['getItem', 'setItem', 'removeItem']) window.Storage.prototype[method] = () => { throw new window.DOMException('Storage blocked', 'SecurityError') }
+  })
+  const { errors } = await mockAdmin(page)
+  await page.locator('#dashboard-add-website').click()
+  await page.locator('#nav-form [name="name"]').fill('Unsaved with blocked storage')
+  await expect(page.locator('#nav-form [name="name"]')).toHaveValue('Unsaved with blocked storage')
+  await expect(page.locator('#nav-form')).toContainText('草稿')
   expect(errors).toEqual([])
 })

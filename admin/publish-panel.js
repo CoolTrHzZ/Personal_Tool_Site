@@ -49,5 +49,8 @@ export async function mountPublishPanel(host, { request, el, button, openModal, 
     if (info?.job?.id !== job.id || busy) return
     await act('publishing/abandon', { id:job.id, confirmed:true })
   }
-  try { info = await request('publishing'); draw() } catch (error) { status.textContent = error.message; publish.disabled = true; abandon.disabled = true }
+  busy = true; draw(); status.textContent = '正在读取私有发布记录…'
+  try { info = await request('publishing') }
+  catch (error) { errorText = error.message }
+  finally { busy = false; draw() }
 }

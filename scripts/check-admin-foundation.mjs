@@ -23,10 +23,11 @@ async function codeDriftChecks() {
   const commit = async root => { await gitAt(root, 'add', 'code.txt'); await gitAt(root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'synthetic code change'); return gitAt(root, 'rev-parse', 'HEAD') }
   const fixture = async name => {
     const base = join(task, name), source = join(base, 'source'), projectDir = join(base, 'code'), stateDir = join(base, 'private')
-    await mkdir(join(source, 'scripts'), { recursive: true }); await mkdir(stateDir, { mode: 0o700 })
+    await mkdir(join(source, 'scripts'), { recursive: true }); await mkdir(join(source, 'shared')); await mkdir(stateDir, { mode: 0o700 })
     for (const name of ['site-backup.mjs', 'tool-manifest.mjs']) await cp(join(code, 'scripts', name), join(source, 'scripts', name))
+    await cp(join(code, 'shared/tool-permissions.js'), join(source, 'shared/tool-permissions.js'))
     await gitAt(source, 'init', '--initial-branch=main')
-    await writeFile(join(source, 'code.txt'), 'one'); await gitAt(source, 'add', 'scripts'); await commit(source)
+    await writeFile(join(source, 'code.txt'), 'one'); await gitAt(source, 'add', 'scripts', 'shared'); await commit(source)
     const options = { source, projectDir, stateDir, validate: async () => {} }
     await updateCode(options)
     await writeFile(join(stateDir, 'auth.json'), 'synthetic-auth-marker', { mode: 0o600 })
@@ -208,9 +209,11 @@ try {
   const git = (...args) => exec('git', args, { cwd: source }).then(result => result.stdout.trim())
   await git('init', '--initial-branch=main')
   await mkdir(join(source, 'scripts'))
+  await mkdir(join(source, 'shared'))
   for (const name of ['site-backup.mjs', 'tool-manifest.mjs']) await cp(join(code, 'scripts', name), join(source, 'scripts', name))
+  await cp(join(code, 'shared/tool-permissions.js'), join(source, 'shared/tool-permissions.js'))
   await writeFile(join(source, 'code.txt'), 'version-one')
-  await git('add', 'code.txt', 'scripts'); await git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'fixture one')
+  await git('add', 'code.txt', 'scripts', 'shared'); await git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'fixture one')
   const first = await git('rev-parse', 'HEAD')
   const validate = async () => {}
   await updateCode({ projectDir: installed, stateDir: maintainState, source, validate })

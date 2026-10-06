@@ -2,7 +2,7 @@
 import { execFile, spawn } from 'node:child_process'
 import { promisify, parseArgs } from 'node:util'
 import { mkdir, mkdtemp, readFile, writeFile, lstat, rename, rm, realpath } from 'node:fs/promises'
-import { dirname, join, resolve, sep } from 'node:path'
+import { basename, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createInterface } from 'node:readline/promises'
 import { Writable } from 'node:stream'
@@ -17,6 +17,12 @@ const git = (root, ...args) => run('git', args, root)
 const identity = source => source.replace(/^git@github.com:/, 'https://github.com/').replace(/^ssh:\/\/git@github.com\//, 'https://github.com/').replace(/\.git\/?$/, '').toLowerCase()
 const info = path => lstat(path).catch(error => { if (error.code === 'ENOENT') return null; throw error })
 const inside = (path, parent) => path === parent || path.startsWith(parent + sep)
+async function projectPath(directory) {
+  const target = resolve(directory)
+  if ((await info(target))?.isSymbolicLink()) throw new Error('项目目录不能是符号链接')
+  await mkdir(dirname(target), { recursive: true })
+  return join(await realpath(dirname(target)), basename(target))
+}
 
 async function withMaintenance(stateDir, action) {
   const lock = join(stateDir, 'maintenance.lock')
@@ -125,12 +131,12 @@ async function swapPrevious({ projectDir, stateDir, source = CLOUD_SOURCE, valid
   } finally { if (!(await info(current))) await rm(stage, { recursive: true, force: true }) }
 }
 export async function updateCode(options) {
-  const stateDir = await privateDirectory(options.stateDir, options.projectDir)
-  return withMaintenance(stateDir, () => replaceCode({ ...options, stateDir }))
+  const projectDir = await projectPath(options.projectDir), stateDir = await privateDirectory(options.stateDir, projectDir)
+  return withMaintenance(stateDir, () => replaceCode({ ...options, projectDir, stateDir }))
 }
 export async function rollbackCode(options) {
-  const stateDir = await privateDirectory(options.stateDir, options.projectDir)
-  return withMaintenance(stateDir, () => swapPrevious({ ...options, stateDir }))
+  const projectDir = await projectPath(options.projectDir), stateDir = await privateDirectory(options.stateDir, projectDir)
+  return withMaintenance(stateDir, () => swapPrevious({ ...options, projectDir, stateDir }))
 }
 function originValue(value) {
   const url = new URL(value)
@@ -172,7 +178,7 @@ async function start(projectDir, stateDir) {
   const configPath = join(stateDir, 'runtime.json'), configInfo = await info(configPath)
   if (!configInfo?.isFile() || configInfo.isSymbolicLink() || (configInfo.mode & 0o077) || (process.getuid && configInfo.uid !== process.getuid())) throw new Error('runtime.json 必须为私有 0600 普通文件')
   const config = JSON.parse(await readFile(configPath, 'utf8'))
-  if (config.version !== 1 || config.projectDir !== projectDir || !Number.isInteger(config.port) || config.port < 1024 || config.port > 65535) throw new Error('私有运行配置与项目目录不匹配')
+  if (config.version !== 1 || typeof config.projectDir !== 'string' || !Number.isInteger(config.port) || config.port < 1024 || config.port > 65535 || await realpath(config.projectDir) !== projectDir) throw new Error('私有运行配置与项目目录不匹配')
   const child = spawn(process.execPath, [join(projectDir, 'scripts/admin-server.mjs')], { cwd: projectDir, stdio: 'inherit', env: { ...process.env, ADMIN_MODE: 'cloud', ADMIN_STATE_DIR: stateDir, ADMIN_ORIGIN: originValue(config.origin), ADMIN_PORT: String(config.port) } })
   let failure
   const completion = new Promise(resolveExit => {
@@ -199,7 +205,7 @@ export async function cloudMain(args = process.argv.slice(2), defaultProject = f
   if (Number(process.versions.node.split('.')[0]) < 22 || !['linux', 'darwin'].includes(process.platform)) throw new Error('云维护需要 Linux/macOS 与 Node.js 22+')
   const command = positionals[0]
   if (!['install', 'setup', 'start', 'status', 'logs', 'update', 'rollback'].includes(command) || positionals.length !== 1 || !values.state) throw new Error('需明确命令与 --state；使用 --help 查看用法')
-  const projectDir = resolve(values.project || defaultProject), stateDir = await privateDirectory(values.state, projectDir)
+  const projectDir = await projectPath(values.project || defaultProject), stateDir = await privateDirectory(values.state, projectDir)
   if (inside(stateDir, projectDir + '.previous')) throw new Error('state 必须在所有代码版本之外')
   if (['install', 'setup'].includes(command)) {
     if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error('首次安装/设置需本机交互终端，密码不接受参数或环境变量')

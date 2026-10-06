@@ -52,6 +52,7 @@ export function createEditProtection({ notify = () => {} } = {}) {
     form.removeEventListener('input', state.listener); form.removeEventListener('change', state.listener)
     state.banner.remove()
     for (const [field, disabled] of state.disabled || []) field.disabled = disabled
+    if (state.inert !== undefined) form.toggleAttribute('inert', state.inert)
     form.removeAttribute('aria-busy')
     states.delete(form)
   }
@@ -127,9 +128,10 @@ export function createEditProtection({ notify = () => {} } = {}) {
   }
   const busy = (form, value) => {
     const state = states.get(form); if (!state) return
+    if (value && state.busy) return
     state.busy = value; form.setAttribute('aria-busy', String(value))
-    if (value) { write(form, state); state.disabled = [...form.elements].map(field => [field, field.disabled]); for (const [field] of state.disabled) field.disabled = true }
-    else for (const [field, disabled] of state.disabled || []) field.disabled = disabled
+    if (value) { write(form, state); state.inert = form.hasAttribute('inert'); form.setAttribute('inert', ''); state.disabled = [...form.elements].map(field => [field, field.disabled]); for (const [field] of state.disabled) field.disabled = true }
+    else { if (state.inert !== undefined) form.toggleAttribute('inert', state.inert); for (const [field, disabled] of state.disabled || []) field.disabled = disabled }
   }
   const mayLeave = (form) => {
     const active = [...states].filter(([node]) => form ? node === form : visible(node))

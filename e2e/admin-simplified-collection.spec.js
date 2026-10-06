@@ -20,6 +20,39 @@ async function openMenu(page) {
 const visibleFields = form => form.evaluate(node => [...node.elements].filter(field => field.name && field.type !== 'hidden' && !field.closest('[hidden], details:not([open])') && field.getClientRects().length).map(field => field.name))
 const writes = requests => requests.filter(item => item.method !== 'GET')
 
+test('a late AI reply cannot reopen form interactions during a pending save', async ({ page }) => {
+  let finishAi, finishSave, aiRequested = false, saveRequested = false
+  const aiGate = new Promise(resolve => { finishAi = resolve }), saveGate = new Promise(resolve => { finishSave = resolve })
+  const { collections, errors } = await mockAdmin(page, async (route, url) => {
+    if (url.pathname === '/api/auth/session') { await route.fulfill({ json: { mode: 'cloud', authenticated: true, csrf: 'synthetic-csrf' } }); return true }
+    if (url.pathname === '/api/ai/status') { await route.fulfill({ json: { configured: true } }); return true }
+    if (url.pathname === '/api/ai/suggest') { aiRequested = true; await aiGate; await route.fulfill({ json: { fields: { description: 'Late suggestion' } } }); return true }
+    if (url.pathname === '/api/navigation' && route.request().method() === 'POST') { saveRequested = true; await saveGate }
+    return false
+  })
+  try {
+    await page.locator('#dashboard-add-website').click()
+    const form = page.locator('#nav-form')
+    await form.locator('[name="name"]').fill('Pending save')
+    await form.locator('[name="url"]').fill('https://example.invalid/pending')
+    await form.getByLabel('粘贴文本或 URL', { exact: true }).fill('Synthetic material')
+    await form.getByRole('button', { name: 'AI 补空建议', exact: true }).click()
+    await expect.poll(() => aiRequested).toBe(true)
+    await form.getByRole('button', { name: '保存私有草稿', exact: true }).click()
+    await expect.poll(() => saveRequested).toBe(true)
+    await expect(form).toHaveAttribute('inert', '')
+    finishAi()
+    const apply = form.locator('button[aria-label="应用勾选建议"]')
+    await expect(apply).toBeEnabled()
+    await expect(apply.click({ trial: true, timeout: 300 })).rejects.toThrow()
+    await expect(form.locator('[name="description"]')).toHaveValue('')
+    finishSave()
+    await expect(page.locator('#editor-drawer')).toBeHidden()
+    expect(collections.navigation.find(item => item.name === 'Pending save').description).toBe('')
+    expect(errors).toEqual([])
+  } finally { finishAi(); finishSave() }
+})
+
 for (const width of [1280, 390]) {
   test.describe(width + 'px simplified admin', () => {
     test.beforeEach(async ({ page }) => { await page.setViewportSize({ width, height:width === 390 ? 844 : 900 }) })

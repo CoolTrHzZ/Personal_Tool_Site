@@ -1,5 +1,8 @@
 // Universal Tool Manifest Schema (v2)
 // 拆分 runtime / format / display / permissions，同时保留旧 type 字段（react/html/iframe）以兼容既有数据。
+import { assertToolPermissions, DEFAULT_PERMISSIONS, TOOL_PERMISSION_KEYS as PERMISSION_KEYS } from '../shared/tool-permissions.js'
+
+export { DEFAULT_PERMISSIONS, PERMISSION_KEYS }
 
 const ID = /^[a-z0-9-]+$/
 const VERSION = /^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$/i
@@ -15,20 +18,6 @@ export const TOOL_RUNTIMES = ['react', 'static', 'iframe']
 export const TOOL_FORMATS = ['react-package', 'single-html', 'html-bundle', 'webapp-build', 'wasm', 'external-url']
 // ---- display：展示模式 ----
 export const DISPLAY_MODES = ['embedded', 'workspace', 'fullscreen']
-
-export const PERMISSION_KEYS = ['clipboard', 'storage', 'network', 'notifications', 'modals', 'download', 'externalLinks', 'sameOrigin', 'popups']
-
-export const DEFAULT_PERMISSIONS = {
-  clipboard: true,
-  storage: true,
-  network: false,
-  notifications: false,
-  modals: false,
-  download: false,
-  externalLinks: false,
-  sameOrigin: false,
-  popups: false,
-}
 
 export const DEFAULT_DISPLAY = { mode: 'embedded', height: 'auto' }
 
@@ -57,13 +46,15 @@ export function validateZipEntries(entries) {
 
 // ---- 旧 schema（type: react/html/iframe）迁移到 v2 ----
 export function migrateManifest(manifest) {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) throw new Error('manifest 无效')
+  assertToolPermissions(manifest.permissions)
   const runtime = TOOL_RUNTIMES.includes(manifest.runtime) ? manifest.runtime : legacyTypeToRuntime(manifest.type)
   const format = TOOL_FORMATS.includes(manifest.format) ? manifest.format : legacyTypeToFormat(manifest.type)
   const display = {
     mode: DISPLAY_MODES.includes(manifest.display?.mode) ? manifest.display.mode : DEFAULT_DISPLAY.mode,
     height: normalizeDisplayHeight(manifest.display?.height),
   }
-  const permissions = { ...DEFAULT_PERMISSIONS, ...(manifest.permissions && typeof manifest.permissions === 'object' ? manifest.permissions : {}) }
+  const permissions = { ...DEFAULT_PERMISSIONS, ...manifest.permissions }
   return { runtime, format, display, permissions }
 }
 
@@ -93,7 +84,8 @@ function normalizeDisplayHeight(height) {
 
 export function validateManifest(manifest, { upload = false, hasEntry } = {}) {
   const errors = []
-  if (!manifest || typeof manifest !== 'object') return ['manifest 无效']
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return ['manifest 无效']
+  try { assertToolPermissions(manifest.permissions) } catch (error) { return [error.message] }
   if (!ID.test(manifest.id || '')) errors.push('id 只能使用小写字母、数字和短横线')
   if (typeof manifest.name !== 'string' || !manifest.name.trim()) errors.push('缺少有效 name')
   if (!VERSION.test(String(manifest.version || ''))) errors.push('version 必须是 semver，如 1.0.0')
@@ -114,7 +106,6 @@ export function validateManifest(manifest, { upload = false, hasEntry } = {}) {
   for (const field of ['tags', 'keywords']) if (Array.isArray(manifest[field]) && (manifest[field].length > 30 || new Set(manifest[field]).size !== manifest[field].length || !manifest[field].every(validTag))) errors.push(`${field} 每项必须是有效标签，且不超过 30 个`)
   if (manifest.status !== undefined && !TOOL_STATUSES.includes(manifest.status)) errors.push('status 必须是 active / beta / disabled')
   if (manifest.display !== undefined && typeof manifest.display !== 'object') errors.push('display 必须是对象')
-  if (manifest.permissions !== undefined && typeof manifest.permissions !== 'object') errors.push('permissions 必须是对象')
   for (const field of ['description', 'category', 'icon', 'author', 'updated', 'readme', 'license']) if (manifest[field] !== undefined && typeof manifest[field] !== 'string') errors.push(`${field} 必须是字符串`)
   if (manifest.order !== undefined && !Number.isFinite(manifest.order)) errors.push('order 必须是有限数字')
   return errors

@@ -26,3 +26,4 @@ e2e/screenshots/
 
 .adcp-local/
 .admin-restore-*/
+.devos-temp-*/

@@ -50,6 +50,7 @@
   }
 
   window.addEventListener('message', function (event) {
+    if (event.source !== window.parent) return
     var data = event.data
     if (!data || data.source !== PROTOCOL) return
     if (data.type === 'response' && data.id && pending.has(data.id)) {

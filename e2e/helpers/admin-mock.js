@@ -26,7 +26,7 @@ export async function mockAdmin(page, override, seed = {}) {
       if (!(key in collections)) return route.fulfill({ status: 404, json: { error: `unmocked ${key}` } })
       if (method === 'GET') return respond(collections[key])
       const data = route.request().postDataJSON()
-      if (key === 'site') collections.site = data
+      if (key === 'site') { collections.site = { ...collections.site, ...data }; return respond(collections.site) }
       else if (method === 'POST') collections[key].push(data)
       else if (method === 'PUT') collections[key] = collections[key].map(item => item.id === id ? { ...item, ...data } : item)
       return respond(data)

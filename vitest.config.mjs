@@ -6,5 +6,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.test.js'],
+    // Browser DOM and backup fixtures are memory-heavy; keep CI and local runs bounded.
+    maxWorkers: 2,
   },
 })

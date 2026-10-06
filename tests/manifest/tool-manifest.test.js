@@ -49,7 +49,20 @@ describe('validateManifest', () => {
   })
 
   it('非法 manifest 直接返回整体错误', () => {
-    expect(validateManifest(null)).toEqual(['manifest 无效'])
+    for (const manifest of [null, false, 'invalid', []]) {
+      expect(validateManifest(manifest)).toEqual(['manifest 无效'])
+      expect(() => migrateManifest(manifest)).toThrow('manifest 无效')
+    }
+  })
+
+  it('拒绝无效权限，归一化不能把不可信值转换为已授权权限', () => {
+    for (const permissions of [null, [], 'false', { sameOrigin: 'false' }, { download: 1 }, { network: null }, { clipboardWrite: true }]) {
+      const manifest = { ...htmlTool, permissions }
+      expect(validateManifest(manifest).some(error => error.includes('布尔'))).toBe(true)
+      expect(() => migrateManifest(manifest)).toThrow('布尔')
+      expect(() => normalizeManifest(manifest)).toThrow('布尔')
+    }
+    expect(validateManifest({ ...htmlTool, permissions: { sameOrigin: false, storage: true } })).toEqual([])
   })
 })
 

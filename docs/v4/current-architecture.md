@@ -1,13 +1,14 @@
 # V4 现有架构
 
-更新于 2026-09-20。本文描述当前代码；早期原型差距报告保留为历史设计记录。运行与发布步骤见 [README](../../README.md)，验收记录见 [交付说明](delivery.md)。
+更新于 2026-10-07。本文描述当前代码；早期原型差距报告保留为历史设计记录。运行与发布步骤见 [README](../../README.md)，验收记录见 [交付说明](delivery.md)。
 
 ## 运行与数据
 
 - 前台：React 18、TypeScript、Vite、React Router 7 的 HashRouter；构建后是纯静态文件，可部署到 GitHub Pages 的根域名或仓库子路径。
-- Admin：`scripts/admin-server.mjs`，默认仅监听 `127.0.0.1:4174`，直接维护本地项目文件。API 校验本机 Host、端口与 Origin；不提供云端管理或用户登录。
+- Admin：`scripts/admin-server.mjs`，默认仅监听 `127.0.0.1:4174`，直接维护本地项目文件。API 校验本机 Host、端口与 Origin。可选云模式仍仅回环监听，经配置的 HTTPS 代理访问；单维护者密码登录、CSRF、短会话与七天记住设备分别校验，恢复的会话在发布和备份恢复前需要重新验证密码。
 - 启动器：`npm run deploy` 安装锁定依赖、校验内容并启动前台和 Admin；`deploy:update` 在干净 main 上备份后快进更新。要求 Node.js 22+ 与 Git；ZIP 操作依赖系统 `zip` / `unzip`。
-- 公开内容：`src/data/*.json`、`src/tools/manifests/core.json`、`public/tools-manifests.json`、`public/tools/`、`public/cfgs/`、`public/downloads/`，由 Git 管理并随构建发布。
+- 公开内容：`src/data/*.json`、`src/tools/manifests/core.json`、`public/tools-manifests.json`、`public/tools/`、`public/cfgs/`、`public/downloads/`，由 Git 管理并随构建发布。页面开关仅控制入口、展示和搜索，不能隐藏已发布文件；站点文案使用既有默认值兜底。
+- 云端私有内容：仓库外 0700 `state` 下的认证、设备记录、个人设置、运行配置、AI 配置、业务草稿与发布日志。服务器保存仅写入私有草稿，公开清单与明确发布流程另行处理；公开备份和发布排除账号、密钥及运行配置。
 - 个人内容：当前浏览器 localStorage 中的偏好、收藏、最近使用、待办、便笺、计时、AI 任务和 CFG 草稿。存储失败时通过页面提示；支持的未保存草稿暂留当前页面会话，可导出个人备份。关闭或刷新页面前应先导出或重试保存。
 
 ## 页面
@@ -31,7 +32,7 @@
 
 上传原文件最多 20 MiB；同时检查压缩展开大小、文件数、路径、符号链接与特殊文件。可读取包内 Manifest，也可识别 HTML 入口并生成元数据。预览暂存不进入正式公开目录。工具覆盖、元数据修改、删除与索引更新组成可回滚操作；失败时保留原内容，回滚本身失败会报告恢复文件位置。
 
-`StaticToolPage` 为 `static` / `iframe` 工具提供 sandbox 与权限桥接；权限字段为 `clipboard storage network notifications modals download externalLinks sameOrigin popups`。桥接支持剪贴板、工具存储、主题、提示、尺寸和外链。导入工具自身的 HTML/CSS 保持独立。
+`StaticToolPage` 为 `static` / `iframe` 工具提供 sandbox 与权限桥接；权限字段为 `clipboard storage network notifications modals download externalLinks sameOrigin popups`，前后台共用白名单与布尔校验，归一化前拒绝非法权限。桥接支持剪贴板、工具存储、主题、提示、尺寸和外链；SDK 只接受真实父窗口消息。导入工具自身的 HTML/CSS 保持独立。
 
 显示模式为 `embedded | workspace | fullscreen`，切换模式保留同一个 iframe 实例及其输入；显式重载才重新加载。原生 React 工具使用站内 `ToolShell`。
 
@@ -39,12 +40,13 @@
 
 仪表盘提供首次使用入口；网站、收藏、AI 资源、笔记与工具支持直接修改说明和标签。完整表单使用居中编辑区域，常用字段优先，ID、排序等低频字段按需展开。标签使用已有候选、模糊搜索、多选、自定义和批量粘贴；保存前统一确认待输入标签。草稿恢复、未保存离开提示、错误保留与键盘焦点在共享表单辅助模块中处理。
 
-其余模块包括桌面作品及 EXE、CFG 与历史、AI 工作流、分类、全来源标签管理、站点设置、数据校验、发布清单和完整备份。后端校验字段及关联；变更请求经过进程内队列，避免并发写入相互覆盖。标签改名/删除同时更新引用，文件写入失败时回滚。
+其余模块包括桌面作品及 EXE、CFG 与历史、AI 工作流、分类、全来源标签管理、站点设置、数据校验、发布清单和完整备份。后端校验字段及关联；变更请求经过进程内队列，已断开的请求不会阻塞队列。保存期间通过禁用控件和原生 `inert` 隔离交互，避免异步 AI 回包重新启用操作；站点设置只提交当前表单字段。标签改名/删除同时更新引用，文件写入失败时回滚。
 
 ## 备份与发布
 
 - Admin 完整站点备份为 `.devos.gz`，包含公开 JSON、工具配置与文件、CFG 原文和历史、EXE；不包含应用源码和浏览器个人内容。恢复前展示新增、覆盖、删除清单，检查内容是否在预览后变化，再执行恢复。
 - 前台工作区的个人备份迁移浏览器个人数据。它和完整站点备份独立；两者都不是跨设备自动同步。
 - Admin 保存只修改本机。检查并提交、推送 main 后，Actions 执行审计、校验、测试、路径检查和构建，再发布 Pages。生产构建不包含 Admin 服务。
+- 云模式发布固定仓库 main：预览远端基准和公开文件差异、校验、明确确认，再由私有发布工作区提交与推送。日志固定提交 SHA，中断后先回读结果；Pages 按相同 SHA 的部署记录判断。维护入口校验升级候选并保留一版代码，回滚不回退私有业务草稿；macOS 父目录路径别名会固定为真实路径，项目和私有目录本身仍拒绝符号链接。
 
-系统不包含数据库、用户账户、云同步、访问分析或网页执行本机 Shell 的能力。Windows EXE 在下载者本机运行，网页只展示和分发。
+系统不包含数据库、访客账户、个人记录云同步或访问分析。云维护者账户不等于访客账户；网页不接受任意 Shell、远端或分支命令。Windows EXE 在下载者本机运行，网页只展示和分发。云 Admin 不执行导入工具的同源视觉预览，真实工具运行由公开前台负责。

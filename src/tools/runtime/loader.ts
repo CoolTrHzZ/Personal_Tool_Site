@@ -9,6 +9,7 @@ export async function loadToolManifests() {
     if (!response.ok) throw new Error('manifest request failed')
     const remote = await response.json() as ToolManifest[]
     if (!Array.isArray(remote)) throw new Error('manifest list invalid')
+    remote.forEach(migrateManifest)
     return remote
   } catch { return coreManifests as ToolManifest[] }
 }

@@ -2,7 +2,7 @@ import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { StringDecoder } from 'node:string_decoder'
 import { mkdir, mkdtemp, readFile, writeFile, lstat, rename, rm, realpath, open } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { Buffer } from 'node:buffer'
 import { createHash, randomUUID } from 'node:crypto'
 import { CLOUD_SOURCE } from './admin-maintain.mjs'
@@ -74,12 +74,13 @@ function commitBytes(job) {
 const commitHash = bytes => createHash('sha1').update(Buffer.from('commit ' + bytes.length + '\0')).update(bytes).digest('hex')
 export function createPublisher({ codeRoot, stateDir, draftRoot, source = CLOUD_SOURCE, pushSource = source === CLOUD_SOURCE ? SSH_SOURCE : source, git = runPublishGit, pages = readPagesStatus }) {
   // Dependency injection is only for module tests; HTTP/CLI never accepts source/ref/command.
-  const directory = join(stateDir, 'publisher'), repo = join(directory, 'repo'), journal = join(directory, 'journal.json')
+  let directory = join(stateDir, 'publisher'), repo = join(directory, 'repo'), journal = join(directory, 'journal.json')
   const exists = path => lstat(path).catch(error => { if (error.code === 'ENOENT') return null; throw error })
   const call = (...args) => git(repo, args)
   const head = () => call('rev-parse', 'HEAD')
   async function init() {
-    await privateDirectory(stateDir, codeRoot)
+    stateDir = await privateDirectory(stateDir, codeRoot)
+    directory = join(stateDir, 'publisher'); repo = join(directory, 'repo'); journal = join(directory, 'journal.json')
     await mkdir(directory, { mode: 0o700, recursive: true })
     const info = await lstat(directory)
     if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o077)) throw new Error('发布目录必须为私有实际目录')
@@ -116,7 +117,7 @@ export function createPublisher({ codeRoot, stateDir, draftRoot, source = CLOUD_
     if (job) { data.history.unshift({ id: job.id, base: job.base, commit: job.commit || null, stage: job.stage, pages: job.pages || null, archivedAt: new Date().toISOString() }); data.history = data.history.slice(0,20) }
   }
   async function repository() {
-    if ((await exists(repo))?.isSymbolicLink() || await realpath(repo) !== resolve(repo) || await realpath(await call('rev-parse','--show-toplevel')) !== resolve(repo) || await call('branch','--show-current') !== 'main' || await call('remote','get-url','origin') !== source) throw new Error('发布工作区必须为固定来源的 main；保留现场')
+    if ((await exists(repo))?.isSymbolicLink() || await realpath(await call('rev-parse','--show-toplevel')) !== await realpath(repo) || await call('branch','--show-current') !== 'main' || await call('remote','get-url','origin') !== source) throw new Error('发布工作区必须为固定来源的 main；保留现场')
   }
   async function remote() {
     await repository()

@@ -64,7 +64,14 @@ const isISODate = value => {
 }
 // Buffer（静态文件，含 .json）原样输出；仅 JSON API 响应走 JSON.stringify（避免 manifest.json 被二次序列化）
 const send = (res, status, value, type = 'application/json') => { res.writeHead(status, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store' }); res.end(Buffer.isBuffer(value) ? value : type === 'application/json' ? JSON.stringify(value) : String(value)) }
-const body = (req, limit = MAX_BODY_SIZE) => new Promise((resolveBody, reject) => { const chunks = []; let size = 0; req.on('data', chunk => { size += chunk.length; if (size > limit) { reject(new Error(`请求体不能超过 ${Math.round(limit / 1024 / 1024)}MB`)); req.destroy(); return } chunks.push(chunk) }); req.on('end', () => { try { const bytes = Buffer.concat(chunks); const value = bytes.toString('utf8'); if (!Buffer.from(value, 'utf8').equals(bytes)) throw new Error('UTF-8'); resolveBody(value ? JSON.parse(value) : {}) } catch { reject(new Error('请求 JSON 或 UTF-8 无效')) } }); req.on('error', reject) })
+const body = (req, limit = MAX_BODY_SIZE) => new Promise((resolveBody, reject) => {
+  if (req.destroyed || req.aborted) { reject(new Error('请求已中断')); return }
+  const chunks = []; let size = 0
+  req.on('data', chunk => { size += chunk.length; if (size > limit) { reject(new Error(`请求体不能超过 ${Math.round(limit / 1024 / 1024)}MB`)); req.destroy(); return } chunks.push(chunk) })
+  req.on('end', () => { try { const bytes = Buffer.concat(chunks); const value = bytes.toString('utf8'); if (!Buffer.from(value, 'utf8').equals(bytes)) throw new Error('UTF-8'); resolveBody(value ? JSON.parse(value) : {}) } catch { reject(new Error('请求 JSON 或 UTF-8 无效')) } })
+  req.once('aborted', () => reject(new Error('请求已中断')))
+  req.on('error', reject)
+})
 let navigationCache = [], categoryCache = []
 const normalizeTag = value => String(value ?? '').trim()
 const hasUnsafeTagChar = value => [...value].some(char => { const code = char.charCodeAt(0); return code < 32 || (code >= 127 && code <= 159) })
@@ -992,6 +999,7 @@ const server = createServer((req, res) => {
     if (!await authorize(req, res)) return
     if (await handleAiRequest(req, res)) return
     const next = requestQueue.then(async () => {
+      if (req.destroyed || res.destroyed) return
       // Logout/expiry can happen while another content request holds the queue.
       if (cloud && !auth.session(req)) return send(res, 401, { error: '会话已失效，请重新登录' })
       await handleRequest(req, res)

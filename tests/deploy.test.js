@@ -69,6 +69,7 @@ beforeEach(async () => {
   await put(repository, 'scripts/admin-server.mjs', '// fixture only: never started\n')
   await put(repository, 'scripts/validate-data.mjs', '// fixture validates successfully\n')
   for (const file of ['site-backup.mjs', 'tool-manifest.mjs']) await cp(join(source, 'scripts', file), join(repository, 'scripts', file))
+  await put(repository, 'shared/tool-permissions.js', await readFile(join(source, 'shared/tool-permissions.js')))
   for (const key of ['navigation', 'categories', 'library', 'notes', 'tags', 'ai-resources', 'ai-workflows', 'cfgs', 'projects']) await put(repository, `src/data/${key}.json`, '[]\n')
   await put(repository, 'src/data/site.json', '{}\n')
   await put(repository, 'src/tools/manifests/core.json', '[]\n')

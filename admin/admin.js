@@ -1714,7 +1714,9 @@ bind('#tool-edit', 'click', event => { if (event.target.id === 'tool-edit') $('#
 
 // ---------------- 全局事件 ----------------
 
-bind('#locale-select', 'change', event => i18n.setLocale(event.target.value))
+bind('#locale-select', 'change', event => {
+  if (!i18n.setLocale(event.target.value)) { event.target.value = i18n.locale; toastError('浏览器无法保存语言设置，请检查存储权限。') }
+})
 bind('#market-query', 'input', renderMarketplace)
 bind('#market-category', 'change', renderMarketplace)
 bind('#run-validate', 'click', async () => {
@@ -1780,7 +1782,7 @@ bind('#site', 'submit', async event => {
   }
   if (data.todayContinueLimit === undefined || data.todayContinueLimit === '') delete data.todayContinueLimit
   else data.todayContinueLimit = Number(data.todayContinueLimit)
-  try { await withBusy(event.target, async () => { await request('site', { method: 'PUT', body: JSON.stringify({ ...state.site, ...data }) }); protectForm.clean(event.target); await reload(i18n.t('msg.savedSite')) }) } catch (error) { toastError(error.message) }
+  try { await withBusy(event.target, async () => { await request('site', { method: 'PUT', body: JSON.stringify(data) }); protectForm.clean(event.target); await reload(i18n.t('msg.savedSite')) }) } catch (error) { toastError(error.message) }
 })
 bind('#category-form', 'submit', async event => {
   event.preventDefault()

@@ -41,10 +41,10 @@ export async function privateDirectory(directory, codeRoot) {
   if (target === resolve(codeRoot) || target.startsWith(resolve(codeRoot) + sep)) throw new Error('私有数据目录必须在项目目录之外')
   await mkdir(target, { recursive: true, mode: 0o700 })
   const canonical = await realpath(target), code = await realpath(codeRoot).catch(error => { if (error.code === 'ENOENT') return resolve(codeRoot); throw error })
-  if (canonical !== target || canonical === code || canonical.startsWith(code + sep)) throw new Error('私有目录不能经符号链接进入项目或 public')
+  if (canonical === code || canonical.startsWith(code + sep)) throw new Error('私有目录不能经符号链接进入项目或 public')
   const info = await lstat(target)
   if (!info.isDirectory() || info.isSymbolicLink() || (process.getuid && (info.uid !== process.getuid() || (info.mode & 0o077)))) throw new Error('私有目录必须由运行用户拥有，权限为 0700，且不能是符号链接')
-  return target
+  return canonical
 }
 export async function writePasswordRecord(directory, username, password) {
   const record = await passwordRecord(username, password)

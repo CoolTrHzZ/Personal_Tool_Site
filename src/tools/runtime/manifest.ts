@@ -1,25 +1,18 @@
 import type { DisplayMode, ResolvedTool, ToolDisplay, ToolManifest, ToolPermissions, ToolRuntime } from '../types'
+import { assertToolPermissions, DEFAULT_PERMISSIONS } from '../../../shared/tool-permissions.js'
+
+export { DEFAULT_PERMISSIONS } from '../../../shared/tool-permissions.js'
 
 const RUNTIMES: ToolRuntime[] = ['react', 'static', 'iframe']
 const FORMATS: ResolvedTool['format'][] = ['react-package', 'single-html', 'html-bundle', 'webapp-build', 'wasm', 'external-url']
 const MODES: DisplayMode[] = ['embedded', 'workspace', 'fullscreen']
 
-export const DEFAULT_PERMISSIONS: ToolPermissions = {
-  clipboard: true,
-  storage: true,
-  network: false,
-  notifications: false,
-  modals: false,
-  download: false,
-  externalLinks: false,
-  sameOrigin: false,
-  popups: false,
-}
-
 export const DEFAULT_DISPLAY: ToolDisplay = { mode: 'embedded', height: 'auto' }
 
 /** 旧 schema（type: react/html/iframe）→ v2（runtime/format/display/permissions），与 scripts/tool-manifest.mjs 保持一致 */
 export function migrateManifest(manifest: ToolManifest): ResolvedTool {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) throw new Error('manifest 无效')
+  assertToolPermissions(manifest.permissions)
   const runtime = RUNTIMES.includes(manifest.runtime as ToolRuntime)
     ? manifest.runtime as ToolRuntime
     : manifest.type === 'react' ? 'react' : manifest.type === 'iframe' ? 'iframe' : 'static'

@@ -1,6 +1,6 @@
 # DevOS · Personal Tool Site
 
-本地优先的个人开发者工作台：网址导航、内置小工具、可导入的 HTML / ZIP 工具，以及只在本机运行的 Admin。前台是静态站点，可发布到 GitHub Pages（本仓库线上地址：[github.supercool.top](https://github.supercool.top)）。
+本地优先的个人开发者工作台：网址导航、内置小工具、可导入的 HTML / ZIP 工具，以及默认监听本机、支持可选 HTTPS 云入口的 Admin。前台是静态站点，可发布到 GitHub Pages（本仓库线上地址：[github.supercool.top](https://github.supercool.top)）。
 
 版本 **4.0.0**。视觉名 **DevOS**，仓库名 Personal_Tool_Site。站点文案与域名在 `src/data/site.json`。
 
@@ -196,7 +196,7 @@ npm run check:pages
 npm run build
 ```
 
-浏览器回归默认串行执行，避免 Admin 测试修改共享数据时触发其他用例的页面热更新。
+浏览器回归默认串行执行，避免 Admin 测试修改共享数据时触发其他用例的页面热更新。单元测试最多使用两个工作进程，避免 DOM 与备份检查竞争内存。生产交付记录、已验证范围与恢复步骤见 [交付说明](docs/v4/delivery.md)。
 
 GitHub Pages 部署回归：`node scripts/check-pages.mjs`。该命令构建临时目录，使用纯静态服务器检查 `./`、`/` 和 `/Personal_Tool_Site/` 三种路径，覆盖刷新、资源、静态工具与 bridge SDK，不依赖 Admin，也不会修改实际 `dist` 或发布站点。
 

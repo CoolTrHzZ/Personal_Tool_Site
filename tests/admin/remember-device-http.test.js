@@ -72,3 +72,25 @@ it('device landing is read-only and distinguishes accepted short Cookie from mis
   expect(await readFile(join(state,'remembered-devices.json'),'utf8')).toBe(before)
  }
 },20000)
+
+it('a disconnected queued write cannot stall later content requests', async () => {
+ const login=await api('login',{method:'POST',body:{username:'synthetic-owner',password}})
+ expect(login.status).toBe(200)
+ const cookie=login.cookies.map(pair).join('; '),csrf=login.data.csrf
+ const headers={host:'remember.invalid:2087','x-forwarded-proto':'https',origin:secureOrigin,'content-type':'application/json',cookie,'x-csrf-token':csrf}
+ let first
+ const completed=new Promise((resolve,reject)=>{
+  first=httpRequest(address+'/api/site',{method:'PUT',headers},res=>{res.resume();res.once('end',()=>resolve(res.statusCode))})
+  first.once('error',reject);first.write('{"footer":')
+ })
+ const cancelled=httpRequest(address+'/api/site',{method:'PUT',headers})
+ cancelled.on('error',()=>{});cancelled.write('{"footer":')
+ // Auth bypasses the content queue, so this round trip keeps the first write open.
+ await api('session?restore=0',{cookie})
+ cancelled.destroy()
+ await new Promise(resolve=>setTimeout(resolve,50))
+ first.end('"synthetic queued footer"}')
+ expect(await completed).toBe(200)
+ const next=await raw('/api/site',{cookie})
+ expect(next.status).toBe(200);expect(next.data.footer).toBe('synthetic queued footer')
+},10000)

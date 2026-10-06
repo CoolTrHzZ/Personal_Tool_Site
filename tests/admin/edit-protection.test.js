@@ -76,6 +76,28 @@ it('reports unavailable storage without discarding the current edit', () => {
   expect(notify).toHaveBeenCalledWith(expect.stringContaining('无法保存草稿'), 'error'); expect(form.elements.body.value).toBe('keep me')
 })
 
+it.each([false, true])('holds the native form lock across late child renders and restores the previous inert state (%s)', wasInert => {
+  const form = document.querySelector('form'), guard = createEditProtection()
+  form.toggleAttribute('inert', wasInert)
+  form.insertAdjacentHTML('beforeend', '<button type="button" disabled>Late AI result</button>')
+  const aiAction = form.lastElementChild
+  guard.begin(form); form.elements.body.value = 'pending save'; guard.changed(form)
+  guard.busy(form, true)
+  // AI status/suggestion responses rebuild their controls even while a save is pending.
+  aiAction.disabled = false
+  expect(form.hasAttribute('inert')).toBe(true)
+  expect(guard.mayLeave(form)).toBe(false)
+  guard.busy(form, true)
+  guard.busy(form, false)
+  expect(form.hasAttribute('inert')).toBe(wasInert)
+  expect(form.elements.body.disabled).toBe(false)
+  expect(aiAction.disabled).toBe(true)
+  expect(guard.hasChanges(form)).toBe(true)
+  guard.busy(form, true); guard.end(form)
+  expect(form.hasAttribute('inert')).toBe(wasInert)
+  expect(form.elements.body.disabled).toBe(false)
+})
+
 it('removes an autosaved draft when all edits are undone to the saved baseline', async () => {
   const form = document.querySelector('form'), guard = createEditProtection(), confirm = vi.spyOn(window, 'confirm')
   guard.begin(form); form.elements.body.value = 'temporary edit'; guard.changed(form)
