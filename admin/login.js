@@ -29,4 +29,6 @@ form.addEventListener('submit', async event => {
     } else submit.disabled = false
   }
 })
+// Native fallback remains POST; enable credentials only once the JSON handler is ready.
+submit.disabled = false
 void recovery.recover()

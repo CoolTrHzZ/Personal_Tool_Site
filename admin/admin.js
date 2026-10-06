@@ -1,4 +1,5 @@
 import { createSessionRecovery } from './session-recovery.js'
+import { renderAccountSessionStatus } from './account-status.js'
 import { loadI18n } from './i18n/index.js'
 import { renderMarkdown } from './markdown.js'
 import {
@@ -2003,11 +2004,12 @@ else {
 const renderAccount = () => {
   $('#admin-account-avatar').textContent = accountProfile.avatar
   $('#admin-account-name').textContent = accountProfile.displayName
-  $('#admin-account-role').textContent = authSession.mode === 'cloud' ? '站点维护者 · ' + (authSession.rememberedDevice ? '此设备保持登录 7 天' : '本次登录') : '本机维护者 · 个人设置仅存此浏览器'
+  renderAccountSessionStatus($('#admin-account-role'), authSession)
   accountForm.elements.displayName.value = accountProfile.displayName
   accountForm.elements.avatar.value = accountProfile.avatar
 }
 renderAccount()
+protectForm.begin(accountForm, { key: 'account-profile' })
 const positionAccount = () => {
   if (!accountMenu.open) return
   const panel = accountMenu.querySelector('.account-panel'), menu = accountMenu.getBoundingClientRect()
@@ -2021,15 +2023,16 @@ document.addEventListener('click', event => { if (!accountMenu.contains(event.ta
 accountMenu.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); accountMenu.open = false; accountMenu.querySelector('summary').focus() } })
 accountForm.addEventListener('submit', async event => {
   event.preventDefault()
-  const submit = accountForm.querySelector('button'), value = { displayName: accountForm.elements.displayName.value.trim(), avatar: accountForm.elements.avatar.value }
+  if (accountForm.getAttribute('aria-busy') === 'true') return
+  const value = { displayName: accountForm.elements.displayName.value.trim(), avatar: accountForm.elements.avatar.value }
   if (!value.displayName || [...value.displayName].length > 48) { accountStatus.textContent = '显示名需为 1–48 个字符。'; return }
-  submit.disabled = true; accountStatus.textContent = '正在保存…'
+  protectForm.busy(accountForm, true); accountStatus.textContent = '正在保存…'
   try {
     if (authSession.mode === 'cloud') accountProfile = (await request('auth/profile', { method: 'PUT', body: JSON.stringify(value) })).user
     else { localStorage.setItem('devos.admin.profile', JSON.stringify(value)); accountProfile = value }
-    renderAccount(); accountStatus.textContent = '个人设置已保存。'
+    renderAccount(); protectForm.clean(accountForm); accountStatus.textContent = '个人设置已保存。'
   } catch (error) { accountStatus.textContent = error.message || '个人设置未能保存，输入已保留。' }
-  finally { submit.disabled = false }
+  finally { protectForm.busy(accountForm, false) }
 })
 
 if (authSession.mode === 'cloud') {
@@ -2050,7 +2053,7 @@ if (authSession.mode === 'cloud') {
     if (missing) $('#auth-recovery-message').textContent='本次短登录已生效，但 7 天设备记忆尚未确认。请检查 Cookie 设置后重新登记设备。'
   }
   authRecovery.setHandlers({
-    onRecovered: showDeviceConfirmation,
+    onRecovered: session => { renderAccountSessionStatus($('#admin-account-role'), session); showDeviceConfirmation(session) },
     onUnavailable: message => { $('#auth-recovery-message').textContent=message;$('#auth-recovery').hidden=false },
   })
   showDeviceConfirmation(authSession)

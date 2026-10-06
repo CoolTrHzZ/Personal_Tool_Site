@@ -167,7 +167,10 @@ try {
     assert.ok(preview.json.changes.some(item => item.path === 'src/data/site.json'))
     assert.equal((await call('/api/publishing/validate', { method: 'POST', data: {}, headers: authorized })).json.ok, true)
     assert.equal((await draftPreview(project, project)).fingerprint, before.fingerprint)
-    assert.equal((await call('/api/publishing', { headers: authorized })).json.available, false)
+    const publishing = (await call('/api/publishing', { headers: authorized })).json
+    assert.equal(publishing.available, true)
+    assert.equal(publishing.job, null)
+    assert.deepEqual(publishing.history, [])
     assert.equal((await call('/tools/json-cleaner/index.html', { headers: authorized })).status, 403)
     assert.equal((await call('/api/publishing/push', { method: 'POST', data: {}, headers: authorized })).status, 404)
   })
@@ -256,6 +259,6 @@ try {
   await writeFile(join(task, 'test-summary.json'), JSON.stringify({ passed: results.length, checks: results, workspace: task }, null, 2))
   console.log('Foundation checks passed: ' + results.length + '\nEvidence: ' + task)
 } finally {
-  if (child) { child.kill('SIGTERM'); await new Promise(resolveExit => child.once('exit', resolveExit)) }
+  if (child?.exitCode === null && child.signalCode === null) { const exited = new Promise(resolveExit => child.once('exit', resolveExit)); child.kill('SIGTERM'); await exited }
 }
 }

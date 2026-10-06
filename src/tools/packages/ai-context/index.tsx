@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import workflows from '../../../data/ai-workflows.json'
 import resources from '../../../data/ai-resources.json'
+import type { AIResource, AIWorkflow } from '../../../types'
 import { hasPersonalPending, readPersonalRaw, rememberPersonalPending, writePersonalRaw } from '../../../utils/personal-storage'
 import { CONTEXT_TASKS_KEY, emptyContextStore, newContextTask, parseContextStore, validateContextStore, MAX_CONTEXT_TASKS, type ContextStore } from './store'
 import { Download, FilePlus2, FolderOpen, Plus, Trash2 } from 'lucide-react'
@@ -44,7 +45,7 @@ export default function AiContextTool() {
   const [deletePending, setDeletePending] = useState(false)
   const [params, setParams] = useSearchParams()
   const { state } = useLocation()
-  const workflow = workflows.find(item => item.enabled && item.id === params.get('workflow'))
+  const workflow = (workflows as AIWorkflow[]).find(item => item.enabled && item.id === params.get('workflow'))
   const markdown = buildContextMarkdown(draft)
   const bytes = contextBytes(draft)
 
@@ -114,7 +115,7 @@ export default function AiContextTool() {
   function startWorkflow() {
     if (!workflow) return
     const value = { ...emptyContext(), project: workflow.name, goal: workflow.description, acceptance: '逐项检查步骤结果，记录实际验证与剩余问题。', materials: workflow.steps.map((step, index) => {
-      const resource = resources.find(item => item.enabled && item.id === step.resourceId)
+      const resource = (resources as AIResource[]).find(item => item.enabled && item.id === step.resourceId)
       return { id: crypto.randomUUID(), name: `${index + 1}. ${step.title}`, content: [step.description, resource && `关联资源：${resource.name}\n${resource.content || resource.install}`].filter(Boolean).join('\n\n') }
     }) }
     const task = newContextTask(value)

@@ -84,3 +84,59 @@ it('rejects tokens after password rotation and fails closed on unsafe private re
  await chmod(join(directory,'remembered-devices.json'),0o644)
  await expect(rotated.restore(request(deviceCookie(fresh)))).rejects.toMatchObject({statusCode:503})
 })
+
+it.each([[false,true],[true,true],[false,false],[true,false]])('cannot issue a restorable device after concurrent logout (remembered: %s, forget: %s)',async(remembered,forget)=>{
+ const {auth}=await fixture(),issued=await auth.login(request('','POST'),'synthetic-owner',password,remembered)
+ const cookie=cookiePair(issued.cookie)+'; '+deviceCookie(issued),req=request(cookie,'POST',issued.csrf),session=auth.session(req)
+ const pending=auth.remember(req,session)
+ const results=await Promise.allSettled([pending,auth.logout(req,session,forget)])
+ const restored=results[0].status==='fulfilled' ? await auth.restore(request(cookiePair(results[0].value))) : null
+ expect(restored).toBeNull()
+ expect(results[0]).toMatchObject({status:'rejected',reason:{statusCode:401}})
+ expect(results[1].status).toBe('fulfilled')
+ expect(await auth.listDevices(session)).toEqual([])
+ expect(auth.session(request(cookie))).toBeNull()
+})
+
+it.each([false,true])('remembers an active session and logout revokes its latest device despite an older request snapshot (already remembered: %s)',async remembered=>{
+ const {auth}=await fixture(),issued=await auth.login(request('','POST'),'synthetic-owner',password,remembered)
+ const cookie=cookiePair(issued.cookie)+'; '+deviceCookie(issued),req=request(cookie,'POST',issued.csrf),snapshot=auth.session(req)
+ const rememberedCookie=await auth.remember(req,snapshot)
+ const current=auth.session(request(cookie))
+ expect(current).toBeTruthy();expect(current.key).toBe(snapshot.key)
+ expect(await auth.deviceConfirmed(request(cookiePair(rememberedCookie)),current)).toBe(true)
+ expect(await auth.listDevices(current)).toHaveLength(1)
+ if(remembered)expect(await auth.restore(request(deviceCookie(issued)))).toBeNull()
+ await auth.logout(req,snapshot,true)
+ expect(await auth.restore(request(cookiePair(rememberedCookie)))).toBeNull()
+ expect(await auth.listDevices(snapshot)).toEqual([])
+ expect(auth.session(request(cookie))).toBeNull()
+})
+
+it.each([[false,0],[false,1],[true,0],[true,1]])('serializes same-session registration and forgets every response token despite reversed arrival (remembered: %s, last response: %s)',async(remembered,lastResponse)=>{
+ const {auth}=await fixture(),issued=await auth.login(request('','POST'),'synthetic-owner',password,remembered)
+ const short=cookiePair(issued.cookie),cookie=short+'; '+deviceCookie(issued),req=request(cookie,'POST',issued.csrf),snapshot=auth.session(req)
+ const results=await Promise.all([auth.remember(req,snapshot),auth.remember(req,snapshot)])
+ const current=auth.session(request(short))
+ expect(await auth.listDevices(current)).toHaveLength(1)
+ expect(await auth.deviceConfirmed(request(cookiePair(results[0])),current)).toBe(false)
+ expect(await auth.deviceConfirmed(request(cookiePair(results[1])),current)).toBe(true)
+ // Either HTTP response can arrive last; logout must use server state, not that Cookie or stale snapshot.
+ const browserCookie=short+'; '+cookiePair(results[lastResponse])
+ await auth.logout(request(browserCookie,'POST',issued.csrf),snapshot,true)
+ expect(await auth.listDevices(snapshot)).toEqual([])
+ for(const result of results) expect(await auth.restore(request(cookiePair(result)))).toBeNull()
+ if(remembered)expect(await auth.restore(request(deviceCookie(issued)))).toBeNull()
+ expect(auth.session(request(short))).toBeNull()
+})
+
+it('does not let queued same-session registration resurrect a logged-out session',async()=>{
+ const {auth}=await fixture(),issued=await auth.login(request('','POST'),'synthetic-owner',password)
+ const req=request(cookiePair(issued.cookie),'POST',issued.csrf),snapshot=auth.session(req)
+ const registrations=[auth.remember(req,snapshot),auth.remember(req,snapshot)]
+ const results=await Promise.allSettled([...registrations,auth.logout(req,snapshot,true)])
+ expect(results.slice(0,2)).toEqual([expect.objectContaining({status:'rejected'}),expect.objectContaining({status:'rejected'})])
+ expect(results[2].status).toBe('fulfilled')
+ expect(await auth.listDevices(snapshot)).toEqual([])
+ expect(auth.session(req)).toBeNull()
+})

@@ -1,5 +1,6 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
+import { StringDecoder } from 'node:string_decoder'
 import { mkdir, mkdtemp, readFile, writeFile, lstat, rename, rm, realpath, open } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { Buffer } from 'node:buffer'
@@ -14,12 +15,36 @@ const exec = promisify(execFile), SHA = /^[a-f0-9]{40}$/
 const SSH_SOURCE = 'git@github.com:CoolTrHzZ/Personal_Tool_Site.git'
 const API = 'https://api.github.com/repos/CoolTrHzZ/Personal_Tool_Site'
 const MAX_PATCH = 65536
-export async function runPublishGit(root, args, { input } = {}) {
+export async function runPublishGit(root, args, { input, maxOutputBytes } = {}) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')))
   Object.assign(env, { GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_COUNT: '0', GIT_ASKPASS: '/usr/bin/false', GIT_SSH_COMMAND: 'ssh -oBatchMode=yes -oStrictHostKeyChecking=yes -oConnectTimeout=10' })
-  const task = exec('git', ['-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','-c','gc.auto=0','-c','credential.helper=','-c','http.extraHeader=', ...args], { cwd: root, env, timeout: 60000, maxBuffer: 4 * 1024 * 1024 })
-  task.child.stdin.end(input)
-  try { return (await task).stdout.trim() } catch { throw new Error('Git 操作未完成；已保留发布记录，先核对阶段再重试。') }
+  const command = ['-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','-c','gc.auto=0','-c','credential.helper=','-c','http.extraHeader=', ...args]
+  try {
+    if (maxOutputBytes !== undefined) {
+      if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1) throw new Error('Invalid output limit')
+      return await new Promise((resolveOutput, reject) => {
+        const task = spawn('git', command, { cwd: root, env, timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] })
+        const chunks = []; let size = 0
+        // Keep only the preview prefix, but drain both pipes and check the actual exit.
+        task.stdout.on('data', chunk => {
+          const length = Math.min(chunk.length, maxOutputBytes - size)
+          if (length > 0) { chunks.push(Buffer.from(chunk.subarray(0, length))); size += length }
+        })
+        task.stderr.resume()
+        task.once('error', reject)
+        task.stdin.once('error', reject)
+        task.once('close', (code, signal) => {
+          if (code !== 0 || signal) { reject(new Error('Git failed')); return }
+          // Do not emit a replacement character for a code point split by the cap.
+          resolveOutput(new StringDecoder('utf8').write(Buffer.concat(chunks, size)))
+        })
+        task.stdin.end(input)
+      })
+    }
+    const task = exec('git', command, { cwd: root, env, timeout: 60000, maxBuffer: 4 * 1024 * 1024 })
+    task.child.stdin.end(input)
+    return (await task).stdout.trim()
+  } catch { throw new Error('Git 操作未完成；已保留发布记录，先核对阶段再重试。') }
 }
 async function apiJson(path) {
   const response = await fetch(API + path, { redirect: 'error', signal: globalThis.AbortSignal.timeout(8000), headers: { accept: 'application/vnd.github+json', 'x-github-api-version': '2026-03-10' } })
@@ -147,7 +172,7 @@ export function createPublisher({ codeRoot, stateDir, draftRoot, source = CLOUD_
         const statuses = (await call('diff','--cached','--no-renames','--name-status','-z',base)).split('\0').filter(Boolean), incoming = new Map(snapshot.files.map(file => [file.path,file]))
         const files = []
         for (let i=0;i<statuses.length;i+=2) { const path = statuses[i+1], file = incoming.get(path); files.push({ path, action: statuses[i], sha256: file?.sha256 || null, bytes: file?.size || 0 }) }
-        const patch = await call('diff','--cached','--no-renames','--no-ext-diff','--no-textconv',base,'--',...BACKUP_ROOTS)
+        const patch = await git(repo, ['diff','--cached','--no-renames','--no-ext-diff','--no-textconv',base,'--',...BACKUP_ROOTS], { maxOutputBytes: MAX_PATCH + 4 })
         const patchBytes = Buffer.from(patch); let end = Math.min(MAX_PATCH, patchBytes.length)
         while (end < patchBytes.length && (patchBytes[end] & 0xc0) === 0x80) end--
         const tree = await call('write-tree')

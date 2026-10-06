@@ -156,11 +156,33 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
     const active=sessions.get(value.key);if (!active) return {status:401}
     active.authenticatedAt=now();await audit('reauth_success',req,200);return {status:200}
   }
-  const remember = async (req,value) => {
-    if (!fresh(value)) throw Object.assign(new Error('请重新验证密码'),{statusCode:428})
+  const rememberQueues = new Map()
+  const issueRememberedDevice = async (req,value) => {
+    const previous=sessions.get(value.key),time=now()
+    if (!previous || time>=previous.expiresAt || time-previous.lastSeen>=idleMs) throw Object.assign(new Error('会话已失效，请重新登录'),{statusCode:401})
+    if (!fresh(previous)) throw Object.assign(new Error('请重新验证密码'),{statusCode:428})
+    const previousId=previous.deviceId
     const device=await devices.issue(tokenFrom(req,DEVICE_COOKIE));revokeSessions(device.replacedId,value.key);revokeSessions(device.evictedId,value.key)
-    const active=sessions.get(value.key);if (active) active.deviceId=device.id
-    await audit('device_remembered',req,200);return deviceCookie(device)
+    // A concurrent request may carry an older Cookie. Replace the live session's device too.
+    if (previousId && previousId!==device.replacedId) revokeSessions(await devices.revoke(previousId),value.key)
+    const requireActive = async () => {
+      const active=sessions.get(value.key),time=now()
+      if (active && time<active.expiresAt && time-active.lastSeen<idleMs) return active
+      await devices.revoke(device.id);revokeSessions(device.id)
+      throw Object.assign(new Error('会话已失效，请重新登录'),{statusCode:401})
+    }
+    const active=await requireActive();active.deviceId=device.id
+    await audit('device_remembered',req,200)
+    await requireActive()
+    return deviceCookie(device)
+  }
+  const remember = (req,value) => {
+    const previous=rememberQueues.get(value.key)
+    const pending=previous ? previous.catch(()=>{}).then(()=>issueRememberedDevice(req,value)) : issueRememberedDevice(req,value)
+    rememberQueues.set(value.key,pending)
+    const release=()=>{if(rememberQueues.get(value.key)===pending)rememberQueues.delete(value.key)}
+    pending.then(release,release)
+    return pending
   }
   const revoke = async (req,value,id) => {
     if (!/^[a-f0-9]{32}$/.test(id || '')) throw new Error('设备编号无效')
@@ -172,8 +194,9 @@ export function createAuth({ record, origin, directory, now = Date.now, sessionT
     return writeOrigin(req) && typeof input === 'string' && /^[a-f0-9]{64}$/.test(input) && timingSafeEqual(Buffer.from(input), Buffer.from(value.csrf))
   }
   const logout = async (req,value,forgetDevice=true) => {
+    const deviceId=sessions.get(value.key)?.deviceId ?? value.deviceId
     sessions.delete(value.key)
-    if (forgetDevice) revokeSessions(await devices.revoke(value.deviceId,tokenFrom(req,DEVICE_COOKIE)))
+    if (forgetDevice) revokeSessions(await devices.revoke(deviceId,tokenFrom(req,DEVICE_COOKIE)))
     await audit('logout',req,200);return forgetDevice ? [cookie('',0),deviceCookie(null)] : [cookie('',0)]
   }
   const saveProfile = async value => {
