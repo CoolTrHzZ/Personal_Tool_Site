@@ -21,7 +21,7 @@
 .tool-card .favorite-button { flex: 0 0 36px; width: 36px; min-width: 36px; min-height: 36px; height: 36px; padding: 0; border-color: transparent; border-radius: 8px; background: transparent; color: var(--text-faint); }
 .favorite-button > span { display: flex; }
 .tool-card .favorite-button:not(:disabled):hover { border-color: var(--border-default); background: var(--surface-raised); color: var(--text-primary); box-shadow: none; }
-.tool-card .favorite-button[aria-pressed="true"] { color: var(--accent-secondary, var(--accent)); background: color-mix(in srgb, var(--accent-secondary, var(--accent)) 9%, transparent); }
+.tool-card .favorite-button[aria-pressed="true"], .tool-card .favorite-button[aria-pressed="true"]:is(:hover, :focus-visible) { color: var(--accent-secondary, var(--accent)); background: color-mix(in srgb, var(--accent-secondary, var(--accent)) 9%, transparent); }
 .tool-card .favorite-button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 .resource-list .tool-card { border: 0; border-bottom: 1px solid var(--border-subtle); border-radius: 0; }
 .tool-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, auto); align-items: end; gap: 16px; margin-top: 24px; }

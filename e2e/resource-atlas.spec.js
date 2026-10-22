@@ -97,6 +97,44 @@ test('首页资源行显示完整标识与 AI 类型图标', async ({ page }) =>
     return color
   })
   await expect(favorite).toHaveCSS('color', selectedColor)
+  // A pointer click leaves the button hovered: selection must remain visible.
+  expect(await favorite.evaluate(element => element.matches(':hover'))).toBe(true)
+  await expect(favorite.locator('svg')).toHaveAttribute('fill', 'currentColor')
+  const selectedBackground = await favorite.evaluate(element => window.getComputedStyle(element).backgroundColor)
+  await page.mouse.move(0, 0)
+  expect(await favorite.evaluate(element => element.matches(':hover'))).toBe(false)
+  await expect(favorite).toHaveCSS('color', selectedColor)
+  await expect(favorite).toHaveCSS('background-color', selectedBackground)
+
+  // Return with the keyboard so focus-visible is exercised, not just focus().
+  await favorite.press('Shift+Tab')
+  await page.keyboard.press('Tab')
+  await expect(favorite).toBeFocused()
+  expect(await favorite.evaluate(element => element.matches(':focus-visible'))).toBe(true)
+  await expect(favorite).toHaveCSS('color', selectedColor)
+  await expect(favorite).toHaveCSS('outline-style', 'solid')
+  await expect(favorite).toHaveCSS('outline-width', '2px')
+  await favorite.hover()
+  expect(await favorite.evaluate(element => element.matches(':hover:focus-visible'))).toBe(true)
+  await expect(favorite).toHaveCSS('color', selectedColor)
+  await expect(favorite).toHaveCSS('background-color', selectedBackground)
+
+  await favorite.press('Space')
+  await expect(favorite).toHaveAttribute('aria-pressed', 'false')
+  await expect(favorite.locator('svg')).toHaveAttribute('fill', 'none')
+  const hoverColor = await favorite.evaluate(element => {
+    const probe = document.createElement('span')
+    probe.style.color = 'var(--text-primary)'
+    element.append(probe)
+    const color = window.getComputedStyle(probe).color
+    probe.remove()
+    return color
+  })
+  await expect(favorite).toHaveCSS('color', hoverColor)
+  await favorite.press('Enter')
+  await expect(favorite).toHaveAttribute('aria-pressed', 'true')
+  await expect(favorite.locator('svg')).toHaveAttribute('fill', 'currentColor')
+  await expect(favorite).toHaveCSS('color', selectedColor)
 })
 
 test('内容页说明和资源网格使用站点配置', async ({ page }) => {
