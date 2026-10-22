@@ -1,6 +1,6 @@
 import { displayCopy, visiblePage } from '../utils/page-display'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowUpRight, Download, FileCode2, FolderOpen, Search } from 'lucide-react'
 import cfgs from '../data/cfgs.json'
 import site from '../data/site.json'
@@ -18,12 +18,16 @@ const copy = displayCopy('cfg', { eyebrow: 'LOADOUT / CONFIG LIBRARY', title: 'C
 const assetUrl = (entry: CfgEntry, revision?: CfgRevision) => `${import.meta.env.BASE_URL}cfgs/${encodeURIComponent(entry.id)}${revision ? `.${encodeURIComponent(revision.id)}` : ''}.cfg`
 async function readAsset(entry: CfgEntry, revision?: CfgRevision, signal?: AbortSignal) {
   const response = await fetch(assetUrl(entry, revision), { signal, cache: 'no-cache' })
+  signal?.throwIfAborted()
   if (!response.ok || response.headers.get('content-type')?.includes('text/html')) throw new Error('CFG 文件暂时无法读取，请刷新或稍后重试。')
-  return readTextFile(new File([await response.blob()], revision?.filename || entry.filename), 256 * 1024, 'cfg')
+  const blob = await response.blob()
+  signal?.throwIfAborted()
+  return readTextFile(new File([blob], revision?.filename || entry.filename), 256 * 1024, 'cfg')
 }
 
 export default function CfgLibraryPage() {
   const { id } = useParams()
+  const location = useLocation()
   const [params, setParams] = useSearchParams()
   const query = params.get('q') || '', category = params.get('category') || '', sort = params.get('sort') || 'default'
   const hasFilters = Boolean(query || category || sort !== 'default')
@@ -45,6 +49,7 @@ export default function CfgLibraryPage() {
   const [packageError, setPackageError] = useState('')
   const [packing, setPacking] = useState(false)
   const packageRun = useRef(0)
+  const packageController = useRef<AbortController | null>(null)
   const categories = [...new Set(entries.map(entry => entry.category))]
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -53,7 +58,15 @@ export default function CfgLibraryPage() {
     if (sort === 'name') result.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
     return result
   }, [query, category, sort])
-  useEffect(() => () => { packageRun.current++ }, [])
+  useEffect(() => {
+    setPacking(false)
+    return () => {
+      packageRun.current++
+      const controller = packageController.current
+      packageController.current = null
+      controller?.abort()
+    }
+  }, [location.key])
   useEffect(() => {
     document.title = `${selected?.name || (id ? 'CFG 不存在' : copy.title)} | ${site.name}`
     return () => { document.title = site.title }
@@ -87,19 +100,36 @@ export default function CfgLibraryPage() {
       .catch(error => { if (active) setComparison({ key, lines: [], error: error instanceof Error ? error.message : '版本比较失败。' }) })
     return () => { active = false; controller.abort() }
   }, [selected, compareId, source, sourceKey])
+  const cancelPackagePreview = () => {
+    packageRun.current++
+    const controller = packageController.current
+    packageController.current = null
+    controller?.abort()
+    setPacking(false)
+  }
   const preparePackage = async () => {
+    if (packageController.current || !packageIds.length) return
     const run = ++packageRun.current
+    const controller = new AbortController()
+    packageController.current = controller
     setPacking(true); setPackageError(''); setPackageFiles(null)
     try {
       const files = await Promise.all(packageIds.map(async id => {
         const entry = entries.find(item => item.id === id)
         if (!entry) throw new Error('所选配置已移除，请刷新后重新选择。')
-        return { filename: entry.filename, content: await readAsset(entry) }
+        return { filename: entry.filename, content: await readAsset(entry, undefined, controller.signal) }
       }))
+      if (packageRun.current !== run) return
       createCfgZip(files) // Validate names and sizes before presenting a downloadable package.
-      if (packageRun.current === run) setPackageFiles(files)
-    } catch (error) { if (packageRun.current === run) setPackageError(error instanceof Error ? error.message : '读取配置包失败。') }
-    finally { if (packageRun.current === run) setPacking(false) }
+      setPackageFiles(files)
+    } catch (error) {
+      if (packageRun.current === run) {
+        controller.abort()
+        setPackageError(error instanceof Error ? error.message : '读取配置包失败。')
+      }
+    } finally {
+      if (packageRun.current === run) { packageController.current = null; setPacking(false) }
+    }
   }
 
   if (id && (!selected || invalidRevision)) return <main className="page cfg-library-page"><Link className="back-link" to={`/cfg${listSuffix}`}><ArrowLeft size={14} />返回 CFG 配置库</Link><h1>{invalidRevision ? '这份 CFG 历史版本不存在' : '这份 CFG 已移除或不存在'}</h1><p>可以返回配置库查找其他文件。</p></main>
@@ -133,7 +163,7 @@ export default function CfgLibraryPage() {
     <PageHero {...copy} stats={[{ value: entries.length, label: '份配置' }, { value: categories.length, label: '个分类' }]} icon={FolderOpen} code=".CFG" note={<><FileCode2 size={15} />原文预览 · 文件下载</>} />
     <div className="cfg-library-toolbar"><label className="ai-search"><Search size={16} /><Input aria-label="搜索 CFG 配置" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索配置名称、文件或标签…" /></label><label className="cfg-library-sort">排序<select aria-label="CFG 排序" value={sort} onChange={event => setFilter('sort', event.target.value)}><option value="default">默认顺序</option>{!['default', 'updated', 'name'].includes(sort) && <option value={sort} disabled>已失效：{sort}</option>}<option value="updated">最近更新</option><option value="name">名称</option></select></label>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
     <nav className="category-route cfg-library-filters" aria-label="CFG 分类"><button type="button" className={!category ? 'active' : ''} aria-pressed={!category} onClick={() => setFilter('category', '')}>全部 <small>{entries.length}</small></button>{categories.map(value => <button type="button" key={value} className={category === value ? 'active' : ''} aria-pressed={category === value} onClick={() => setFilter('category', value)}>{value}</button>)}{category && !categories.includes(category) && <button type="button" className="active" aria-pressed="true" disabled>已失效：{category}</button>}</nav>
-    {entries.length > 0 && <section className="cfg-library-package" aria-label="CFG 配置包"><div><h2>一起带走你的配置</h2><p>勾选最多 {MAX_CFG_PACKAGE_FILES} 份文件，检查依赖后下载 ZIP。</p></div><span role="status">已选 {packageIds.length} 份</span><Button disabled={!packageIds.length || packing} onClick={() => void preparePackage()}>{packing ? '正在读取…' : '预览配置包'}</Button>{packageIds.length > 0 && <Button disabled={packing} onClick={() => { setPackageIds([]); setPackageFiles(null); setPackageError('') }}>清空选择</Button>}</section>}
+    {entries.length > 0 && <section className="cfg-library-package" aria-label="CFG 配置包"><div><h2>一起带走你的配置</h2><p>勾选最多 {MAX_CFG_PACKAGE_FILES} 份文件，检查依赖后下载 ZIP。</p></div><span role="status">已选 {packageIds.length} 份</span><Button disabled={!packageIds.length || packing} onClick={() => void preparePackage()}>{packing ? '正在读取…' : '预览配置包'}</Button>{packing && <Button onClick={cancelPackagePreview}>取消本次预览</Button>}{packageIds.length > 0 && <Button disabled={packing} onClick={() => { setPackageIds([]); setPackageFiles(null); setPackageError('') }}>清空选择</Button>}</section>}
     {packageError && <p className="cfg-package-error" role="alert">{packageError}</p>}
     {packageFiles && <section className="cfg-library-panel cfg-package-preview" aria-label="配置包预览"><h2>{packageFiles.length} 份 CFG，准备下载</h2><ul>{packageFiles.map(file => <li key={file.filename}>{file.filename}</li>)}</ul>{missingDependencies.length > 0 ? <div role="alert"><h3>以下子配置尚未包含在包中</h3><ul>{missingDependencies.map((item, index) => <li key={index}>{item.filename} · L{item.line} → {item.target}{item.optional ? '（可选 execifexists）' : ''}</li>)}</ul></div> : <p>未发现缺失的直接 exec 子配置。</p>}<p className="cfg-library-hint">仅检查文件中直接写出的 exec / execifexists，不展开 alias 或执行命令。解压后将需要的文件放入游戏 cfg 目录。</p><Button variant="primary" onClick={() => { try { downloadCfgZip(packageFiles) } catch (error) { setPackageError(error instanceof Error ? error.message : '打包失败。') } }}>下载 ZIP 配置包</Button></section>}
     <div className="cfg-library-list-heading"><h2>配置档案</h2><span role="status">{shown.length} 份配置</span></div>
