@@ -28,10 +28,15 @@ export default function ConfigDiffTool() {
     else setAfter(value)
     setComparison(null); setError('')
   }
+  const updateFormat = (value: ConfigFormat) => {
+    // Pending imports belong to the format in which they started, even on a round trip.
+    revisions.current.before++; revisions.current.after++
+    setFormat(value); setComparison(null)
+  }
   const importFile = async (side: 'before' | 'after', file?: File) => {
     if (!file) return
     const revision = ++revisions.current[side]
-    try { const text = await readTextFile(file, MAX_BYTES); if (revisions.current[side] === revision) updateText(side, text) }
+    try { const text = await readTextFile(file, MAX_BYTES, format === 'cfg' ? 'cfg' : 'text'); if (revisions.current[side] === revision) updateText(side, text) }
     catch (error) { if (revisions.current[side] === revision) setError(error instanceof Error ? error.message : '无法读取文件，原有内容已保留。') }
   }
   const compare = (left = before, right = after, selectedFormat = format) => {
@@ -52,7 +57,7 @@ export default function ConfigDiffTool() {
       <p className="workbench-note">内容仅在当前浏览器处理，不上传、不自动保存。每侧最多 256 KiB / 2000 行。</p>
       <div className="workbench-toolbar">
         <Button onClick={() => { updateText('before', example.before); updateText('after', example.after); setFormat('json'); compare(example.before, example.after, 'json') }}>填入示例并对比</Button>
-        <div className="workbench-field"><label htmlFor="config-diff-format">配置格式</label><select id="config-diff-format" value={format} onChange={event => { setFormat(event.target.value as ConfigFormat); setComparison(null) }}>{Object.entries(FORMAT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+        <div className="workbench-field"><label htmlFor="config-diff-format">配置格式</label><select id="config-diff-format" value={format} onChange={event => updateFormat(event.target.value as ConfigFormat)}>{Object.entries(FORMAT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
         <label className="workbench-check"><input type="checkbox" checked={ignoreTrailingSpace} onChange={event => { setIgnoreTrailingSpace(event.target.checked); setComparison(null) }} />忽略行尾空白</label>
       </div>
       <p className="workbench-note">{FORMAT_NOTES[format]}CRLF / LF 统一比较。</p>
