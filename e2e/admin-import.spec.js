@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer"
 import { adminNavigation } from './helpers/admin-navigation.js'
 import { test, expect } from '@playwright/test'
 
@@ -64,4 +65,40 @@ test('HTML 工具：拖入 → 识别 → 元数据 → 权限 → 兼容性 →
 test('staging 目录不会出现在正式静态路径', async ({ request }) => {
   const staging = await request.get('/tools/.staging')
   expect(staging.status()).toBe(404)
+})
+
+test('拒绝覆盖后失败重试不会自动勾选覆盖，明确同意后才替换原工具', async ({ page, request }) => {
+  const id = 'overwrite-consent-e2e'
+  const originalHtml = '<!doctype html><title>Original consent fixture</title>'
+  await request.delete(`/api/tools/${id}`)
+  const original = await request.post('/api/tools/upload', { data: { filename: `${id}.html`, content: Buffer.from(originalHtml).toString('base64') } })
+  expect(original.ok()).toBeTruthy()
+  try {
+    await page.goto('/admin/')
+    await (await adminNavigation(page, '.nav-item[data-view="tools"]')).click()
+    await page.setInputFiles('#tool-file-input', 'tests/fixtures/tools/cs2-rainbow.html')
+    await expect(page.locator('#wizard-body')).toContainText('CS2 Rainbow Chat')
+    await page.click('#wizard-next')
+    await page.fill('#wizard-body input[name="id"]', id)
+    for (let step = 2; step < 6; step++) await page.click('#wizard-next')
+    const overwrite = page.locator('#wizard-body [name="overwrite"]')
+    await expect(overwrite).not.toBeChecked()
+    await overwrite.check()
+    await overwrite.uncheck()
+    await page.click('#wizard-next')
+    await expect(page.locator('#wizard-next')).toBeEnabled()
+    await expect(overwrite).not.toBeChecked()
+    expect(await (await request.get(`/tools/${id}/index.html`)).text()).toBe(originalHtml)
+    // Back/forward must not turn a refusal into permission either.
+    await page.click('#wizard-prev')
+    await page.click('#wizard-next')
+    await expect(overwrite).not.toBeChecked()
+    await overwrite.check()
+    await page.click('#wizard-prev')
+    await page.click('#wizard-next')
+    await expect(overwrite).toBeChecked()
+    await page.click('#wizard-next')
+    await expect(page.locator('#wizard')).toBeHidden()
+    expect(await (await request.get(`/tools/${id}/index.html`)).text()).toContain('CS2 Rainbow Chat')
+  } finally { await request.delete(`/api/tools/${id}`) }
 })

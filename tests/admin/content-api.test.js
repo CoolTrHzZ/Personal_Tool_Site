@@ -343,3 +343,88 @@ it('persists reversible page display settings without changing records and rejec
     expect(await Promise.all(fixtureKeys.map(key=>readFile(join(root,'src/data',key+'.json'))))).toEqual(dataBefore)
   } finally { await writeFile(sitePath,before) }
 })
+
+it('round-trips ZIP assets through import, rejected collision, overwrite and export without mutating the source tool', async () => {
+  const id = `${fixturePrefix}-roundtrip`, copyId = `${id}-copy`
+  const packageDir = join(root, 'roundtrip-fixture'), zipPath = join(root, 'roundtrip.zip')
+  await mkdir(join(packageDir, 'assets'), { recursive: true })
+  const assets = {
+    'index.html': Buffer.from('<!doctype html><title>Round-trip fixture</title><script src="assets/app.js"></script>'),
+    'assets/app.js': Buffer.from('window.fixture = "synthetic";\r\n'),
+    'assets/binary.dat': Buffer.from([0, 255, 128, 13, 10]),
+    'assets/manifest.json': Buffer.from('{"nested":"asset, not tool metadata"}\n'),
+  }
+  for (const [path, bytes] of Object.entries(assets)) await writeFile(join(packageDir, path), bytes)
+  await promisify(execFile)('zip', ['-qr', zipPath, '.'], { cwd: packageDir })
+  const analyze = () => api('tools/analyze', 'POST', { filename: 'roundtrip.zip', content: zipBytes })
+  const zipBytes = (await readFile(zipPath)).toString('base64')
+  const first = await analyze()
+  expect(first.status, JSON.stringify(first.data)).toBe(200)
+  const manifest = { ...first.data.manifestDraft, id, name: 'Synthetic round trip', favorite: true, order: 37, display: { mode: 'fullscreen', height: 640 } }
+  const installed = await api('tools/import', 'POST', { token: first.data.token, manifest })
+  expect(installed.status).toBe(201)
+  const target = join(root, 'public/tools', id)
+  const before = await readFile(join(target, 'manifest.json'))
+  const replacement = await analyze()
+  expect(replacement.status).toBe(200)
+  const replacementManifest = { ...manifest, version: '2.0.0' }
+  const collision = await api('tools/import', 'POST', { token: replacement.data.token, manifest: replacementManifest })
+  expect(collision.status).toBe(400)
+  expect(await readFile(join(target, 'manifest.json'))).toEqual(before)
+  // A rejected collision retains the staged upload, so explicit overwrite can retry it.
+  const overwritten = await api('tools/import', 'POST', { token: replacement.data.token, manifest: replacementManifest, overwrite: true })
+  expect(overwritten.status).toBe(201)
+  expect(overwritten.data.version).toBe('2.0.0')
+  const savedBeforeExport = await readFile(join(target, 'manifest.json'))
+  const exported = await api(`tools/${id}/export`)
+  expect(exported.status).toBe(200)
+  expect(exported.data.filename).toBe(`${id}-v2.0.0.zip`)
+  expect(await readFile(join(target, 'manifest.json'))).toEqual(savedBeforeExport)
+  const exportedPath = join(root, 'exported-roundtrip.zip')
+  await writeFile(exportedPath, Buffer.from(exported.data.content, 'base64'))
+  const { stdout } = await promisify(execFile)('unzip', ['-p', exportedPath, 'manifest.json'])
+  const exportedManifest = JSON.parse(stdout)
+  for (const key of ['enabled', 'order', 'favorite']) expect(exportedManifest).not.toHaveProperty(key)
+  expect(exportedManifest.display).toEqual(manifest.display)
+  const reanalysis = await api('tools/analyze', 'POST', { filename: exported.data.filename, content: exported.data.content })
+  expect(reanalysis.status).toBe(200)
+  expect(reanalysis.data.manifestDraft.id).not.toBe(id)
+  const reimported = await api('tools/import', 'POST', { token: reanalysis.data.token, manifest: { ...reanalysis.data.manifestDraft, id: copyId } })
+  expect(reimported.status).toBe(201)
+  expect(reimported.data.version).toBe('2.0.0')
+  for (const [path, bytes] of Object.entries(assets)) {
+    expect(await readFile(join(target, path)), path).toEqual(bytes)
+    expect(await readFile(join(root, 'public/tools', copyId, path)), path).toEqual(bytes)
+  }
+  expect((await api('tools')).data.filter(tool => tool.id === id || tool.id === copyId)).toHaveLength(2)
+}, 15000)
+
+it('cleans staging when archive analysis fails before returning a token', async () => {
+  const staging = join(root, '.tool-staging')
+  const snapshot = async () => (await readdir(staging).catch(error => { if (error.code === 'ENOENT') return []; throw error })).sort()
+  const before = await snapshot()
+  const invalid = await api('tools/analyze', 'POST', { filename: 'broken.zip', content: Buffer.from('synthetic invalid archive').toString('base64') })
+  expect(invalid.status).toBe(400)
+  expect(await snapshot()).toEqual(before)
+})
+
+it('cleans the unexposed staging token when a legacy upload fails validation', async () => {
+  const staging = join(root, '.tool-staging')
+  const snapshot = async () => (await readdir(staging)).sort()
+  const id = `${fixturePrefix}-legacy-cleanup`
+  const payload = { filename: `${id}.html`, content: Buffer.from('<!doctype html><title>Synthetic cleanup</title>').toString('base64') }
+  expect((await api('tools/upload', 'POST', payload)).status).toBe(201)
+  // Upload chooses a unique ID, so provoke a post-analysis validation failure.
+  {
+    const bad = { filename: 'bad-metadata.zip', content: '' }
+    const packageDir = join(root, 'cleanup-package'), zipPath = join(root, 'cleanup.zip')
+    await mkdir(packageDir)
+    await writeFile(join(packageDir, 'index.html'), '<!doctype html><title>Cleanup</title>')
+    await writeFile(join(packageDir, 'manifest.json'), JSON.stringify({ version: 'invalid-version' }))
+    await promisify(execFile)('zip', ['-qr', zipPath, '.'], { cwd: packageDir })
+    bad.content = (await readFile(zipPath)).toString('base64')
+    const stagedBefore = await snapshot()
+    expect((await api('tools/upload', 'POST', bad)).status).toBe(400)
+    expect(await snapshot()).toEqual(stagedBefore)
+  }
+})

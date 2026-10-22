@@ -317,98 +317,104 @@ async function analyzeToolSource(payload) {
   const token = randomUUID().slice(0, 8)
   const stageRoot = join(stagingDir, token)
   await mkdir(stageRoot, { recursive: true })
-  const notes = []
+  try {
+    const notes = []
 
-  let kind, files, entry, zipStats = null
-  if (lower.endsWith('.zip')) {
-    kind = 'zip'
-    const zipPath = join(stageRoot, 'upload.zip')
-    await writeFile(zipPath, bytes)
-    const { names, listing } = await listZip(zipPath)
-    const errors = validateZipEntries(names)
-    if (errors.length) throw new Error(errors[0])
-    zipStats = assertZipSafety(bytes.length, listing)
-    const root = join(stageRoot, 'root')
-    await mkdir(root, { recursive: true })
-    const extractedFiles = await extractToStaging(zipPath, root)
-    const wrapper = commonTopSegment(extractedFiles)
-    if (wrapper) notes.push(`检测到单层父目录 "${wrapper}/"，已自动剥离`)
-    files = extractedFiles.map(file => stripSegment(file, wrapper)).sort()
-    const packageRoot = wrapper ? join(root, wrapper) : root
-    await rename(packageRoot, join(stageRoot, 'package'))
-    if (files.includes('manifest.json')) {
-      const provided = await readJsonFile(join(stageRoot, 'package', 'manifest.json'), null)
-      if (provided && typeof provided === 'object') {
-        if (provided.entry && files.includes(provided.entry)) entry = provided.entry
-        else notes.push('manifest.json 的 entry 无效，已改为自动发现入口')
-        if (Array.isArray(provided.keywords) || provided.permissions || provided.display) notes.push('检测到包内 manifest.json，元数据已按其预填')
+    let kind, files, entry, zipStats = null
+    if (lower.endsWith('.zip')) {
+      kind = 'zip'
+      const zipPath = join(stageRoot, 'upload.zip')
+      await writeFile(zipPath, bytes)
+      const { names, listing } = await listZip(zipPath)
+      const errors = validateZipEntries(names)
+      if (errors.length) throw new Error(errors[0])
+      zipStats = assertZipSafety(bytes.length, listing)
+      const root = join(stageRoot, 'root')
+      await mkdir(root, { recursive: true })
+      const extractedFiles = await extractToStaging(zipPath, root)
+      const wrapper = commonTopSegment(extractedFiles)
+      if (wrapper) notes.push(`检测到单层父目录 "${wrapper}/"，已自动剥离`)
+      files = extractedFiles.map(file => stripSegment(file, wrapper)).sort()
+      const packageRoot = wrapper ? join(root, wrapper) : root
+      await rename(packageRoot, join(stageRoot, 'package'))
+      if (files.includes('manifest.json')) {
+        const provided = await readJsonFile(join(stageRoot, 'package', 'manifest.json'), null)
+        if (provided && typeof provided === 'object') {
+          if (provided.entry && files.includes(provided.entry)) entry = provided.entry
+          else notes.push('manifest.json 的 entry 无效，已改为自动发现入口')
+          if (Array.isArray(provided.keywords) || provided.permissions || provided.display) notes.push('检测到包内 manifest.json，元数据已按其预填')
+        }
       }
+      if (!entry) entry = files.find(file => /^index\.html?$/i.test(file)) || pickEntryFile(files)
+      if (!entry) throw new Error('ZIP 中未找到 HTML 入口（index.html 或其它 .html）')
+      if (zipStats.fileCount > 300) notes.push(`文件数较多（${zipStats.fileCount} 个），建议精简`)
+      if (zipStats.total > 50 * 1024 * 1024) notes.push(`解压体积较大（${(zipStats.total / 1024 / 1024).toFixed(1)}MB）`)
+    } else if (lower.endsWith('.html') || lower.endsWith('.htm')) {
+      kind = 'html'
+      await mkdir(join(stageRoot, 'package'), { recursive: true })
+      await writeFile(join(stageRoot, 'package', 'index.html'), bytes)
+      files = ['index.html']
+      entry = 'index.html'
+    } else throw new Error('仅支持 .html / .htm / .zip 文件')
+
+    const packageRoot = join(stageRoot, 'package')
+    const entryAbs = resolve(packageRoot, entry)
+    if (!entryAbs.startsWith(packageRoot) || !existsSync(entryAbs)) throw new Error('入口文件不存在')
+    const entryHtml = await readFile(entryAbs, 'utf8').catch(() => '')
+    const meta = extractHtmlMeta(entryHtml)
+    const providedManifest = files.includes('manifest.json') ? await readJsonFile(join(packageRoot, 'manifest.json'), {}) : {}
+    const format = detectFormat(entry, files)
+    const existing = await tools()
+    const existingIds = new Set(existing.map(tool => tool.id))
+    const baseId = slugifyId(providedManifest.id || (kind === 'html' ? filename.replace(/\.html?$/i, '') : (meta.title || basename(filename, '.zip'))), 'imported-tool')
+    const id = uniqueToolId(baseId, existingIds)
+    const name = providedManifest.name || meta.title || (kind === 'html' ? filename.replace(/\.html?$/i, '') : id)
+    const permissions = { ...suggestPermissionsFromHtml(entryHtml, files), ...(providedManifest.permissions || {}) }
+    const manifestDraft = normalizeManifest({
+      id,
+      name,
+      description: providedManifest.description || meta.description || `${name}（导入工具）`,
+      runtime: 'static',
+      format,
+      entry,
+      category: providedManifest.category || 'development',
+      version: providedManifest.version || '1.0.0',
+      enabled: true,
+      icon: providedManifest.icon || 'Wrench',
+      keywords: providedManifest.keywords || providedManifest.tags || [id.split('-')[0]],
+      author: providedManifest.author || 'import',
+      tags: providedManifest.tags || providedManifest.keywords || [],
+      status: 'active',
+      readme: providedManifest.readme || meta.description || `${name}`,
+      license: providedManifest.license || 'MIT',
+      display: providedManifest.display && typeof providedManifest.display === 'object'
+        ? providedManifest.display
+        : { mode: 'embedded', height: 'auto' },
+      permissions,
+    }, (Math.max(0, ...existing.map(tool => tool.order || 0)) || 0) + 10)
+
+    const compat = scanHtmlCompat(entryHtml, files)
+    if (format === 'webapp-build') notes.push('识别为前端构建产物（React/Vue/Svelte build），已按 Static Tool 归一')
+    if (format === 'wasm') notes.push('包含 WebAssembly 文件，已自动开启 sameOrigin 权限')
+
+    return {
+      token,
+      kind,
+      format,
+      runtime: 'static',
+      entry,
+      files,
+      stats: zipStats ? { fileCount: zipStats.fileCount, totalBytes: zipStats.total, zipBytes: bytes.length } : { fileCount: 1, totalBytes: bytes.length, zipBytes: bytes.length },
+      suggested: { id, name, title: meta.title, description: meta.description, lang: meta.lang },
+      manifestDraft,
+      compat,
+      notes,
+      previewUrl: `/__tool_preview/${token}/${entry.split('/').map(encodeURIComponent).join('/')}`,
     }
-    if (!entry) entry = files.find(file => /^index\.html?$/i.test(file)) || pickEntryFile(files)
-    if (!entry) throw new Error('ZIP 中未找到 HTML 入口（index.html 或其它 .html）')
-    if (zipStats.fileCount > 300) notes.push(`文件数较多（${zipStats.fileCount} 个），建议精简`)
-    if (zipStats.total > 50 * 1024 * 1024) notes.push(`解压体积较大（${(zipStats.total / 1024 / 1024).toFixed(1)}MB）`)
-  } else if (lower.endsWith('.html') || lower.endsWith('.htm')) {
-    kind = 'html'
-    await mkdir(join(stageRoot, 'package'), { recursive: true })
-    await writeFile(join(stageRoot, 'package', 'index.html'), bytes)
-    files = ['index.html']
-    entry = 'index.html'
-  } else throw new Error('仅支持 .html / .htm / .zip 文件')
-
-  const packageRoot = join(stageRoot, 'package')
-  const entryAbs = resolve(packageRoot, entry)
-  if (!entryAbs.startsWith(packageRoot) || !existsSync(entryAbs)) throw new Error('入口文件不存在')
-  const entryHtml = await readFile(entryAbs, 'utf8').catch(() => '')
-  const meta = extractHtmlMeta(entryHtml)
-  const providedManifest = files.includes('manifest.json') ? await readJsonFile(join(packageRoot, 'manifest.json'), {}) : {}
-  const format = detectFormat(entry, files)
-  const existing = await tools()
-  const existingIds = new Set(existing.map(tool => tool.id))
-  const baseId = slugifyId(providedManifest.id || (kind === 'html' ? filename.replace(/\.html?$/i, '') : (meta.title || basename(filename, '.zip'))), 'imported-tool')
-  const id = uniqueToolId(baseId, existingIds)
-  const name = providedManifest.name || meta.title || (kind === 'html' ? filename.replace(/\.html?$/i, '') : id)
-  const permissions = { ...suggestPermissionsFromHtml(entryHtml, files), ...(providedManifest.permissions || {}) }
-  const manifestDraft = normalizeManifest({
-    id,
-    name,
-    description: providedManifest.description || meta.description || `${name}（导入工具）`,
-    runtime: 'static',
-    format,
-    entry,
-    category: providedManifest.category || 'development',
-    version: providedManifest.version || '1.0.0',
-    enabled: true,
-    icon: providedManifest.icon || 'Wrench',
-    keywords: providedManifest.keywords || providedManifest.tags || [id.split('-')[0]],
-    author: providedManifest.author || 'import',
-    tags: providedManifest.tags || providedManifest.keywords || [],
-    status: 'active',
-    readme: providedManifest.readme || meta.description || `${name}`,
-    license: providedManifest.license || 'MIT',
-    display: providedManifest.display && typeof providedManifest.display === 'object'
-      ? providedManifest.display
-      : { mode: 'embedded', height: 'auto' },
-    permissions,
-  }, (Math.max(0, ...existing.map(tool => tool.order || 0)) || 0) + 10)
-
-  const compat = scanHtmlCompat(entryHtml, files)
-  if (format === 'webapp-build') notes.push('识别为前端构建产物（React/Vue/Svelte build），已按 Static Tool 归一')
-  if (format === 'wasm') notes.push('包含 WebAssembly 文件，已自动开启 sameOrigin 权限')
-
-  return {
-    token,
-    kind,
-    format,
-    runtime: 'static',
-    entry,
-    files,
-    stats: zipStats ? { fileCount: zipStats.fileCount, totalBytes: zipStats.total, zipBytes: bytes.length } : { fileCount: 1, totalBytes: bytes.length, zipBytes: bytes.length },
-    suggested: { id, name, title: meta.title, description: meta.description, lang: meta.lang },
-    manifestDraft,
-    compat,
-    notes,
-    previewUrl: `/__tool_preview/${token}/${entry.split('/').map(encodeURIComponent).join('/')}`,
+  } catch (error) {
+    // No token was returned, so callers cannot retry or explicitly discard it.
+    await rm(stageRoot, { recursive: true, force: true }).catch(() => {})
+    throw error
   }
 }
 
@@ -456,7 +462,13 @@ async function installTool(payload) {
 // 兼容旧上传端点：一次调用 = 识别 + 默认导入
 async function saveToolPackage(payload) {
   const analysis = await analyzeToolSource(payload)
-  return installTool({ token: analysis.token, manifest: analysis.manifestDraft, overwrite: payload.overwrite === true })
+  try {
+    return await installTool({ token: analysis.token, manifest: analysis.manifestDraft, overwrite: payload.overwrite === true })
+  } catch (error) {
+    // Unlike wizard imports, the legacy endpoint never exposes its staging token.
+    await discardStaging(analysis.token).catch(() => {})
+    throw error
+  }
 }
 
 // ---------------- 生命周期 ----------------
