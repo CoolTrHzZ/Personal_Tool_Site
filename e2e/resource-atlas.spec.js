@@ -122,6 +122,9 @@ test('首页资源行显示完整标识与 AI 类型图标', async ({ page }) =>
   await favorite.press('Space')
   await expect(favorite).toHaveAttribute('aria-pressed', 'false')
   await expect(favorite.locator('svg')).toHaveAttribute('fill', 'none')
+  // Re-establish hover on the current locator after the keyboard-triggered update.
+  await favorite.hover()
+  expect(await favorite.evaluate(element => element.matches(':hover'))).toBe(true)
   const hoverColor = await favorite.evaluate(element => {
     const probe = document.createElement('span')
     probe.style.color = 'var(--text-primary)'
