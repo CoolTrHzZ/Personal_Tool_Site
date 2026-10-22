@@ -78,3 +78,42 @@ test('便笺和收藏写失败后可备份，跨标签更新保留本页修改�
   await expect(card.getByRole('alert')).toHaveCount(0)
   await expect(card.locator('.favorite-button')).toHaveAttribute('aria-pressed', pressed)
 })
+
+
+test('存储读取被拒绝时下载明确标记的恢复备份，重新导入不删除缺失项', async ({ page }) => {
+  await openWorkspace(page)
+  await page.evaluate(() => {
+    localStorage.setItem('favoriteTools', '["json"]')
+    const get = window.Storage.prototype.getItem, set = window.Storage.prototype.setItem
+    window.restorePersonalStorage = () => { window.Storage.prototype.getItem = get; window.Storage.prototype.setItem = set }
+    window.Storage.prototype.getItem = function () { throw new Error('storage denied') }
+    window.Storage.prototype.setItem = function () { throw new Error('storage denied') }
+  })
+  await page.getByLabel('临时便笺内容', { exact: true }).fill('读取受阻时仍要保存的便笺')
+  await expect(page.locator('#workspace-note-status')).toContainText('保存失败')
+  const panel = page.getByRole('region', { name: '个人数据备份' })
+  const downloadEvent = page.waitForEvent('download')
+  await panel.getByRole('button', { name: '导出个人备份', exact: true }).click()
+  const download = await downloadEvent, raw = await readDownload(download), backup = JSON.parse(raw)
+  expect(download.suggestedFilename()).toBe('devos-personal-recovery.json')
+  expect(backup.entries['devos.workspace.note']).toBe(JSON.stringify('读取受阻时仍要保存的便笺'))
+  expect(backup.unavailableKeys).toContain('favoriteTools')
+  await expect(panel.getByRole('alert')).toContainText('这不是完整备份')
+  await expect(panel.getByRole('alert')).toContainText('工具收藏')
+  await expect(panel.getByRole('status')).toContainText('恢复备份')
+
+  await page.evaluate(() => window.restorePersonalStorage())
+  const completeEvent = page.waitForEvent('download')
+  await panel.getByRole('button', { name: '导出个人备份', exact: true }).click()
+  const complete = await completeEvent
+  expect(complete.suggestedFilename()).toBe('devos-personal-backup.json')
+  expect(JSON.parse(await readDownload(complete)).unavailableKeys).toBeUndefined()
+  await expect(panel.getByRole('alert')).toHaveCount(0)
+  await panel.getByLabel('导入个人备份', { exact: true }).setInputFiles({ name: 'recovery.json', mimeType: 'application/json', buffer: Buffer.from(raw) })
+  await expect(panel.getByRole('alert')).toContainText('这是部分恢复备份')
+  await panel.getByLabel('导入方式', { exact: true }).selectOption('replace')
+  await panel.getByRole('button', { name: '确认导入个人数据', exact: true }).click()
+  expect(await page.evaluate(() => localStorage.getItem('favoriteTools'))).toBe('["json"]')
+  await page.reload()
+  await expect(page.getByLabel('临时便笺内容', { exact: true })).toHaveValue('读取受阻时仍要保存的便笺')
+})

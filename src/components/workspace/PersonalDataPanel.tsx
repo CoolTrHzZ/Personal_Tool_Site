@@ -25,14 +25,21 @@ export default function PersonalDataPanel() {
     catch (cause) { if (request === revision.current) setError(cause instanceof Error ? cause.message : '读取备份失败') }
   }
   function exportBackup() {
-    try { downloadText('devos-personal-backup.json', JSON.stringify(exportPersonalData(), null, 2), 'application/json'); setError(''); setMessage('个人备份已下载。保存在文件中的内容仅属于此浏览器。') }
-    catch { setError('无法读取个人数据，请检查浏览器存储设置后重试。') }
+    setError(''); setMessage('')
+    try {
+      const value = exportPersonalData(), missing = value.unavailableKeys || []
+      downloadText(missing.length ? 'devos-personal-recovery.json' : 'devos-personal-backup.json', JSON.stringify(value, null, 2), 'application/json')
+      if (missing.length) {
+        setMessage('已下载可读取内容的恢复备份，包含当前会话中保留的未保存修改。')
+        setError(`这不是完整备份，未能读取：${missing.map(key => PERSONAL_LABELS[key]).join('、')}。请保留当前页面，恢复存储访问后重新导出完整备份。`)
+      } else setMessage('个人备份已下载。保存在文件中的内容仅属于此浏览器。')
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '无法导出个人数据，请保留当前页面并检查浏览器存储设置后重试。') }
   }
   return <section className="workspace-card personal-data-panel" aria-label="个人数据备份">
     <div className="workspace-card-heading"><h2><Archive size={15} />个人数据</h2></div>
     <p className="workspace-save-status">备份待办、便笺、收藏、AI 任务与本机 CFG，换机器也能继续。此文件不会进入公开站点内容。</p>
     <div className="personal-data-actions"><Button size="sm" icon={<Download size={13} />} onClick={exportBackup}>导出个人备份</Button><label className="personal-data-file"><Upload size={13} />导入个人备份<input type="file" accept=".json,application/json" aria-label="导入个人备份" onChange={event => { void importFile(event.target.files?.[0]); event.target.value = '' }} /></label></div>
-    {backup && <div className="personal-import-preview"><label>导入方式<select aria-label="导入方式" value={mode} onChange={event => { const next = event.target.value as 'merge' | 'replace'; setMode(next); modeRef.current = next; preview(backup, next) }}><option value="merge">合并并保留当前内容</option><option value="replace">替换备份包含的数据项</option></select></label><p className="workspace-save-status">{mode === 'merge' ? '便笺会拼接，重复但不同的任务保留两份；保留当前计时与偏好，导入 CFG 草稿保存为版本。最近记录保留前 8 条。' : '仅替换备份中包含的数据项，未包含的记录会保留。建议先导出当前备份。'}</p>{plan && <><ul>{Object.keys(plan.entries).map(key => <li key={key}>{PERSONAL_LABELS[key]}：{describePersonalEntry(key, plan.before[key] ?? null)} → {describePersonalEntry(key, plan.entries[key])}</li>)}</ul><Button size="sm" variant="primary" onClick={() => { try { applyPersonalImport(plan); setBackup(null); setPlan(null); setError(''); setMessage('个人数据已导入。主题、动效与首页视图偏好将在刷新后应用。') } catch (cause) { setError(cause instanceof Error ? cause.message : '导入失败') } }}>确认导入个人数据</Button></>}<Button size="sm" onClick={() => preview(backup, mode)}>刷新导入预览</Button><Button size="sm" onClick={() => { revision.current++; setBackup(null); setPlan(null); setError('') }}>取消导入</Button></div>}
+    {backup && <div className="personal-import-preview">{Boolean(backup.unavailableKeys?.length) && <p role="alert" className="workspace-save-status has-error">这是部分恢复备份，未包含：{backup.unavailableKeys!.map(key => PERSONAL_LABELS[key]).join('、')}。只导入文件中包含的项目，其他记录不会删除。</p>}<label>导入方式<select aria-label="导入方式" value={mode} onChange={event => { const next = event.target.value as 'merge' | 'replace'; setMode(next); modeRef.current = next; preview(backup, next) }}><option value="merge">合并并保留当前内容</option><option value="replace">替换备份包含的数据项</option></select></label><p className="workspace-save-status">{mode === 'merge' ? '便笺会拼接，重复但不同的任务保留两份；保留当前计时与偏好，导入 CFG 草稿保存为版本。最近记录保留前 8 条。' : '仅替换备份中包含的数据项，未包含的记录会保留。建议先导出当前备份。'}</p>{plan && <><ul>{Object.keys(plan.entries).map(key => <li key={key}>{PERSONAL_LABELS[key]}：{describePersonalEntry(key, plan.before[key] ?? null)} → {describePersonalEntry(key, plan.entries[key])}</li>)}</ul><Button size="sm" variant="primary" onClick={() => { try { applyPersonalImport(plan); setBackup(null); setPlan(null); setError(''); setMessage('个人数据已导入。主题、动效与首页视图偏好将在刷新后应用。') } catch (cause) { setError(cause instanceof Error ? cause.message : '导入失败') } }}>确认导入个人数据</Button></>}<Button size="sm" onClick={() => preview(backup, mode)}>刷新导入预览</Button><Button size="sm" onClick={() => { revision.current++; setBackup(null); setPlan(null); setError('') }}>取消导入</Button></div>}
     {error && <p role="alert" className="workspace-save-status has-error">{error}</p>}{message && <p role="status" className="workspace-save-status">{message}</p>}
   </section>
 }

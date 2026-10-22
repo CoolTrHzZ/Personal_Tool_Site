@@ -22,6 +22,66 @@ describe('个人数据迁移', () => {
     expect(() => parsePersonalBackup(JSON.stringify(backup({ 'devos.workspace.todos': '[{"id":"x","text":1,"done":false}]' })))).toThrow('格式')
   })
 
+  it('存储读取被拒绝时仍导出当前会话内容，并明确标记缺失项', () => {
+    const prototype = Object.getPrototypeOf(localStorage)
+    vi.spyOn(prototype, 'setItem').mockImplementation(() => { throw new Error('storage denied') })
+    expect(() => writePersonalRaw('devos.workspace.note', JSON.stringify('必须抢救的便笺'))).toThrow()
+    vi.spyOn(prototype, 'getItem').mockImplementation(() => { throw new Error('storage denied') })
+    const exported = exportPersonalData()
+    expect(exported.entries).toEqual({ 'devos.workspace.note': '"必须抢救的便笺"' })
+    expect(exported.unavailableKeys).toEqual(PERSONAL_KEYS.filter(key => key !== 'devos.workspace.note'))
+    expect(parsePersonalBackup(JSON.stringify(exported))).toEqual(exported)
+  })
+
+  it('单项不可读时保留其他数据，恢复访问后继续导出完整备份', () => {
+    localStorage.setItem('favoriteTools', '["json"]')
+    localStorage.setItem('devos.workspace.note', '"已保存便笺"')
+    const prototype = Object.getPrototypeOf(localStorage), getItem = prototype.getItem
+    const read = vi.spyOn(prototype, 'getItem').mockImplementation(function (key) {
+      if (key === 'favoriteTools') throw new Error('storage denied')
+      return getItem.call(this, key)
+    })
+    expect(exportPersonalData().entries).toEqual({ 'devos.workspace.note': '"已保存便笺"' })
+    expect(exportPersonalData().unavailableKeys).toEqual(['favoriteTools'])
+    read.mockRestore()
+    const complete = exportPersonalData()
+    expect(complete.entries).toEqual({ favoriteTools: '["json"]', 'devos.workspace.note': '"已保存便笺"' })
+    expect(complete).not.toHaveProperty('unavailableKeys')
+  })
+
+  it('无可读取内容时不生成空的成功备份', () => {
+    vi.spyOn(Object.getPrototypeOf(localStorage), 'getItem').mockImplementation(() => { throw new Error('storage denied') })
+    expect(() => exportPersonalData()).toThrow('没有可导出')
+  })
+
+  it('校验恢复备份缺失清单，替换时不删除缺失项或当前的其他内容', () => {
+    const partial = { ...backup({ 'devos.workspace.note': '"恢复便笺"' }), unavailableKeys: ['favoriteTools'] }
+    localStorage.setItem('favoriteTools', '["base64"]')
+    localStorage.setItem('theme', 'light')
+    const plan = preparePersonalImport(parsePersonalBackup(JSON.stringify(partial)), 'replace')
+    expect(Object.keys(plan.entries)).toEqual(['devos.workspace.note'])
+    applyPersonalImport(plan)
+    expect(localStorage.getItem('devos.workspace.note')).toBe('"恢复便笺"')
+    expect(localStorage.getItem('favoriteTools')).toBe('["base64"]')
+    expect(localStorage.getItem('theme')).toBe('light')
+    for (const unavailableKeys of [null, 'favoriteTools', ['admin-secret'], ['favoriteTools', 'favoriteTools'], ['devos.workspace.note'], [42]]) {
+      expect(() => parsePersonalBackup(JSON.stringify({ ...partial, unavailableKeys }))).toThrow('缺失项目清单')
+    }
+  })
+
+  it('已有 AI 任务列表时不读取或标记已被取代的旧版草稿', () => {
+    localStorage.setItem(CONTEXT_TASKS_KEY, JSON.stringify(emptyContextStore()))
+    const prototype = Object.getPrototypeOf(localStorage), getItem = prototype.getItem
+    vi.spyOn(prototype, 'getItem').mockImplementation(function (key) {
+      if (key === CONTEXT_STORAGE_KEY) throw new Error('legacy storage denied')
+      return getItem.call(this, key)
+    })
+    const exported = exportPersonalData()
+    expect(exported.entries[CONTEXT_TASKS_KEY]).toBeDefined()
+    expect(exported.entries[CONTEXT_STORAGE_KEY]).toBeUndefined()
+    expect(exported).not.toHaveProperty('unavailableKeys')
+  })
+
   it('合并保留旧版 AI 本机草稿，并保留同 ID 但不同内容的任务', () => {
     const legacy = { ...emptyContext(), project: '未迁移的本机项目' }
     localStorage.setItem(CONTEXT_STORAGE_KEY, JSON.stringify(legacy))
