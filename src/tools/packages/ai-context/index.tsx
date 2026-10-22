@@ -29,6 +29,10 @@ export default function AiContextTool() {
   const [store, setStore] = useState(initial.store)
   const storeRef = useRef(store)
   const activeTask = store.tasks.find(task => task.id === store.activeId)!
+  const [nameDraft, setNameDraft] = useState(activeTask.name)
+  const nameDraftRef = useRef(activeTask.name)
+  const [nameError, setNameError] = useState('')
+  const nameChanged = nameDraft !== activeTask.name
   const draft = activeTask.draft
   const draftRef = useRef(draft)
   const baseline = useRef(initial.raw)
@@ -55,6 +59,7 @@ export default function AiContextTool() {
     setReading(false)
     setPendingImport(null)
     setDeletePending(false)
+    resetName()
   }
 
   useEffect(() => {
@@ -69,6 +74,7 @@ export default function AiContextTool() {
       fileRevision.current++; importRevision.current++; setReading(false); setPendingImport(null)
       storeRef.current = next.store; draftRef.current = next.store.tasks.find(task => task.id === next.store.activeId)!.draft
       setStore(next.store); baseline.current = next.raw; blocked.current = Boolean(next.warning); setWarning(next.warning); setSaved(next.saved); setError('')
+      resetName()
     }
     window.addEventListener('storage', sync)
     window.addEventListener('devos:personal-data-restored', restored)
@@ -107,13 +113,38 @@ export default function AiContextTool() {
     return commit({ ...storeRef.current, tasks: storeRef.current.tasks.map(task => task.id === storeRef.current.activeId ? { ...task, draft: next, updated: new Date().toISOString() } : task) }, replace)
   }
 
+  function resetName() {
+    const name = storeRef.current.tasks.find(task => task.id === storeRef.current.activeId)!.name
+    nameDraftRef.current = name
+    setNameDraft(name)
+    setNameError('')
+  }
+
+  function saveName() {
+    const current = storeRef.current
+    const task = current.tasks.find(item => item.id === current.activeId)!
+    const name = nameDraftRef.current
+    if (!name.trim() || name.length > 120) {
+      setNameError('任务名称需填写 1–120 个字符。请修正，或撤销名称修改后继续。')
+      return false
+    }
+    if (name !== task.name && !commit({ ...current, tasks: current.tasks.map(item => item.id === current.activeId ? { ...item, name, updated: new Date().toISOString() } : item) })) {
+      setNameError('任务名称未能保存，请检查内容后重试。')
+      return false
+    }
+    setNameError('')
+    return true
+  }
+
   function addTask(value = emptyContext(), name?: string) {
+    if (!saveName()) return
     const task = newContextTask(value, name)
     if (commit({ ...storeRef.current, activeId: task.id, tasks: [...storeRef.current.tasks, task] })) cancelReads()
   }
 
   function startWorkflow() {
     if (!workflow) return
+    if (!saveName()) return
     const value = { ...emptyContext(), project: workflow.name, goal: workflow.description, acceptance: '逐项检查步骤结果，记录实际验证与剩余问题。', materials: workflow.steps.map((step, index) => {
       const resource = (resources as AIResource[]).find(item => item.enabled && item.id === step.resourceId)
       return { id: crypto.randomUUID(), name: `${index + 1}. ${step.title}`, content: [step.description, resource && `关联资源：${resource.name}\n${resource.content || resource.install}`].filter(Boolean).join('\n\n') }
@@ -149,7 +180,7 @@ export default function AiContextTool() {
   }
 
   function applyImport() {
-    if (!pendingImport) return
+    if (!pendingImport || !saveName()) return
     if (update(pendingImport)) cancelReads()
   }
 
@@ -165,11 +196,20 @@ export default function AiContextTool() {
     <div className="tool-workbench">
       {workflow && <section className="workbench-card" aria-label="工作流任务预览"><h2>{workflow.name}</h2><p>{workflow.description}</p><ol>{workflow.steps.map(step => <li key={step.title}>{step.title}</li>)}</ol><Button variant="primary" onClick={startWorkflow}>从工作流新建任务</Button></section>}
       <section className="workbench-card" aria-label="AI 任务列表">
-        <div className="workbench-toolbar"><label className="workbench-field">当前 AI 任务<select aria-label="当前 AI 任务" value={store.activeId} onChange={event => { if (commit({ ...storeRef.current, activeId: event.target.value })) cancelReads() }}>{store.tasks.map(task => <option key={task.id} value={task.id}>{task.name}</option>)}</select></label><label className="workbench-field">任务名称<input key={`${activeTask.id}:${activeTask.name}`} defaultValue={activeTask.name} onBlur={event => commit({ ...storeRef.current, tasks: storeRef.current.tasks.map(task => task.id === storeRef.current.activeId ? { ...task, name: event.target.value } : task) })} /></label><span className="workbench-stats">{store.tasks.length} / {MAX_CONTEXT_TASKS} 个任务</span></div>
-        <div className="workbench-toolbar"><Button onClick={() => addTask()} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建任务</Button><Button onClick={() => addTask({ ...emptyContext(), project: '个人工具箱', goal: '为 JSON 工具增加一键载入示例，让第一次使用的人能立即看到格式化结果。', stack: 'React / TypeScript', constraints: '复用现有组件，保留现有格式化、压缩和错误提示，不新增依赖。', acceptance: '点击示例后可复制结果；修改输入后旧结果不再可复制；手机宽度下按钮可以正常操作。' }, '示例 · 改进工具体验')} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建示例任务</Button><Button onClick={() => addTask(draftRef.current, `${activeTask.name.slice(0, 116)} 副本`)} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>复制当前任务</Button><Button onClick={() => setDeletePending(true)} disabled={store.tasks.length === 1}>删除当前任务</Button></div>
-        {deletePending && <div className="workbench-toolbar"><p>删除「{activeTask.name}」？建议先导出任务包。</p><Button onClick={() => { const tasks = storeRef.current.tasks.filter(task => task.id !== storeRef.current.activeId); if (commit({ ...storeRef.current, activeId: tasks[0].id, tasks })) cancelReads() }}>确认删除任务</Button><Button onClick={() => setDeletePending(false)}>保留任务</Button></div>}
+        <div className="workbench-toolbar">
+          <label className="workbench-field">当前 AI 任务<select aria-label="当前 AI 任务" value={store.activeId} onChange={event => { if (saveName() && commit({ ...storeRef.current, activeId: event.target.value })) cancelReads() }}>{store.tasks.map(task => <option key={task.id} value={task.id}>{task.name}</option>)}</select></label>
+          <div className="workbench-field">
+            <label htmlFor="ai-task-name">任务名称</label>
+            <input id="ai-task-name" required maxLength={120} value={nameDraft} aria-invalid={Boolean(nameError)} aria-describedby={nameError ? 'ai-task-name-hint ai-task-name-error' : 'ai-task-name-hint'} onChange={event => { nameDraftRef.current = event.target.value; setNameDraft(event.target.value); if (event.target.value.trim() && event.target.value.length <= 120) setNameError('') }} onBlur={saveName} />
+            <span id="ai-task-name-hint" className="workbench-note">离开输入框后保存，最多 120 个字符。</span>
+            {nameError && <><span id="ai-task-name-error" className="error" role="alert">{nameError}</span><Button size="sm" onClick={resetName}>撤销名称修改</Button></>}
+          </div>
+          <span className="workbench-stats">{store.tasks.length} / {MAX_CONTEXT_TASKS} 个任务</span>
+        </div>
+        <div className="workbench-toolbar"><Button onClick={() => addTask()} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建任务</Button><Button onClick={() => addTask({ ...emptyContext(), project: '个人工具箱', goal: '为 JSON 工具增加一键载入示例，让第一次使用的人能立即看到格式化结果。', stack: 'React / TypeScript', constraints: '复用现有组件，保留现有格式化、压缩和错误提示，不新增依赖。', acceptance: '点击示例后可复制结果；修改输入后旧结果不再可复制；手机宽度下按钮可以正常操作。' }, '示例 · 改进工具体验')} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建示例任务</Button><Button onClick={() => { if (!saveName()) return; const current = storeRef.current.tasks.find(task => task.id === storeRef.current.activeId)!; addTask(current.draft, `${current.name.slice(0, 116)} 副本`) }} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>复制当前任务</Button><Button onClick={() => { if (saveName()) setDeletePending(true) }} disabled={store.tasks.length === 1}>删除当前任务</Button></div>
+        {deletePending && <div className="workbench-toolbar"><p>删除「{activeTask.name}」？建议先导出任务包。</p><Button onClick={() => { if (!saveName()) return; const tasks = storeRef.current.tasks.filter(task => task.id !== storeRef.current.activeId); if (commit({ ...storeRef.current, activeId: tasks[0].id, tasks })) cancelReads() }}>确认删除任务</Button><Button onClick={() => setDeletePending(false)}>保留任务</Button></div>}
       </section>
-      <p className="workbench-note" role="status" aria-live="polite">{warning || (saved ? '草稿已自动保存到此浏览器' : '填写即自动保存到此浏览器')}</p>
+      <p className="workbench-note" role="status" aria-live="polite">{warning || (nameChanged ? '任务名称尚未保存；其他内容仍会自动保存。' : saved ? '草稿已自动保存到此浏览器' : '填写即自动保存到此浏览器')}</p>
       {warning && <div className="workbench-toolbar"><Button onClick={backupStored}>下载已有草稿备份</Button><Button onClick={() => update(draftRef.current, true)}>保存当前草稿并替换本地记录</Button></div>}
       {error && <p className="error" role="alert">{error}</p>}
       {notice && <p className="workbench-note" role="status">{notice}</p>}

@@ -83,7 +83,10 @@ export default function ToolsPage() {
         </div>
       )}
       {tools.length > 0 && <div className="directory" aria-label="工具目录">{filtered.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>}
-      {loaded && !filtered.length && <EmptyState title={tools.length ? '没有匹配工具' : '暂无可用工具'} />}
+      {loaded && !filtered.length && <EmptyState title={tools.length ? '没有匹配工具' : '暂无可用工具'}>
+        <p>{hasFilters ? '试试其他关键词或分类，也可以清除筛选查看全部工具。' : '工具会在启用后显示在这里。'}</p>
+        {hasFilters && <Button variant="primary" onClick={() => setParams({}, { replace: true })}>查看全部工具</Button>}
+      </EmptyState>}
     </main>
   )
 }

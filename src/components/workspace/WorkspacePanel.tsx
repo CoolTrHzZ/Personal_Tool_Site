@@ -4,7 +4,7 @@ import Button from '../ui/Button'
 import Input from '../ui/Input'
 import '../../styles/pages/workspace.css'
 
-import { emptyTodos, initialTimer, isTodoList, isTimer, isWorkspaceNote, MINUTE, MAX_TODOS, type Todo } from './storage'
+import { emptyTodos, initialTimer, isTodoList, isTimer, isWorkspaceNote, MINUTE, MAX_TODOS, type FocusTimer, type Todo } from './storage'
 import { hasPersonalPending, readPersonalRaw, rememberPersonalPending, writePersonalRaw } from '../../utils/personal-storage'
 import PersonalDataPanel from './PersonalDataPanel'
 
@@ -105,8 +105,14 @@ export default function WorkspacePanel() {
   }, [timer.deadline])
 
   useEffect(() => {
-    if (timer.deadline !== null && now >= timer.deadline) saveTimer({ ...timer, remainingMs: 0, deadline: null, completed: true })
-  }, [now, timer, saveTimer])
+    // A queued storage event must not let an old deadline overwrite another tab.
+    // Stop automatic writes after a read error; recovery requires an explicit retry.
+    if (!timerError && timer.deadline !== null && now >= timer.deadline) {
+      saveTimer(current => current.deadline !== null && now >= current.deadline
+        ? { ...current, remainingMs: 0, deadline: null, completed: true }
+        : current)
+    }
+  }, [now, timer, timerError, saveTimer])
 
   function addTodo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -136,23 +142,38 @@ export default function WorkspacePanel() {
     })) { setDeletedTodo(null); todoInput.current?.focus({ preventScroll: true }) }
   }
 
-  function resetTimer(phase = timer.phase, minutes = timer.minutes) {
-    saveTimer({ phase, minutes, remainingMs: (phase === 'focus' ? minutes : 5) * MINUTE, deadline: null, completed: false })
+  function resetTimer(phase?: FocusTimer['phase'], minutes?: number) {
+    saveTimer(current => {
+      // Settings remain disabled if another tab started the timer before its event arrived.
+      if ((phase !== undefined || minutes !== undefined) && current.deadline !== null) return current
+      if (phase !== undefined && minutes === undefined && current.phase === phase) return current
+      const nextPhase = phase ?? current.phase
+      const nextMinutes = minutes ?? current.minutes
+      return { phase: nextPhase, minutes: nextMinutes, remainingMs: (nextPhase === 'focus' ? nextMinutes : 5) * MINUTE, deadline: null, completed: false }
+    })
   }
 
   function toggleTimer() {
     const time = Date.now()
+    const action = timer.deadline !== null ? 'pause' : timer.completed ? 'next' : 'start'
     setNow(time)
-    if (timer.deadline !== null) {
-      const left = Math.min(duration, Math.max(0, timer.deadline - time))
-      saveTimer({ ...timer, remainingMs: left, deadline: null, completed: left === 0 })
-    } else if (timer.completed) {
-      const phase = timer.phase === 'focus' ? 'break' : 'focus'
-      const remainingMs = (phase === 'focus' ? timer.minutes : 5) * MINUTE
-      saveTimer({ ...timer, phase, remainingMs, deadline: time + remainingMs, completed: false })
-    } else {
-      saveTimer({ ...timer, deadline: time + timer.remainingMs })
-    }
+    saveTimer(current => {
+      // Honor the visible button's action instead of toggling a newer tab's state.
+      if (action === 'pause') {
+        if (current.deadline === null) return current
+        const currentDuration = (current.phase === 'focus' ? current.minutes : 5) * MINUTE
+        const left = Math.min(currentDuration, Math.max(0, current.deadline - time))
+        return { ...current, remainingMs: left, deadline: null, completed: left === 0 }
+      }
+      if (current.deadline !== null) return current
+      if (action === 'next') {
+        if (!current.completed || current.phase !== timer.phase) return current
+        const phase = current.phase === 'focus' ? 'break' : 'focus'
+        const remainingMs = (phase === 'focus' ? current.minutes : 5) * MINUTE
+        return { ...current, phase, remainingMs, deadline: time + remainingMs, completed: false }
+      }
+      return current.completed ? current : { ...current, deadline: time + current.remainingMs }
+    })
   }
 
   return (
@@ -189,8 +210,8 @@ export default function WorkspacePanel() {
         </div>
         <div className="workspace-focus-settings">
           <div className="workspace-focus-modes" role="group" aria-label="计时模式">
-            <button type="button" aria-pressed={timer.phase === 'focus'} disabled={timer.deadline !== null} onClick={() => { if (timer.phase !== 'focus') resetTimer('focus') }}>专注</button>
-            <button type="button" aria-pressed={timer.phase === 'break'} disabled={timer.deadline !== null} onClick={() => { if (timer.phase !== 'break') resetTimer('break') }}><Coffee size={12} aria-hidden="true" />休息</button>
+            <button type="button" aria-pressed={timer.phase === 'focus'} disabled={timer.deadline !== null} onClick={() => resetTimer('focus')}>专注</button>
+            <button type="button" aria-pressed={timer.phase === 'break'} disabled={timer.deadline !== null} onClick={() => resetTimer('break')}><Coffee size={12} aria-hidden="true" />休息</button>
           </div>
           <label className="sr-only" htmlFor="workspace-focus-duration">专注时长</label>
           <select id="workspace-focus-duration" aria-label="专注时长" value={timer.minutes} disabled={timer.deadline !== null} onChange={event => resetTimer('focus', Number(event.target.value))}>

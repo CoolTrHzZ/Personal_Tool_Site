@@ -1,9 +1,9 @@
 .ui-modal-backdrop, .ui-drawer-backdrop { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; overflow: auto; padding: max(16px, 15vh) 16px 16px; background: color-mix(in srgb, var(--surface-page) 72%, transparent); backdrop-filter: blur(8px); animation: overlay-in .22s var(--ease); }
 .ui-modal-backdrop[hidden], .ui-drawer-backdrop[hidden] { display: none; }
 .ui-modal-backdrop { --dialog-inset: max(16px, 15vh, calc(var(--dialog-header-bottom, 0px) + 12px)); padding-block-start: var(--dialog-inset); }
-.ui-modal { width: min(560px, calc(100% - 32px)); max-height: min(86dvh, calc(100dvh - var(--dialog-inset) - 32px), 760px); padding: 22px; overflow: auto; background: var(--surface-overlay); animation: modal-in .34s var(--ease); }
+.ui-modal { width: min(560px, 100%); min-width: 0; max-height: min(86dvh, calc(100dvh - var(--dialog-inset) - 32px), 760px); padding: 22px; overflow: auto; background: var(--surface-overlay); animation: modal-in .34s var(--ease); }
 .ui-modal h2 { margin: 0 0 12px; font-size: 18px; }
-.ui-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.ui-modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .ui-modal.command-palette { max-height: min(72dvh, calc(100dvh - var(--dialog-inset) - 32px), 560px); }
 .ui-modal.command-palette > div { display: flex; flex-direction: column; min-height: 0; }
 .ui-modal.command-palette :is(.command-palette-search, .command-hint) { flex-shrink: 0; }
@@ -13,7 +13,7 @@
 .ui-drawer-head, .ui-drawer-foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 22px; }
 .ui-drawer-head { border-bottom: 1px solid var(--border-subtle); }
 .ui-drawer-body { flex: 1; overflow: auto; padding: 18px 22px; }
-.ui-drawer-foot { border-top: 1px solid var(--border-subtle); justify-content: flex-end; }
+.ui-drawer-foot { flex-wrap: wrap; border-top: 1px solid var(--border-subtle); justify-content: flex-end; }
 .ui-drawer-head h2 { margin: 0; font-size: 18px; }
 .ui-modal-backdrop.is-closing, .ui-drawer-backdrop.is-closing { animation: overlay-in .18s var(--ease) reverse both; }
 .ui-modal-backdrop.is-closing .ui-modal { animation: modal-in .18s var(--ease) reverse both; }
