@@ -34,10 +34,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - id: chromium_install
-        run: npx playwright install --with-deps chromium
-      - id: normal_e2e
-        run: npm run test:e2e
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
       - run: npm run check:pages
       - run: npm run build
         env:
@@ -47,85 +45,6 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           path: dist
-      # Temporary PR4 capture: remove with the reviewed fix or bounded cleanup.
-      - name: Trace one favorite case with Chromium sandbox
-        id: favorite_trace
-        if: >-
-          ${{ always() && !cancelled() && github.event_name == 'pull_request' &&
-              github.event.pull_request.number == 4 &&
-              github.head_ref == 'candidate/devos-import-consent-20261022' &&
-              steps.chromium_install.outcome == 'success' &&
-              (steps.normal_e2e.outcome == 'success' || steps.normal_e2e.outcome == 'failure') }}
-        timeout-minutes: 6
-        env:
-          DEVOS_FAVORITE_TRACE: '1'
-          DEVOS_FAVORITE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          DEBUG: pw:api,pw:browser
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -e favorite-trace || -L favorite-trace ]]; then
-            echo 'Refusing existing favorite-trace output.' >&2
-            exit 1
-          fi
-          mkdir favorite-trace
-          node --input-type=module <<'NODE' 2>&1 | tee favorite-trace/playwright.log
-          import { execFileSync } from 'node:child_process'
-          const requireSafe = (ok, message) => { if (!ok) throw new Error(message) }
-          requireSafe(process.env.DEVOS_FAVORITE_TRACE === '1', 'Diagnostic marker required')
-          requireSafe(typeof process.getuid === 'function' && typeof process.geteuid === 'function' && process.getuid() !== 0 && process.geteuid() !== 0, 'Non-root UID and effective UID required')
-          const head = process.env.DEVOS_FAVORITE_HEAD_SHA
-          requireSafe(typeof head === 'string' && /^[0-9a-f]{40}$/.test(head), 'Invalid event PR head SHA')
-          const git = (args, input) => {
-            try { return execFileSync('git', args, { input, encoding: 'utf8', timeout: 30_000, maxBuffer: 1_048_576, stdio: ['pipe', 'pipe', 'pipe'] }).trim() }
-            catch { throw new Error('Source identity Git operation failed; no repair attempted') }
-          }
-          const clean = () => requireSafe(git(['status', '--porcelain=v1', '--untracked-files=no']) === '', 'Tracked/index state must be clean')
-          clean()
-          const checkout = git(['rev-parse', '--verify', 'HEAD^{commit}'])
-          const refs = git(['show-ref'])
-          requireSafe(/^https:\/\/github\.com\/CoolTrHzZ\/Personal_Tool_Site(?:\.git)?$/.test(git(['remote', 'get-url', 'origin'])), 'Unexpected existing origin')
-          let object = git(['cat-file', '--batch-check'], `${head}\n`)
-          if (object === `${head} missing`) {
-            git(['-c', 'gc.auto=0', 'fetch', '--no-tags', '--no-write-fetch-head', '--no-recurse-submodules', '--depth=1', 'origin', head])
-            object = git(['cat-file', '--batch-check'], `${head}\n`)
-          }
-          requireSafe(new RegExp(`^${head} commit [0-9]+$`).test(object), 'Event head commit unavailable')
-          requireSafe(git(['show-ref']) === refs && git(['rev-parse', 'HEAD']) === checkout, 'Checkout or refs changed during identity check')
-          clean()
-          const headTree = git(['rev-parse', `${head}^{tree}`])
-          const checkoutTree = git(['rev-parse', 'HEAD^{tree}'])
-          requireSafe(/^[0-9a-f]{40}$/.test(headTree) && headTree === checkoutTree, 'Event head and checkout trees differ')
-          console.log(JSON.stringify({ eventHead: head, checkout, headTree, checkoutTree }))
-          NODE
-          PLAYWRIGHT_JSON_OUTPUT_FILE=favorite-trace/collection.json npm run test:e2e -- --config=playwright.favorite-trace.config.mjs e2e/resource-atlas.spec.js --project=workspace --grep '首页资源行显示完整标识与 AI 类型图标$' --workers=1 --repeat-each=1 --retries=0 --list --reporter=json 2>&1 | tee -a favorite-trace/playwright.log
-          node --input-type=module <<'NODE' 2>&1 | tee -a favorite-trace/playwright.log
-          import { readFileSync, statSync } from 'node:fs'
-          if (statSync('favorite-trace/collection.json').size > 1_048_576) throw new Error('Collection report too large')
-          const report = JSON.parse(readFileSync('favorite-trace/collection.json', 'utf8'))
-          const specs = []
-          const visit = suites => { for (const suite of suites) { specs.push(...(suite.specs || [])); visit(suite.suites || []) } }
-          visit(report.suites)
-          const project = report.config.projects[0]
-          if (report.errors.length || report.config.projects.length !== 1 || project.name !== 'workspace' || project.retries !== 0 || project.repeatEach !== 1 || report.config.workers !== 1 || specs.length !== 1 || specs[0].file !== 'resource-atlas.spec.js' || specs[0].title !== '首页资源行显示完整标识与 AI 类型图标' || specs[0].tests.length !== 1 || specs[0].tests[0].projectName !== 'workspace' || specs[0].tests[0].results.length !== 0) throw new Error('Expected exactly one unexecuted favorite case')
-          console.log(JSON.stringify({ collected: 1, project: 'workspace', retries: 0, repeatEach: 1 }))
-          NODE
-          status=0
-          echo 'attempted=true' >> "$GITHUB_OUTPUT"
-          npm run test:e2e -- --config=playwright.favorite-trace.config.mjs e2e/resource-atlas.spec.js --project=workspace --grep '首页资源行显示完整标识与 AI 类型图标$' --workers=1 --repeat-each=1 --retries=0 --trace=on --output=favorite-trace/results 2>&1 | tee -a favorite-trace/playwright.log || status=$?
-          printf 'Diagnostic exit=%s UTC=%s\n' "$status" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a favorite-trace/playwright.log
-          exit "$status"
-      - name: Upload attempted favorite trace
-        if: ${{ always() && !cancelled() && steps.favorite_trace.outputs.attempted == 'true' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: favorite-trace-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            favorite-trace/results
-            favorite-trace/playwright.log
-          retention-days: 7
-          include-hidden-files: false
-          if-no-files-found: error
 
   pages-gate:
     needs: build
