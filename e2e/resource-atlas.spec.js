@@ -104,8 +104,81 @@ test('首页资源行显示完整标识与 AI 类型图标', async ({ page }, te
     const trackPointer = event => { pointer = { x: event.clientX, y: event.clientY, type: event.type, target: identify(event.target) } }
     const events = ['pointermove', 'pointerdown', 'pointerup']
     for (const event of events) document.addEventListener(event, trackPointer, { capture: true, passive: true })
+    // Separate capped observations leave the existing diagnostic records intact.
+    const activity = { events: [], samples: [], dropped: { events: 0, samples: 0 }, errors: 0, limits: { events: 96, samples: 16, ancestors: 4, animations: 8 }, frame: { scheduled: false, sampled: false, cancelled: false } }
+    let observing = false
+    let frame = null
+    const current = () => document.querySelector('#today .favorite-button')
+    const describe = element => {
+      if (element === window) return { kind: 'window' }
+      if (element === document) return { kind: 'document' }
+      const identity = identify(element)
+      return identity && { ...identity, id: identity.id?.slice(0, 80), class: identity.class?.slice(0, 160) }
+    }
+    const measured = element => ({ ...geometry(element), ...describe(element) })
+    const number = value => typeof value === 'number' && Number.isFinite(value) ? value : null
+    const animations = nodes => {
+      const items = []
+      let omitted = 0
+      for (const node of nodes) {
+        const list = node.getAnimations?.({ subtree: false }) || []
+        const selected = list.slice(0, activity.limits.animations - items.length)
+        omitted += list.length - selected.length
+        for (const animation of selected) {
+          const timing = animation.effect?.getComputedTiming()
+          items.push({ target: describe(animation.effect?.target), type: animation.constructor.name.slice(0, 40), property: animation.transitionProperty?.slice(0, 80), name: animation.animationName?.slice(0, 80), playState: animation.playState, pending: animation.pending, currentTime: number(animation.currentTime), startTime: number(animation.startTime), playbackRate: number(animation.playbackRate), duration: number(timing?.duration), progress: number(timing?.progress), localTime: number(timing?.localTime) })
+        }
+      }
+      return { items, omitted }
+    }
+    const observe = (bucket, phase, element = current(), detail = {}) => {
+      if (!observing) return
+      if (activity[bucket].length >= activity.limits[bucket]) { activity.dropped[bucket]++; return }
+      try {
+        const ancestors = []
+        for (let parent = element?.parentElement; parent && ancestors.length < activity.limits.ancestors; parent = parent.parentElement) ancestors.push(parent)
+        const hit = pointer ? document.elementFromPoint(pointer.x, pointer.y) : null
+        const root = document.scrollingElement
+        activity[bucket].push({
+          phase, time: window.performance.now(), ...detail, initial: describe(initial), current: describe(element), sameNodeAsInitial: element === initial,
+          button: element ? measured(element) : null, ancestors: ancestors.map(measured), activeElement: describe(document.activeElement), activeIsCurrent: document.activeElement === element,
+          focus: element?.matches(':focus'), focusVisible: element?.matches(':focus-visible'), hover: element?.matches(':hover'), pressed: element?.getAttribute('aria-pressed'),
+          pointer: pointer && { x: pointer.x, y: pointer.y, type: pointer.type }, hit: describe(hit), hitInsideCurrent: Boolean(element && hit && element.contains(hit)),
+          scroll: [window.scrollX, window.scrollY], viewport: [innerWidth, innerHeight], root: root && { scroll: [root.scrollLeft, root.scrollTop], extent: [root.scrollWidth, root.scrollHeight], client: [root.clientWidth, root.clientHeight], behavior: window.getComputedStyle(root).scrollBehavior },
+          animations: animations(element ? [element, ...ancestors] : []),
+        })
+      } catch { activity.errors++ }
+    }
+    const activityEvents = ['scroll', 'scrollend', 'focusin', 'focusout', 'keydown', 'keyup', 'transitionstart', 'transitioncancel', 'transitionend']
+    const onActivity = event => {
+      const element = current()
+      const keyEvent = event.type === 'keydown' || event.type === 'keyup'
+      if (keyEvent && !['Tab', ' ', 'Space', 'Spacebar'].includes(event.key)) return
+      if (event.type.startsWith('transition') && event.target !== element && event.target !== initial) return
+      observe('events', event.type, element, { eventTime: event.timeStamp, trusted: event.isTrusted, target: describe(event.target), relatedTarget: describe(event.relatedTarget), key: keyEvent ? (event.key === 'Tab' ? 'Tab' : 'Space') : undefined, shiftKey: keyEvent ? event.shiftKey : undefined, repeat: keyEvent ? event.repeat : undefined, defaultPrevented: event.defaultPrevented, property: event.propertyName?.slice(0, 80), elapsedTime: number(event.elapsedTime), pseudoElement: event.pseudoElement?.slice(0, 32) })
+    }
+    const stopActivity = () => {
+      if (observing) observe('samples', 'activity-stop')
+      observing = false
+      for (const event of activityEvents) window.removeEventListener(event, onActivity, true)
+      if (frame !== null) { window.cancelAnimationFrame(frame); frame = null; activity.frame.cancelled = true }
+    }
     return {
       records,
+      activity,
+      startActivity() {
+        if (observing) return
+        observing = true
+        for (const event of activityEvents) window.addEventListener(event, onActivity, { capture: true, passive: true })
+        observe('samples', 'activity-start')
+      },
+      stopActivity,
+      sample(phase, element) { observe('samples', phase, element) },
+      sampleFirstFrame() {
+        if (!observing || activity.frame.scheduled) return
+        activity.frame.scheduled = true
+        frame = window.requestAnimationFrame(() => { frame = null; activity.frame.sampled = true; observe('samples', 'instant-scroll-first-frame') })
+      },
       capture(phase, element = document.querySelector('#today .favorite-button')) {
         const hit = pointer ? document.elementFromPoint(pointer.x, pointer.y) : null
         const ancestors = []
@@ -121,8 +194,9 @@ test('首页资源行显示完整标识与 AI 类型图标', async ({ page }, te
           pointer, hit: identify(hit), hitInsideCurrent: Boolean(element && hit && element.contains(hit)),
           scroll: [window.scrollX, window.scrollY], viewport: [innerWidth, innerHeight],
         })
+        if (['pre-space', 'space-deselected', 'space-post-hover', 'failure'].includes(phase)) observe('samples', phase, element)
       },
-      dispose() { for (const event of events) document.removeEventListener(event, trackPointer, true) },
+      dispose() { stopActivity(); for (const event of events) document.removeEventListener(event, trackPointer, true) },
     }
   })
   const capture = phase => diagnostics.evaluate((state, label) => state.capture(label), phase)
@@ -169,6 +243,7 @@ test('首页资源行显示完整标识与 AI 类型图标', async ({ page }, te
     await expect(favorite).toHaveCSS('background-color', selectedBackground)
 
     // Return with the keyboard so focus-visible is exercised, not just focus().
+    await diagnostics.evaluate(state => state.startActivity())
     await favorite.press('Shift+Tab')
     await page.keyboard.press('Tab')
     await expect(favorite).toBeFocused()
@@ -187,11 +262,17 @@ test('首页资源行显示完整标识与 AI 类型图标', async ({ page }, te
     await expect(favorite.locator('svg')).toHaveAttribute('fill', 'none')
     await capture('space-deselected')
     // Explicit hover precondition after the keyboard update; no later color probe.
-    await favorite.evaluate(element => element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' }))
+    await favorite.evaluate((element, state) => {
+      state.sample('instant-scroll-before', element)
+      element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' })
+      state.sample('instant-scroll-after', element)
+      state.sampleFirstFrame() // Observe the next frame without awaiting it or settling scroll.
+    }, diagnostics)
     await favorite.hover()
     await capture('space-post-hover')
     expect(await favorite.evaluate(element => element.matches(':hover'))).toBe(true)
     await expect(favorite).toHaveCSS('color', hoverColor)
+    await diagnostics.evaluate(state => state.stopActivity())
     await favorite.press('Enter')
     await expect(favorite).toHaveAttribute('aria-pressed', 'true')
     await expect(favorite.locator('svg')).toHaveAttribute('fill', 'currentColor')
@@ -200,9 +281,9 @@ test('首页资源行显示完整标识与 AI 类型图标', async ({ page }, te
     await capture('failure').catch(diagnosticError => console.warn('Favorite failure snapshot unavailable:', diagnosticError.message))
     throw error
   } finally {
-    const records = await diagnostics.evaluate(state => { state.dispose(); return state.records }).catch(error => [{ diagnosticError: error.message }])
+    const { records, activity } = await diagnostics.evaluate(state => { state.dispose(); return { records: state.records, activity: state.activity } }).catch(error => ({ records: [{ diagnosticError: error.message }], activity: { unavailable: true } }))
     await diagnostics.dispose().catch(error => console.warn('Favorite diagnostic cleanup:', error.message))
-    const evidence = JSON.stringify({ retry: testInfo.retry, records })
+    const evidence = JSON.stringify({ retry: testInfo.retry, records, activity })
     console.log('[favorite-pointer-diagnostics]', evidence)
     await testInfo.attach('favorite-pointer-diagnostics', { body: evidence, contentType: 'application/json' }).catch(error => console.warn('Favorite diagnostic attachment unavailable:', error.message))
   }
