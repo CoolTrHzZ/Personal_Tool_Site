@@ -187,6 +187,7 @@ test('首页资源行显示完整标识与 AI 类型图标', async ({ page }, te
     await expect(favorite.locator('svg')).toHaveAttribute('fill', 'none')
     await capture('space-deselected')
     // Explicit hover precondition after the keyboard update; no later color probe.
+    await favorite.evaluate(element => element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' }))
     await favorite.hover()
     await capture('space-post-hover')
     expect(await favorite.evaluate(element => element.matches(':hover'))).toBe(true)
