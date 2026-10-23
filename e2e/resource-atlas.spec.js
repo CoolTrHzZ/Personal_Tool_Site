@@ -1,5 +1,29 @@
 import { test, expect } from '@playwright/test'
 
+if (process.env.DEVOS_FAVORITE_TRACE === '1') {
+  test.beforeAll(async ({ browser }, testInfo) => {
+    if (typeof process.getuid !== 'function' || typeof process.geteuid !== 'function' || process.getuid() === 0 || process.geteuid() === 0) throw new Error('Non-root UID and effective UID required for favorite trace')
+    if (testInfo.project.use.launchOptions?.chromiumSandbox !== true) throw new Error('Resolved Chromium sandbox option must be true')
+    const session = await browser.newBrowserCDPSession()
+    try {
+      const { arguments: args } = await session.send('Browser.getBrowserCommandLine')
+      if (!Array.isArray(args) || args.length === 0 || args.length > 256 || args.some(arg => typeof arg !== 'string' || arg.length === 0 || arg.length > 8192)) throw new Error('Chromium command line verification unavailable')
+      const unsafe = args.some((arg, index) => {
+        const value = arg.toLowerCase()
+        const flag = value.split('=', 1)[0]
+        const option = value.includes('=') ? value.slice(value.indexOf('=') + 1) : args[index + 1]?.toLowerCase()
+        return /^--(?:no-|disable-).*sandbox/.test(value) || (['--sandbox-type', '--service-sandbox-type'].includes(flag) && option === 'none') ||
+          ['--single-process', '--no-zygote', '--in-process-gpu', '--allow-sandbox-debugging', '--disable-web-security'].includes(flag) ||
+          (['--disable-features', '--enable-features'].includes(flag) && option?.includes('sandbox'))
+      })
+      if (unsafe) throw new Error('Refusing unsafe Chromium command line')
+      console.log('[favorite-trace-sandbox]', JSON.stringify({ uid: process.getuid(), euid: process.geteuid(), chromiumSandbox: true, commandLineVerified: true, argumentCount: args.length }))
+    } finally {
+      await session.detach()
+    }
+  })
+}
+
 const LOCAL_ORIGIN = 'http://127.0.0.1:5173'
 const isLocalOrigin = url => new URL(url).origin === LOCAL_ORIGIN
 
