@@ -76,6 +76,8 @@ export default {
     statusHealthy: '● Healthy',
     statusIssues: '● {count} issues',
     statusSynced: '● Synced {count}',
+    statusIndexFailed: '● Sync failed',
+    statusIndexUnknown: '● Not yet verified',
     statusRunning: '● Running',
     statusReady: '● Ready',
     statusRuntime: '● {status}',

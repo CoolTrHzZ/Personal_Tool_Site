@@ -418,7 +418,7 @@ function renderStats() {
   }
   const dataIssueCount = issues.length + state.loadErrors.length
   setStatus('#status-data', validationOk && !state.loadErrors.length ? i18n.t('dash.statusHealthy') : i18n.t('dash.statusIssues', { count: dataIssueCount || 1 }), validationOk && !state.loadErrors.length ? '' : 'is-error')
-  setStatus('#status-index', indexOk ? i18n.t('dash.statusSynced', { count: state.tools.length }) : i18n.t('dash.statusUnavailable'), indexOk ? '' : 'is-warning')
+  setStatus('#status-index', indexOk ? i18n.t('dash.statusSynced', { count: state.tools.length }) : i18n.t(state.system?.index === 'failed' ? 'dash.statusIndexFailed' : 'dash.statusIndexUnknown'), indexOk ? '' : state.system?.index === 'failed' ? 'is-error' : 'is-warning')
   setStatus('#status-admin', adminOk ? i18n.t('dash.statusRunning') : i18n.t('dash.statusUnavailable'), adminOk ? '' : 'is-error')
   setStatus('#status-runtime', runtimeOk ? i18n.t('dash.statusReady') : i18n.t('dash.statusRuntime', { status: state.system?.runtime || i18n.t('dash.statusUnavailable') }), runtimeOk ? '' : 'is-error')
 

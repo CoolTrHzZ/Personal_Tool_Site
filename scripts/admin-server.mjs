@@ -186,13 +186,21 @@ async function staticToolManifests() {
   return manifests
 }
 
+// Last completed rebuild in this process; status reads never rebuild or retry.
+let toolIndexStatus = 'unknown'
 async function rebuildToolIndex() {
-  const core = await readCoreManifests()
-  const statics = await staticToolManifests()
-  const merged = [...core.map(manifest => normalizeManifest(manifest, manifest.order ?? 0)), ...statics]
-  const unique = [...new Map(merged.map(manifest => [manifest.id, manifest])).values()].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-  await writeFileAtomic(indexManifestPath, JSON.stringify(unique, null, 2) + '\n')
-  return unique
+  try {
+    const core = await readCoreManifests()
+    const statics = await staticToolManifests()
+    const merged = [...core.map(manifest => normalizeManifest(manifest, manifest.order ?? 0)), ...statics]
+    const unique = [...new Map(merged.map(manifest => [manifest.id, manifest])).values()].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    await writeFileAtomic(indexManifestPath, JSON.stringify(unique, null, 2) + '\n')
+    toolIndexStatus = 'synced'
+    return unique
+  } catch (error) {
+    toolIndexStatus = 'failed'
+    throw error
+  }
 }
 
 async function tools() {
@@ -821,7 +829,7 @@ async function handleRequest(req, res) {
       }
       if (url.pathname === '/api/system' && req.method === 'GET') {
         const pkg = JSON.parse(await readFile(join(codeRoot, 'package.json'), 'utf8'))
-        return send(res, 200, { version: pkg.version, mode, admin: 'running', runtime: 'ready', index: 'synced' })
+        return send(res, 200, { version: pkg.version, mode, admin: 'running', runtime: 'ready', index: toolIndexStatus })
       }
       if (url.pathname === '/api/tags' && req.method === 'GET') return send(res, 200, await collectTagUsage())
       if (url.pathname === '/api/tags' && req.method === 'POST') return send(res, 201, await addTag(await body(req)))

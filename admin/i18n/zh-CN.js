@@ -76,6 +76,8 @@ export default {
     statusHealthy: '● 正常',
     statusIssues: '● {count} 个问题',
     statusSynced: '● 已同步 {count}',
+    statusIndexFailed: '● 同步失败',
+    statusIndexUnknown: '● 尚未确认',
     statusRunning: '● 运行中',
     statusReady: '● Ready',
     statusRuntime: '● {status}',
