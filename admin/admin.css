@@ -33,12 +33,13 @@ body { margin: 0; min-width: 320px; background: var(--surface-page); color: var(
 .admin-menu-backdrop { position: fixed; inset: 0; z-index: 20; border: 0; background: #0008; backdrop-filter: blur(3px); }
 .sidebar-footer a:hover { color: var(--accent); }
 
-.ui-button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; font: 600 13px var(--font-sans); color: inherit; transition: background var(--duration), border-color var(--duration), color var(--duration), box-shadow var(--duration), transform var(--duration); }
-.ui-button:hover { transform: translateY(-1px); }
-.ui-button:active { transform: scale(.97); }
-.ui-button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
-.ui-button-sm { min-height: 30px; padding: 0 10px; font-size: 12px; }
-.ui-button-md { min-height: 36px; padding: 0 14px; font-size: 13px; }
+.ui-button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; max-width: 100%; min-height: 36px; padding: 7px 14px; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; font: 600 13px/1.4 var(--font-sans); color: inherit; overflow-wrap: anywhere; text-align: center; transition: background var(--duration), border-color var(--duration), color var(--duration), box-shadow var(--duration), transform var(--duration); }
+.ui-button > svg { flex-shrink: 0; }
+.ui-button:not(:disabled):hover { transform: translateY(-1px); }
+.ui-button:not(:disabled):active { transform: scale(.97); }
+.ui-button:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
+.ui-button-sm { min-height: 30px; padding: 5px 10px; font-size: 12px; }
+.ui-button-md { min-height: 36px; padding: 7px 14px; font-size: 13px; }
 .ui-button-primary { overflow: hidden; background: var(--accent); color: var(--on-accent); border-color: var(--accent); box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 10%, transparent); }
 .ui-button-primary::after { content: ''; position: absolute; inset: -20% -40%; pointer-events: none; background: linear-gradient(110deg, transparent 35%, #fff5 50%, transparent 65%); transform: translateX(-100%); transition: transform .55s var(--ease); }
 .ui-button-primary:not(:disabled):is(:hover, :focus-visible)::after { transform: translateX(100%); }
@@ -46,13 +47,15 @@ body { margin: 0; min-width: 320px; background: var(--surface-page); color: var(
 .ui-button-ghost { border-color: var(--border-subtle); background: transparent; color: var(--text-secondary); }
 .ui-button-ghost:not(:disabled):hover { border-color: color-mix(in srgb, var(--accent) 30%, var(--border-default)); background: var(--accent-soft); color: var(--accent); }
 .ui-button-danger { border-color: color-mix(in srgb, var(--danger-color) 35%, transparent); background: color-mix(in srgb, var(--danger-color) 12%, transparent); color: var(--danger-color); }
-.ui-button-danger:hover { border-color: var(--danger-color); box-shadow: 0 0 16px color-mix(in srgb, var(--danger-color) 18%, transparent); }
+.ui-button-danger:not(:disabled):hover { border-color: var(--danger-color); box-shadow: 0 0 16px color-mix(in srgb, var(--danger-color) 18%, transparent); }
 .ui-card { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-card); box-shadow: var(--shadow-sm); }
-.ui-input { width: 100%; min-height: 38px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-panel); color: var(--text-primary); padding: 0 11px; outline: none; font: inherit; transition: border-color var(--duration), box-shadow var(--duration); }
+.ui-input { width: 100%; min-width: 0; min-height: 38px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-panel); color: var(--text-primary); padding: 0 11px; outline: none; font: inherit; transition: border-color var(--duration), box-shadow var(--duration); }
 .ui-input::placeholder { color: var(--text-faint); }
 textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resize: vertical; }
-.ui-input:hover { border-color: var(--border-hover); }
+.ui-input:where(:not(:disabled):not([readonly]):not(:focus):not(:user-invalid):not([aria-invalid="true"])):hover { border-color: var(--border-hover); }
 .ui-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ui-input:disabled { opacity: .6; cursor: not-allowed; background: var(--surface-raised); }
+.ui-input[readonly] { background: var(--surface-raised); color: var(--text-secondary); cursor: text; }
 .ui-input:user-invalid, .ui-input[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent); }
 .ui-table-wrap { overflow-x: auto; max-height: min(70vh, 720px); border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--border-default)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-card) 55%, transparent); scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 35%, transparent) transparent; }
 .ui-table { width: 100%; min-width: 760px; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
@@ -107,7 +110,7 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .ui-modal { display: flex; flex-direction: column; width: min(640px, calc(100% - 8px)); max-height: min(86dvh, 760px); margin: auto; padding: 0; overflow: hidden; animation: admin-dialog-in .2s var(--ease); }
 .ui-modal h2 { margin: 0; padding: 18px 22px 0; font-size: 18px; }
 #modal-body { flex: 1; min-height: 0; overflow: auto; padding: 14px 22px; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 35%, transparent) transparent; }
-.ui-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin: 0; padding: 14px 22px; border-top: 1px solid var(--border-subtle); }
+.ui-modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin: 0; padding: 14px 22px; border-top: 1px solid var(--border-subtle); }
 .ui-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px 0; }
 .ui-modal-head h2 { padding: 0; }
 .ui-modal-body { flex: 1; min-height: 0; overflow: auto; padding: 0 22px 22px; }
@@ -164,7 +167,7 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .sidebar-status { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--text-faint); font-size: 11px; }
 
 .page-telemetry { margin: 6px 0 0; color: var(--text-faint); font: 11px var(--font-mono); }
-.table-toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+.table-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 14px; }
 .table-toolbar .ui-input { flex: 1; min-width: 160px; max-width: none; }
 .settings-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
 .settings-tab.active { border-color: color-mix(in srgb, var(--accent-secondary) 36%, transparent); background: color-mix(in srgb, var(--accent-secondary) 9%, transparent); color: var(--accent-secondary); }
@@ -173,8 +176,8 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .kebab-menu { position: fixed; z-index: 80; display: grid; min-width: 168px; padding: 6px; border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-overlay) 92%, transparent); backdrop-filter: blur(16px); box-shadow: var(--shadow-lg); animation: modal-in .22s var(--ease); }
 .kebab-menu[hidden] { display: none; }
 .kebab-menu .ui-button { width: 100%; justify-content: flex-start; border-color: transparent; background: transparent; transform: none; }
-.kebab-menu .ui-button:hover { background: var(--accent-soft); color: var(--accent); }
-.kebab-menu .ui-button-danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); box-shadow: none; }
+.kebab-menu .ui-button:not(:disabled):hover { background: var(--accent-soft); color: var(--accent); }
+.kebab-menu .ui-button-danger:not(:disabled):hover { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); box-shadow: none; }
 .viewport-switch { display: flex; gap: 6px; }
 .ui-drawer { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 .ui-drawer-body { flex: 1; overflow: auto; padding: 0 22px 18px; }
@@ -255,7 +258,7 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .dashboard-bottom .activity-log li { min-width: 0; padding-block: 7px; }
 .dashboard-bottom .activity-log span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.panel-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.panel-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .panel-toolbar h2 { margin: 0; }
 .drawer-form, .settings-section { display: grid; gap: 12px; }
 .form-intro { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
@@ -268,7 +271,7 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .form-advanced > summary { min-height: 44px; padding: 13px 14px; color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
 .form-advanced > summary:is(:hover, :focus-visible) { color: var(--accent); }
 .form-advanced-fields { display: grid; min-width: 0; gap: 12px; padding: 0 14px 14px; }
-.field-hint { color: var(--text-faint); font-size: 11px; font-weight: 400; line-height: 1.6; }
+.field-hint { color: var(--text-faint); font-size: 12px; font-weight: 400; line-height: 1.6; overflow-wrap: anywhere; }
 .form-error { grid-column: 1 / -1; margin: 0; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border-default)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--danger) 7%, var(--surface-panel)); color: var(--danger); line-height: 1.6; overflow-wrap: anywhere; }
 .admin-get-started { display: grid; flex: 1 1 400px; gap: 8px; min-width: 0; padding-inline: 22px; border-inline-start: 1px solid var(--border-default); }
 .admin-get-started h3 { margin: 0; color: var(--accent); font-size: 13px; }
@@ -326,7 +329,7 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 .wizard-steps li.done::before { content: '✓ '; }
 .wizard-steps li.active { color: var(--accent-color); background: var(--accent-soft); border-radius: var(--radius-sm); }
 .wizard-body { flex: 1; overflow-y: auto; min-height: 220px; padding: 4px 2px; }
-.wizard-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); flex: 0 0 auto; }
+.wizard-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); flex: 0 0 auto; }
 .wizard-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .wizard-form .field { display: grid; gap: 6px; }
 .field-label, .check-label { color: var(--text-secondary); font-size: 12px; font-weight: 700; }
@@ -560,6 +563,9 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 @media (pointer: coarse) {
   .ui-button, .cfg-admin-actions .ui-button, .dashboard-bottom .shortcut-grid .ui-button, .note-studio-tabs button, .tag-option, .ui-switch, .metadata-edit { min-height: 44px; }
   .kebab-toggle { min-width: 44px; }
+  :root :is(input.ui-input, select.ui-input) { min-height: 44px; }
+  :root :is(input.ui-input, textarea.ui-input, select.ui-input) { font-size: 16px; }
+  .check-inline { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -577,7 +583,6 @@ textarea.ui-input { min-height: 92px; padding: 10px 11px; line-height: 1.6; resi
 /* Shared content editors, recoverable drafts, and publishing review. */
 .admin-draft { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--surface-raised); color: var(--text-secondary); font-size: 12px; }
 .admin-draft > span { flex: 1 1 220px; }
-.ui-input[readonly] { opacity: .7; cursor: default; }
 .admin-management-result { margin-top: 20px; min-width: 0; }
 .admin-management-result > button { margin: 0 8px 8px 0; }
 .admin-file-list { padding: 12px 12px 12px 28px; max-height: 320px; overflow: auto; font-size: 12px; line-height: 1.9; border: 1px solid var(--border-default); border-radius: 10px; overflow-wrap: anywhere; }

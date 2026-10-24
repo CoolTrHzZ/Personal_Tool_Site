@@ -4,7 +4,7 @@
 .workspace-card-heading h2 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text-primary); font-size: 13px; font-weight: 600; }
 .workspace-card-heading h2 svg { color: var(--workspace-accent); }
 .workspace-meta { color: var(--text-faint); font: 10px var(--font-mono); white-space: nowrap; }
-.workspace-todo-form { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 6px; }
+.workspace-todo-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
 .workspace-todo-form .ui-input { min-width: 0; min-height: 34px; padding: 0 9px; font-size: 12px; }
 .workspace-todo-form .ui-button { min-height: 34px; border-radius: 6px; }
 .workspace-empty { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 45px; margin: 10px 0 0; color: var(--text-faint); font-size: 11px; }
@@ -52,3 +52,8 @@
 .personal-import-preview .ui-button { justify-self: start; }
 
 .personal-import-preview li { overflow-wrap: anywhere; break-inside: avoid; }
+
+@media (pointer: coarse) {
+  .workspace-panel .ui-button, .workspace-focus-modes button, .workspace-focus-settings select, .personal-data-file, .workspace-todos label { min-height: 44px; }
+  .workspace-todo-form .ui-input, .workspace-note, .workspace-focus-settings select, .personal-import-preview select { font-size: 16px; }
+}

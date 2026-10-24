@@ -8,8 +8,8 @@ export const PERSONAL_KEYS = ['devos.workspace.todos', 'devos.workspace.note', '
 export const PERSONAL_LABELS: Record<string, string> = {
   'devos.workspace.todos': '待办', 'devos.workspace.note': '便笺', 'devos.workspace.timer': '专注计时', favoriteTools: '工具收藏', recentTools: '最近工具', searchHistory: '搜索历史', [CONTEXT_TASKS_KEY]: 'AI 任务列表', [CONTEXT_STORAGE_KEY]: '旧版 AI 草稿', [CFG_STORAGE_KEY]: '本机 CFG 草稿与版本', 'devos.projects.pinned': '常用项目', theme: '主题', 'devos-motion': '动效', 'devos-home-view': '首页视图',
 }
-export type PersonalBackup = { kind: 'devos-personal-data'; version: 1; exportedAt: string; entries: Record<string, string> }
-export type PersonalImportPlan = { before: Record<string, string | null>; entries: Record<string, string>; mode: 'merge' | 'replace' }
+export type PersonalBackup = { kind: 'devos-personal-data'; version: 1; exportedAt: string; entries: Record<string, string>; unavailableKeys?: string[] }
+export type PersonalImportPlan = { before: Record<string, string | null>; persistedBefore: Record<string, string | null>; entries: Record<string, string>; mode: 'merge' | 'replace' }
 const json = (raw: string) => JSON.parse(raw) as unknown
 const idList = (value: unknown, max = 1000) => Array.isArray(value) && value.length <= max && value.every(item => typeof item === 'string' && item.trim() && item.length <= 10000) && new Set(value).size === value.length
 
@@ -44,18 +44,30 @@ export function describePersonalEntry(key: string, raw: string | null) {
 
 export function exportPersonalData(): PersonalBackup {
   const entries: Record<string, string> = {}
+  const unavailableKeys: string[] = []
   for (const key of PERSONAL_KEYS) {
-    const raw = readPersonalRaw(key)
-    if (raw !== null) entries[key] = raw
+    // A blocked unrelated key must not prevent rescuing this tab's pending edits.
+    if (key === CONTEXT_STORAGE_KEY && entries[CONTEXT_TASKS_KEY]) continue
+    try {
+      const raw = readPersonalRaw(key)
+      if (raw !== null) entries[key] = raw
+    } catch { unavailableKeys.push(key) }
   }
-  if (entries[CONTEXT_TASKS_KEY]) delete entries[CONTEXT_STORAGE_KEY]
-  return { kind: 'devos-personal-data', version: 1, exportedAt: new Date().toISOString(), entries }
+  if (unavailableKeys.length && !Object.keys(entries).length) throw new Error('没有可导出的个人数据；浏览器存储无法读取，请保留当前页面并检查存储设置。')
+  return { kind: 'devos-personal-data', version: 1, exportedAt: new Date().toISOString(), entries, ...(unavailableKeys.length ? { unavailableKeys } : {}) }
 }
 
 export function parsePersonalBackup(raw: string): PersonalBackup {
   if (raw.length > 32 * 1024 * 1024) throw new Error('备份不能超过 32 MiB')
-  const data = JSON.parse(raw.replace(/^\uFEFF/, '')) as PersonalBackup
+  const data = JSON.parse(raw.replace(/^\uFEFF/, '')) as PersonalBackup & { unreadableKeys?: string[] }
   if (!data || data.kind !== 'devos-personal-data' || data.version !== 1 || !data.entries || typeof data.entries !== 'object' || Array.isArray(data.entries) || typeof data.exportedAt !== 'string') throw new Error('请选择本工作站导出的个人数据备份；公开站点备份不能在此导入')
+  for (const missingKeys of [data.unavailableKeys, data.unreadableKeys]) {
+    if (missingKeys !== undefined && (!idList(missingKeys, PERSONAL_KEYS.length) || missingKeys.some(key => !(PERSONAL_KEYS as readonly string[]).includes(key) || Object.prototype.hasOwnProperty.call(data.entries, key)))) throw new Error('备份缺失项目清单无效')
+  }
+  if (data.unavailableKeys !== undefined && data.unreadableKeys !== undefined && (data.unavailableKeys.length !== data.unreadableKeys.length || data.unreadableKeys.some(key => !data.unavailableKeys!.includes(key)))) throw new Error('备份缺失项目清单无效：两个清单内容不一致')
+  const unavailableKeys = data.unavailableKeys ?? data.unreadableKeys
+  if (unavailableKeys !== undefined) data.unavailableKeys = unavailableKeys
+  delete data.unreadableKeys
   for (const [key, value] of Object.entries(data.entries)) {
     if (!(PERSONAL_KEYS as readonly string[]).includes(key) || typeof value !== 'string') throw new Error(`备份包含不支持的个人数据项：${key}`)
     checkEntry(key, value)
@@ -108,29 +120,42 @@ function mergeValue(key: string, current: string, incoming: string) {
 }
 
 export function preparePersonalImport(backup: PersonalBackup, mode: 'merge' | 'replace'): PersonalImportPlan {
-  const incoming = { ...parsePersonalBackup(JSON.stringify(backup)).entries }
-  if (incoming[CONTEXT_STORAGE_KEY] && !incoming[CONTEXT_TASKS_KEY]) incoming[CONTEXT_TASKS_KEY] = JSON.stringify(emptyContextStore(parseContext(incoming[CONTEXT_STORAGE_KEY])))
+  const parsed = parsePersonalBackup(JSON.stringify(backup))
+  const incoming = { ...parsed.entries }
+  const legacyOnly = Boolean(incoming[CONTEXT_STORAGE_KEY] && !incoming[CONTEXT_TASKS_KEY])
+  if (legacyOnly) incoming[CONTEXT_TASKS_KEY] = JSON.stringify(emptyContextStore(parseContext(incoming[CONTEXT_STORAGE_KEY])))
   delete incoming[CONTEXT_STORAGE_KEY]
   const before: Record<string, string | null> = {}
+  const persistedBefore: Record<string, string | null> = {}
   const entries: Record<string, string> = {}
+  const captureBefore = (key: string) => {
+    persistedBefore[key] = localStorage.getItem(key)
+    before[key] = readPersonalRaw(key)
+    return before[key]
+  }
   for (const [key, raw] of Object.entries(incoming)) {
-    let current = readPersonalRaw(key)
-    before[key] = current
+    let current = captureBefore(key)
+    // A legacy draft is not a complete replacement for an existing or unavailable task list.
+    if (legacyOnly && key === CONTEXT_TASKS_KEY && mode === 'replace' && (current !== null || parsed.unavailableKeys?.includes(CONTEXT_TASKS_KEY))) throw new Error('备份只有旧版 AI 草稿，无法替换现有或缺失的完整任务列表；只能合并恢复，现有数据未修改。')
     if (mode === 'merge' && key === CONTEXT_TASKS_KEY && current === null) {
-      const legacy = readPersonalRaw(CONTEXT_STORAGE_KEY)
-      if (legacy !== null) { before[CONTEXT_STORAGE_KEY] = legacy; current = JSON.stringify(emptyContextStore(parseContext(legacy))) }
+      const legacy = captureBefore(CONTEXT_STORAGE_KEY)
+      if (legacy !== null) current = JSON.stringify(emptyContextStore(parseContext(legacy)))
     }
     if (mode === 'merge' && current !== null) checkEntry(key, current)
     entries[key] = mode === 'merge' && current !== null ? mergeValue(key, current, raw) : raw
     checkEntry(key, entries[key])
   }
-  return { before, entries, mode }
+  return { before, persistedBefore, entries, mode }
 }
 
 export function applyPersonalImport(plan: PersonalImportPlan) {
   const originals = new Map<string, string | null>()
-  for (const [key, raw] of Object.entries(plan.before)) if (readPersonalRaw(key) !== raw) throw new Error('预览后个人数据又有修改，请重新生成导入预览')
-  for (const key of Object.keys(plan.entries)) originals.set(key, localStorage.getItem(key))
+  for (const [key, raw] of Object.entries(plan.before)) {
+    const persisted = localStorage.getItem(key)
+    // Pending edits can hide a newer value saved by another browser tab.
+    if (readPersonalRaw(key) !== raw || persisted !== plan.persistedBefore[key]) throw new Error('预览后个人数据又有修改，请重新生成导入预览')
+    originals.set(key, persisted)
+  }
   const written: string[] = []
   try {
     for (const [key, raw] of Object.entries(plan.entries)) { localStorage.setItem(key, raw); written.push(key) }

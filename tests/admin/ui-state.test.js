@@ -58,3 +58,41 @@ it.each([false, true])('waits for the initial publishing record before enabling 
   expect(actions[3].disabled).toBe(true)
   if (fails) expect(host.textContent).toContain('Synthetic status unavailable')
 })
+
+it.each([
+  ['zh-CN', 'synced', '● 已同步 2', ''],
+  ['zh-CN', 'failed', '● 同步失败', 'is-error'],
+  ['zh-CN', 'unknown', '● 尚未确认', 'is-warning'],
+  ['zh-CN', undefined, '● 尚未确认', 'is-warning'],
+  ['zh-CN', '<img src=x onerror=alert(1)>/synthetic-private', '● 尚未确认', 'is-warning'],
+  ['en-US', 'synced', '● Synced 2', ''],
+  ['en-US', 'failed', '● Sync failed', 'is-error'],
+  ['en-US', 'unknown', '● Not yet verified', 'is-warning'],
+  ['en-US', undefined, '● Not yet verified', 'is-warning'],
+  ['en-US', '<img src=x onerror=alert(1)>/synthetic-private', '● Not yet verified', 'is-warning'],
+])('renders index state %s / %s with a safe localized status', async (locale, index, label, tone) => {
+  localStorage.setItem('admin-locale', locale)
+  const i18n = await loadI18n()
+  document.body.innerHTML = '<strong id="status-index"></strong>'
+  const node = document.querySelector('#status-index')
+  // Execute the actual dashboard predicate and status statement, using the
+  // existing source-fragment DOM test style. This is not a browser/app mount.
+  const lines = adminSource.split('\n')
+  const predicate = lines.find(line => line.trimStart().startsWith('const indexOk ='))
+  const statement = lines.find(line => line.trimStart().startsWith("setStatus('#status-index',"))
+  expect(predicate).toBeTruthy(); expect(statement).toBeTruthy()
+  const render = new Function('state', 'i18n', 'setStatus', `${predicate}\n${statement}`)
+  const setStatus = (selector, value, className) => {
+    const target = document.querySelector(selector)
+    target.textContent = value; target.className = className
+  }
+  // Exercise failure/unknown followed by recovery on the same DOM node too.
+  render({ system: { index }, tools: [{}, {}] }, i18n, setStatus)
+  expect(node.textContent).toBe(label)
+  expect(node.className).toBe(tone)
+  expect(node.children).toHaveLength(0)
+  expect(node.textContent).not.toContain('synthetic-private')
+  render({ system: { index: 'synced' }, tools: [{}, {}] }, i18n, setStatus)
+  expect(node.textContent).toBe(locale === 'zh-CN' ? '● 已同步 2' : '● Synced 2')
+  expect(node.className).toBe('')
+})

@@ -418,7 +418,7 @@ function renderStats() {
   }
   const dataIssueCount = issues.length + state.loadErrors.length
   setStatus('#status-data', validationOk && !state.loadErrors.length ? i18n.t('dash.statusHealthy') : i18n.t('dash.statusIssues', { count: dataIssueCount || 1 }), validationOk && !state.loadErrors.length ? '' : 'is-error')
-  setStatus('#status-index', indexOk ? i18n.t('dash.statusSynced', { count: state.tools.length }) : i18n.t('dash.statusUnavailable'), indexOk ? '' : 'is-warning')
+  setStatus('#status-index', indexOk ? i18n.t('dash.statusSynced', { count: state.tools.length }) : i18n.t(state.system?.index === 'failed' ? 'dash.statusIndexFailed' : 'dash.statusIndexUnknown'), indexOk ? '' : state.system?.index === 'failed' ? 'is-error' : 'is-warning')
   setStatus('#status-admin', adminOk ? i18n.t('dash.statusRunning') : i18n.t('dash.statusUnavailable'), adminOk ? '' : 'is-error')
   setStatus('#status-runtime', runtimeOk ? i18n.t('dash.statusReady') : i18n.t('dash.statusRuntime', { status: state.system?.runtime || i18n.t('dash.statusUnavailable') }), runtimeOk ? '' : 'is-error')
 
@@ -1153,14 +1153,14 @@ function fill(form, item, tags = false) {
 
 // ---------------- Import Wizard：StepRegistry + WizardState + 错误边界（v3.0.1 P0）----------------
 
-const wizard = { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false }
+const wizard = { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, overwriteTarget: null, busy: false, error: null, warning: null, notice: null, previewReady: false }
 
 let wizardPreviewListener = null
 const detachWizardPreview = () => { if (wizardPreviewListener) { window.removeEventListener('message', wizardPreviewListener); wizardPreviewListener = null } }
 
 function openWizard(file = null) {
   if (!protectForm.mayLeave() || !$('#wizard').hidden) return
-  Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false })
+  Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, overwriteTarget: null, busy: false, error: null, warning: null, notice: null, previewReady: false })
   $('#wizard').hidden = false
   renderWizard()
   $('#wizard-close').focus()
@@ -1173,7 +1173,7 @@ async function closeWizard(saved = false) {
   if (!saved && wizard.analysis && !await openModal({ title: i18n.t('wizard.exitTitle'), body: i18n.t('wizard.exitBody'), confirm: true, okText: i18n.t('wizard.exitConfirm') })) return false
   detachWizardPreview()
   const token = wizard.analysis?.token
-  Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, busy: false, error: null, warning: null, notice: null, previewReady: false })
+  Object.assign(wizard, { step: 1, file: null, analysis: null, manifest: null, metadataDraft: null, overwrite: false, overwriteTarget: null, busy: false, error: null, warning: null, notice: null, previewReady: false })
   $('#wizard').hidden = true
   if (token) await request(`tools/staging/${token}`, { method: 'DELETE' }).catch(() => {})
   return true
@@ -1268,6 +1268,10 @@ function collectWizardStep2() {
   if (!commitTagPicker(form) || !form.reportValidity()) return false
   const result = collectMetadataForm(form, wizard.manifest)
   if (!result.ok) { wizard.error = i18n.t(`wizard.${result.code}`); return false }
+  if (wizard.manifest.id !== result.manifest.id) {
+    wizard.overwrite = false
+    wizard.overwriteTarget = null
+  }
   wizard.manifest = result.manifest
   wizard.metadataDraft = null
   return true
@@ -1380,7 +1384,16 @@ function renderWizardStep6() {
   ]) summary.append(el('li', '', `${label}: ${value}`))
   body.replaceChildren(el('p', 'muted', i18n.t('wizard.importHint')), summary)
   if (wizard.warning) body.append(el('p', 'wizard-warning-box', `⚠ ${wizard.warning}`))
-  if (exists) body.append(checkField(document, 'overwrite', true, i18n.t('wizard.overwrite', { id: manifest.id }), i18n.t('wizard.overwriteHint')))
+  // Consent belongs to this target and survives rerenders, never a default checked box.
+  if (wizard.overwriteTarget !== manifest.id) {
+    wizard.overwrite = false
+    wizard.overwriteTarget = manifest.id
+  }
+  if (exists) {
+    const field = checkField(document, 'overwrite', wizard.overwrite, i18n.t('wizard.overwrite', { id: manifest.id }), i18n.t('wizard.overwriteHint'))
+    field.addEventListener('change', event => { wizard.overwrite = event.target.checked })
+    body.append(field)
+  }
 }
 
 function collectWizardStep5() {

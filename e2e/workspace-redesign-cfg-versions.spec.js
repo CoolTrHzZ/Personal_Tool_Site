@@ -64,3 +64,137 @@ test('不存在的历史版本不会静默显示当前版本', async ({ page }) 
   await expect(page.getByRole('heading', { name: '这份 CFG 历史版本不存在' })).toBeVisible()
   await expect(page.locator('.cfg-library-code')).toHaveCount(0)
 })
+
+// Keep native fetch/AbortController and the actual app; hold only synthetic asset replies.
+async function holdPackageAssets(page) {
+  const pending = []
+  for (const entry of [first, second]) {
+    await page.route(`**/cfgs/${entry.id}.cfg`, route => {
+      let finish, replying
+      const finished = new Promise(resolve => { finish = resolve })
+      pending.push({
+        entry, request: route.request(),
+        reply(options = { contentType: 'text/plain', body: 'echo synthetic cleanup\n' }) {
+          replying ||= route.fulfill(options).catch(error => {
+            // Chromium may reject a late fulfill after native cancellation. Other errors fail.
+            if (route.request().failure()?.errorText !== 'net::ERR_ABORTED') throw error
+          }).finally(finish)
+          return replying
+        },
+      })
+      return finished
+    })
+  }
+  return {
+    pending,
+    async releaseRemaining() { await Promise.all(pending.map(item => item.reply())) },
+  }
+}
+
+const packagePreview = page => page.getByRole('region', { name: '配置包预览', exact: true })
+const packageChoice = (page, entry) => page.getByRole('checkbox', { name: `打包 ${entry.name}`, exact: true })
+async function expectPackageFiles(page, filenames) {
+  await expect(packagePreview(page).getByRole('listitem')).toHaveText(filenames)
+  await expect(packagePreview(page).getByRole('alert')).toHaveCount(0)
+  await expect(page.locator('.cfg-package-error')).toHaveCount(0)
+}
+
+test('CFG 配置包取消待处理读取后保留勾选，可立即重试且旧回复不覆盖新预览', async ({ page }) => {
+  const held = await holdPackageAssets(page)
+  try {
+    await page.goto('/#/cfg')
+    await packageChoice(page, first).check()
+    await packageChoice(page, second).check()
+    await page.getByRole('button', { name: '预览配置包', exact: true }).click()
+    await expect.poll(() => held.pending.length).toBe(2)
+    const obsolete = held.pending.slice()
+    await expect(page.getByRole('button', { name: '正在读取…', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: '清空选择', exact: true })).toBeDisabled()
+    await expect(packageChoice(page, first)).toBeDisabled()
+    await expect(packageChoice(page, second)).toBeDisabled()
+
+    await page.getByRole('button', { name: '取消本次预览', exact: true }).click()
+    for (const entry of [first, second]) {
+      await expect(packageChoice(page, entry)).toBeChecked()
+      await expect(packageChoice(page, entry)).toBeEnabled()
+    }
+    await expect(page.getByRole('button', { name: '清空选择', exact: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '预览配置包', exact: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '取消本次预览', exact: true })).toHaveCount(0)
+    await expect(packagePreview(page)).toHaveCount(0)
+    await expect(page.locator('.cfg-package-error')).toHaveCount(0)
+
+    // Retry before releasing either old response: cancellation must not await them.
+    await page.getByRole('button', { name: '预览配置包', exact: true }).click()
+    await expect.poll(() => held.pending.length).toBe(4)
+    await Promise.all(held.pending.slice(2).map(item => item.reply({ contentType: 'text/plain', body: 'echo current retry\n' })))
+    await expectPackageFiles(page, [first.filename, second.filename])
+    await expect.poll(() => obsolete.map(item => item.request.failure()?.errorText)).toEqual(['net::ERR_ABORTED', 'net::ERR_ABORTED'])
+    await Promise.all(obsolete.map(item => item.reply({ contentType: 'text/plain', body: 'exec obsolete-cancelled\n' })))
+    await expectPackageFiles(page, [first.filename, second.filename])
+    await expect(packagePreview(page)).not.toContainText('obsolete-cancelled.cfg')
+    expect(held.pending.every(item => item.request.method() === 'GET')).toBe(true)
+  } finally { await held.releaseRemaining() }
+})
+
+test('CFG 配置包读取中导航卸载后，迟到回复不会污染返回后的新预览', async ({ page }) => {
+  const held = await holdPackageAssets(page)
+  try {
+    await page.goto('/#/cfg')
+    await packageChoice(page, first).check()
+    await packageChoice(page, second).check()
+    await page.getByRole('button', { name: '预览配置包', exact: true }).click()
+    await expect.poll(() => held.pending.length).toBe(2)
+    const obsolete = held.pending.slice()
+    await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '首页', exact: true }).click()
+    await expect(page).toHaveURL(/\/#\/$/)
+    await expect(page.locator('.cfg-library-page')).toHaveCount(0)
+    await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: 'CFG 库', exact: true }).click()
+    await expect(page).toHaveURL(/\/#\/cfg$/)
+    // A new mounted page has the existing empty-selection contract, not restored preview.
+    await expect(packageChoice(page, first)).not.toBeChecked()
+    await expect(packageChoice(page, second)).not.toBeChecked()
+    await expect(packagePreview(page)).toHaveCount(0)
+    await packageChoice(page, second).check()
+    await page.getByRole('button', { name: '预览配置包', exact: true }).click()
+    await expect.poll(() => held.pending.length).toBe(3)
+    await held.pending[2].reply({ contentType: 'text/plain', body: 'echo current page\n' })
+    await expectPackageFiles(page, [second.filename])
+    await expect.poll(() => obsolete.map(item => item.request.failure()?.errorText)).toEqual(['net::ERR_ABORTED', 'net::ERR_ABORTED'])
+    await Promise.all(obsolete.map(item => item.reply({ contentType: 'text/plain', body: 'exec obsolete-navigation\n' })))
+    await expect(page).toHaveURL(/\/#\/cfg$/)
+    await expectPackageFiles(page, [second.filename])
+    await expect(packagePreview(page)).not.toContainText('obsolete-navigation.cfg')
+  } finally { await held.releaseRemaining() }
+})
+
+test('CFG 配置包部分读取失败保留错误与勾选，取消其余读取并可重试', async ({ page }) => {
+  const held = await holdPackageAssets(page)
+  try {
+    await page.goto('/#/cfg')
+    await packageChoice(page, first).check()
+    await packageChoice(page, second).check()
+    await page.getByRole('button', { name: '预览配置包', exact: true }).click()
+    await expect.poll(() => held.pending.length).toBe(2)
+    const failed = held.pending.find(item => item.entry.id === first.id)
+    const obsolete = held.pending.find(item => item.entry.id === second.id)
+    await failed.reply({ status: 503, contentType: 'text/plain', body: 'synthetic asset unavailable' })
+    await expect(page.locator('.cfg-package-error')).toHaveText('CFG 文件暂时无法读取，请刷新或稍后重试。')
+    await expect(packagePreview(page)).toHaveCount(0)
+    for (const entry of [first, second]) {
+      await expect(packageChoice(page, entry)).toBeChecked()
+      await expect(packageChoice(page, entry)).toBeEnabled()
+    }
+    await expect(page.getByRole('button', { name: '清空选择', exact: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '取消本次预览', exact: true })).toHaveCount(0)
+    await page.getByRole('button', { name: '预览配置包', exact: true }).click()
+    await expect.poll(() => held.pending.length).toBe(4)
+    await expect(page.locator('.cfg-package-error')).toHaveCount(0)
+    await Promise.all(held.pending.slice(2).map(item => item.reply({ contentType: 'text/plain', body: 'echo recovered retry\n' })))
+    await expectPackageFiles(page, [first.filename, second.filename])
+    await expect.poll(() => obsolete.request.failure()?.errorText).toBe('net::ERR_ABORTED')
+    await obsolete.reply({ contentType: 'text/plain', body: 'exec obsolete-partial\n' })
+    await expectPackageFiles(page, [first.filename, second.filename])
+    await expect(packagePreview(page)).not.toContainText('obsolete-partial.cfg')
+  } finally { await held.releaseRemaining() }
+})
