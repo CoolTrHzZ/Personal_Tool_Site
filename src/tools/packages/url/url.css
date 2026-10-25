@@ -1,0 +1,20 @@
+.url-workbench .url-modes [aria-selected="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.url-work-area { align-items: start; }
+.url-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.url-workbench h2 { margin: 0; font-size: 15px; }
+.url-workbench textarea { width: 100%; box-sizing: border-box; }
+.url-inspection { display: grid; gap: 12px; min-width: 0; }
+.url-copy select { min-width: 0; max-width: 100%; }
+.url-components { margin: 0; display: grid; gap: 0; }
+.url-components > div { display: grid; grid-template-columns: 5em minmax(0, 1fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border-subtle); }
+.url-components dt { color: var(--text-secondary); font-size: 12px; }
+.url-components dd { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.url-workbench caption { padding: 10px; text-align: left; color: var(--text-secondary); font-size: 12px; }
+.url-workbench td code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.url-help { color: var(--text-secondary); font-size: 12px; }
+.url-help summary { cursor: pointer; padding: 8px 0; }
+.url-help ul { padding-left: 20px; display: grid; gap: 8px; line-height: 1.7; }
