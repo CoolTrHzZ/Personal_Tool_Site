@@ -9,7 +9,7 @@ import cfgs from '../../data/cfgs.json'
 import projects from '../../data/projects.json'
 import workflows from '../../data/ai-workflows.json'
 import type { AIResource, AIWorkflow, CfgEntry, LibraryItem, NavigationItem, NoteItem, ProjectItem } from '../../types'
-import { useTools } from '../../tools/runtime/ToolCatalog'
+import { useTools, useToolsLoaded } from '../../tools/runtime/ToolCatalog'
 import { addRecentTool, saveSearch } from '../../utils/user-state'
 import Modal from '../ui/Modal'
 import Input from '../ui/Input'
@@ -25,6 +25,7 @@ const workflowItems = workflows as AIWorkflow[]
 
 export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const tools = useTools()
+  const toolsLoaded = useToolsLoaded()
   const navigate = useNavigate()
   const location = useLocation()
   const [query, setQuery] = useState('')
@@ -88,12 +89,13 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         }} />
         <button type="button" className="ui-button ui-button-ghost ui-button-sm" aria-label="关闭命令面板" onClick={onClose}><X size={16} aria-hidden="true" /></button>
       </div>
+      {visiblePage('tools') && !toolsLoaded && <p className="command-group" role="status">工具加载中…</p>}
       <div ref={listRef} id={listId} className="command-list" role="listbox" aria-label="搜索结果">
         {items.map((item, offset) => <Fragment key={item.id}>
           {items[offset - 1]?.group !== item.group && <div className="command-group" role="presentation">{item.group}</div>}
-          <button type="button" id={`${listId}-${offset}`} className="command-item" role="option" tabIndex={-1} aria-selected={selectedIndex === offset} onMouseDown={event => event.preventDefault()} onClick={() => run(offset)}><span>{item.name}</span><small>{item.hint}</small></button>
+          <button type="button" id={`${listId}-${offset}`} className="command-item" role="option" tabIndex={-1} aria-selected={selectedIndex === offset} onMouseDown={event => event.preventDefault()} onClick={() => run(offset)}><span className="command-result-label"><span>{item.name}</span><small className="command-result-id">结果标识：{item.id}</small></span><small>{item.hint}</small></button>
         </Fragment>)}
-        {!items.length && <p className="empty">没有匹配内容</p>}
+        {!items.length && <p className="empty">{visiblePage('tools') && !toolsLoaded ? '当前已加载内容无匹配，工具仍在加载' : '没有匹配内容'}</p>}
       </div>
       <p className="command-hint" role="status">{items.length} 项结果 · 使用 ↑↓ 移动，↵ 确认，Esc 退出</p>
     </Modal>

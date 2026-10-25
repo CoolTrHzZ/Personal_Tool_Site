@@ -8,7 +8,7 @@ import notes from '../data/notes.json'
 import resources from '../data/ai-resources.json'
 import site from '../data/site.json'
 import type { AIResource, LibraryItem, NavigationItem, NoteItem, SiteConfig } from '../types'
-import { useTools } from '../tools/runtime/ToolCatalog'
+import { useTools, useToolsLoaded } from '../tools/runtime/ToolCatalog'
 import { MotionContext, SearchContext } from '../components/layout/Layout'
 import ToolCard from '../components/tools/ToolCard'
 import { useUserTools } from '../utils/user-state'
@@ -38,6 +38,7 @@ export default function HomePage() {
   const { openPalette } = useContext(SearchContext)
   const { enabled: motionEnabled } = useContext(MotionContext)
   const tools = useTools()
+  const toolsLoaded = useToolsLoaded()
   const [personal, setPersonal] = useState(() => { try { return localStorage.getItem('devos-home-view') === 'personal' } catch { return false } })
   const focusWorkspace = useRef(false)
   useEffect(() => {
@@ -110,30 +111,30 @@ export default function HomePage() {
             </div>
             <button type="button" className="atlas-search" onClick={openPalette} aria-label="打开命令面板"><Search size={17} /><span>搜索工具、网站、资源、笔记…</span><kbd>⌘ / Ctrl K</kbd></button>
           </m.section>
-          <div className="station-metrics" aria-label="工作区概览">{[{ path: '/tools', value: enabledTools.length, label: '可用工具', icon: Terminal }, { path: '/nav', value: enabledNav.length, label: '导航站点', icon: Globe }, { path: '/ai', value: aiItems.length, label: 'AI 资源', icon: Layers }, { path: '/notes', value: enabledNotes.length, label: '知识笔记', icon: FileText }].filter(item => visiblePath(item.path)).map(({ path, value, label, icon: Icon }) => <Link to={path} key={path}><Icon size={16} /><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span><ArrowUpRight size={12} /></Link>)}</div>
+          <div className="station-metrics" aria-label="工作区概览">{[{ path: '/tools', value: toolsLoaded ? enabledTools.length : '未确认', label: '可用工具', icon: Terminal }, { path: '/nav', value: enabledNav.length, label: '导航站点', icon: Globe }, { path: '/ai', value: aiItems.length, label: 'AI 资源', icon: Layers }, { path: '/notes', value: enabledNotes.length, label: '知识笔记', icon: FileText }].filter(item => visiblePath(item.path)).map(({ path, value, label, icon: Icon }) => <Link to={path} key={path}><Icon size={16} /><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span><ArrowUpRight size={12} /></Link>)}</div>
           {visiblePage('tools') && <m.section id="today" tabIndex={-1} className="manual-section" aria-label={personal ? '今天继续' : '精选工具'} {...reveal}>
             <div className="manual-heading"><span>01 /</span><h2>{personal ? '今天继续' : '精选工具'}</h2><small>{personal && recent.length ? '最近打开的工具' : '从常用工具开始'}</small></div>
-            <div className="product-stage">{pathTools.length ? pathTools.map((tool, index) => <m.div key={tool.id} {...reveal} transition={{ delay: motionEnabled ? index * .06 : 0, duration: motionEnabled ? .3 : 0 }}><ToolCard tool={tool} pathIndex={index + 1} /></m.div>) : <EmptyState title="暂无工具" />}</div>
+            <div className="product-stage">{pathTools.length ? pathTools.map((tool, index) => <m.div key={tool.id} {...reveal} transition={{ delay: motionEnabled ? index * .06 : 0, duration: motionEnabled ? .3 : 0 }}><ToolCard tool={tool} pathIndex={index + 1} /></m.div>) : !toolsLoaded ? <p role="status">工具加载中…</p> : <EmptyState title="暂无工具" />}</div>
           </m.section>}
           {visiblePage('tools') && <m.section id="tools" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>02</span><h2>工具</h2><Link to="/tools">查看全部</Link></div>
-            <div className="resource-list">{enabledTools.filter(tool => !toolsById.has(tool.id)).map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>
+            <div className="resource-list">{enabledTools.filter(tool => !toolsById.has(tool.id)).map(tool => <ToolCard key={tool.id} tool={tool} />)}{!enabledTools.some(tool => !toolsById.has(tool.id)) && (!toolsLoaded ? <p role="status">工具加载中…</p> : <EmptyState title="本区暂无其它工具" />)}</div>
           </m.section>}
           {visiblePage('nav') && <m.section id="sites" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>03</span><h2>网站</h2><Link to="/nav">全部站点 ↗</Link></div>
-            <div className="resource-list">{enabledNav.slice(0, 6).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} icon={item.icon} /><b>{item.name}</b><span>{item.description}</span><small>{item.category}</small></a>)}</div>
+            <div className="resource-list">{enabledNav.slice(0, 6).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} icon={item.icon} /><b>{item.name}</b><span>{item.description}</span><small>{item.category}</small></a>)}{!enabledNav.length && <EmptyState title="暂无网站" />}</div>
           </m.section>}
           {visiblePage('ai') && <m.section id="ai" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>04</span><h2>AI 资源</h2><Link to="/ai">打开 AI Hub</Link></div>
-            <div className="resource-list">{aiItems.slice(0, 4).map(item => { const KindIcon = aiKindIcons[item.kind]; return <Link className="resource-row" key={item.id} to={`/ai?resource=${encodeURIComponent(item.id)}`}><MarkTile name={item.name}><KindIcon size={16} aria-hidden="true" /></MarkTile><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></Link> })}</div>
+            <div className="resource-list">{aiItems.slice(0, 4).map(item => { const KindIcon = aiKindIcons[item.kind]; return <Link className="resource-row" key={item.id} to={`/ai?resource=${encodeURIComponent(item.id)}`}><MarkTile name={item.name}><KindIcon size={16} aria-hidden="true" /></MarkTile><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></Link> })}{!aiItems.length && <EmptyState title="暂无 AI 资源" />}</div>
           </m.section>}
           {visiblePage('library') && <m.section id="library" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>05</span><h2>收藏</h2><Link to="/library">打开收藏</Link></div>
-            <div className="resource-list">{enabledLibrary.slice(0, 4).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} /><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></a>)}</div>
+            <div className="resource-list">{enabledLibrary.slice(0, 4).map(item => <a className="resource-row" key={item.id} href={item.url} target="_blank" rel="noreferrer"><MarkTile name={item.name} url={item.url} /><b>{item.name}</b><span>{item.description}</span><small>{item.kind}</small></a>)}{!enabledLibrary.length && <EmptyState title="暂无收藏资源" />}</div>
           </m.section>}
           {visiblePage('notes') && <m.section id="notes" tabIndex={-1} className="manual-section" {...reveal}>
             <div className="manual-heading"><span>06</span><h2>笔记</h2><Link to="/notes">打开笔记</Link></div>
-            <div className="resource-list">{enabledNotes.slice(0, 4).map(item => <Link className="resource-row" key={item.id} to={`/notes/${item.id}`}><MarkTile name={item.title} /><b>{item.title}</b><span>{item.summary}</span><small>笔记</small></Link>)}</div>
+            <div className="resource-list">{enabledNotes.slice(0, 4).map(item => <Link className="resource-row" key={item.id} to={`/notes/${item.id}`}><MarkTile name={item.title} /><b>{item.title}</b><span>{item.summary}</span><small>笔记</small></Link>)}{!enabledNotes.length && <EmptyState title="暂无笔记" />}</div>
           </m.section>}
         </div>
         <aside id="workspace" tabIndex={-1} className="manual-notes" aria-label={personal ? '个人工作区' : '探索指南'}>
