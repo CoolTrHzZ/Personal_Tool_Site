@@ -77,3 +77,53 @@
 .cfg-package-preview .ui-button { margin-top: 16px; }
 @media (max-width: 1100px) { .cfg-library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cfg-library-detail-grid { grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; } }
 @media (max-width: 700px) { .cfg-library-grid, .cfg-library-detail-grid { grid-template-columns: minmax(0, 1fr); } .cfg-library-toolbar .ai-search { width: 100%; } .cfg-library-card { padding: 18px; } .cfg-library-detail-grid { gap: 20px; } .cfg-library-code { min-height: 260px; padding: 18px; font-size: 11px; } }
+
+/* P11–P14: local layout only; existing shared rules stay intact. */
+.cfg-library-page .page-hero { gap: 24px; padding-block: 0 20px; }
+.cfg-library-page .page-hero-emblem { height: 150px; }
+.cfg-library-page .cfg-library-filter-panel { padding: 20px; margin: 24px 0; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-panel); }
+.cfg-library-page .cfg-library-toolbar { margin-top: 0; align-items: end; }
+.cfg-library-page .cfg-library-toolbar .ai-search { display: grid; gap: 8px; flex: 1 1 280px; min-width: 0; }
+.cfg-library-page .cfg-library-toolbar .ai-search > svg { top: auto; bottom: 11px; }
+.cfg-library-page .cfg-search-label { flex-shrink: 0; color: var(--text-secondary); font-size: 12px; }
+.cfg-library-page .cfg-library-filters { margin: 16px 0 0; }
+.cfg-library-page .cfg-library-sort { flex-wrap: wrap; }
+.cfg-library-page .cfg-library-package { justify-content: space-between; margin-bottom: 12px; }
+.cfg-library-page .cfg-library-package > .cfg-package-controls { display: flex; flex: 0 1 auto; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.cfg-library-page .cfg-package-controls > span { color: var(--text-secondary); font-size: 12px; }
+.cfg-library-page .cfg-package-selection { margin-bottom: 24px; padding: 16px 20px; border: 1px solid var(--border-subtle); border-radius: 10px; }
+.cfg-library-page .cfg-package-selection h3 { margin: 0 0 12px; font-size: 13px; }
+.cfg-library-page .cfg-package-selection ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; padding: 0; margin: 0; list-style: none; }
+.cfg-library-page .cfg-package-selection li { display: grid; gap: 5px; min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.cfg-library-page .cfg-package-selection code, .cfg-library-page .cfg-library-record-id { color: var(--text-faint); font-size: 10px; }
+.cfg-library-page .cfg-library-record-id { margin-top: 8px; overflow-wrap: anywhere; }
+.cfg-library-page .cfg-library-risk { margin: 12px 0; color: var(--text-secondary); font-size: 12px; line-height: 1.8; }
+.cfg-library-page .cfg-library-card-foot > .cfg-library-risk { flex-basis: 100%; margin: 0 0 8px; }
+.cfg-library-page .cfg-package-download { margin-top: 20px; padding-top: 8px; border-top: 1px solid var(--border-default); }
+.cfg-library-page .cfg-package-download .ui-button { margin-top: 0; }
+.cfg-library-page .cfg-package-manifest { margin-bottom: 18px; }
+.cfg-library-page .cfg-view-identity { margin-bottom: 16px; }
+.cfg-library-page .cfg-identity-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.cfg-library-page .cfg-identity-heading h2 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.cfg-library-page .cfg-identity-heading > span { color: var(--accent); font-size: 12px; }
+.cfg-library-page .cfg-view-identity dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; }
+.cfg-library-page .cfg-view-identity dl > div, .cfg-library-page .cfg-compare-identity dl > div { display: grid; gap: 6px; min-width: 0; }
+.cfg-library-page .cfg-view-identity dd, .cfg-library-page .cfg-compare-identity dd { text-align: left; min-width: 0; overflow-wrap: anywhere; }
+.cfg-library-page .cfg-version-panel { margin-bottom: 20px; }
+.cfg-library-page .cfg-version-panel h2 { margin: 0; }
+.cfg-library-page .cfg-version-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
+.cfg-library-page .cfg-version-controls label { min-width: 0; }
+.cfg-library-page .cfg-compare-identity { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+.cfg-library-page .cfg-compare-identity dl { padding: 16px; margin: 0; border: 1px solid var(--border-subtle); border-radius: 8px; }
+.cfg-library-page .cfg-library-guide summary, .cfg-library-page .cfg-library-help summary { width: fit-content; cursor: pointer; color: var(--text-secondary); font-size: 13px; }
+.cfg-library-page .cfg-library-guide summary:focus-visible, .cfg-library-page .cfg-library-help summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.cfg-library-page .cfg-library-guide ol { margin-top: 18px; }
+.cfg-library-page .cfg-library-help { margin-top: 20px; color: var(--text-secondary); font-size: 12px; line-height: 1.8; }
+.cfg-library-page .cfg-library-actions > [role="alert"] { color: var(--danger); }
+@media (max-width: 700px) {
+  .cfg-library-page .cfg-library-filter-panel { padding: 16px; }
+  .cfg-library-page .cfg-package-selection ul, .cfg-library-page .cfg-view-identity dl, .cfg-library-page .cfg-version-controls, .cfg-library-page .cfg-compare-identity { grid-template-columns: minmax(0, 1fr); }
+}
+@media (pointer: coarse) {
+  .cfg-library-page .cfg-library-guide summary, .cfg-library-page .cfg-library-help summary { min-height: 44px; padding-block: 12px; }
+}
