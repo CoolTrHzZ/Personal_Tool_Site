@@ -136,3 +136,35 @@
   .ai-context-workspace .ai-context-danger { padding-left: 0; border-left: 0; }
   .ai-context-workspace .ai-context-task-identity { align-items: start; flex-direction: column; }
 }
+
+/* Local CFG workbench: draft identity, explicit output, and preview separation. */
+.cfg-workbench { gap: 16px; }
+.cfg-workbench .cfg-draft-overview { display: grid; gap: 10px; padding-bottom: 16px; }
+.cfg-workbench .cfg-draft-overview .workbench-eyebrow { margin-bottom: 0; }
+.cfg-workbench .cfg-draft-identity { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 10px 18px; min-width: 0; }
+.cfg-workbench .cfg-draft-identity > div { flex: 1 1 200px; min-width: 0; }
+.cfg-workbench .cfg-section-label { display: block; margin-bottom: 6px; color: var(--text-faint); font-size: 11px; }
+.cfg-workbench .cfg-draft-title { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+.cfg-workbench .cfg-save-state { padding: 6px 9px; border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-secondary); background: var(--surface-panel); font-size: 11px; overflow-wrap: anywhere; }
+.cfg-workbench .cfg-limits { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; color: var(--text-faint); font-size: 11px; }
+.cfg-workbench .cfg-draft-source { padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle); }
+.cfg-workbench .cfg-draft-output { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--border-subtle); min-width: 0; }
+.cfg-workbench .cfg-draft-actions, .cfg-workbench .cfg-copy-actions { align-items: start; }
+.cfg-workbench .cfg-sensitive-note { padding-left: 10px; border-left: 2px solid var(--warning); color: var(--text-secondary); }
+.cfg-workbench .cfg-preview-state { justify-self: start; padding: 4px 8px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); font-size: 11px; }
+.cfg-workbench .cfg-import-preview .workbench-card-head h3 { min-width: 0; overflow-wrap: anywhere; }
+.cfg-workbench .cfg-help { padding: 10px 0 0; border-top: 1px solid var(--border-subtle); }
+.cfg-workbench .cfg-help summary { color: var(--text-secondary); font-size: 11px; }
+.cfg-workbench .cfg-help p + p { margin-top: 8px; }
+.cfg-workbench .cfg-binding-editor { display: grid; gap: 12px; padding-top: 15px; border-top: 1px solid var(--border-subtle); }
+.cfg-workbench .cfg-version-persistence { padding-left: 10px; border-left: 2px solid var(--warning); color: var(--warning); font-size: 12px; }
+.cfg-workbench .cfg-version-list li { gap: 9px; }
+.cfg-workbench .cfg-version-list .workbench-toolbar { padding-top: 4px; }
+.cfg-workbench .cfg-share .workbench-card-head { align-items: baseline; }
+.cfg-workbench .cfg-share .workbench-card-head > span { overflow-wrap: anywhere; }
+.cfg-workbench .cfg-draft-output :is([role="alert"], [role="status"]), .cfg-workbench .cfg-share :is([role="alert"], [role="status"]) { flex-basis: 100%; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .cfg-workbench .cfg-draft-identity { flex-direction: column; }
+  .cfg-workbench .cfg-draft-identity > div { flex-basis: auto; width: 100%; }
+  .cfg-workbench .cfg-draft-source, .cfg-workbench .cfg-draft-actions { gap: 8px; }
+}
