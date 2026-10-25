@@ -100,3 +100,39 @@
   .tool-workbench .workbench-toolbar > :is(button, a, .workbench-file), .workbench-tabs button, .workbench-issues button { min-height: 44px; }
   .workbench-issues button { min-width: 44px; }
 }
+
+/* AI context: scoped task / editing / export layout. */
+.ai-context-workspace { gap: 16px; }
+.ai-context-workspace .ai-context-task-card { gap: 10px; padding: 14px; }
+.ai-context-workspace .ai-context-task-identity { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; min-width: 0; }
+.ai-context-workspace .ai-context-task-identity strong { min-width: 0; color: var(--text-primary); font-size: 14px; overflow-wrap: anywhere; }
+.ai-context-workspace .ai-context-task-controls { display: grid; grid-template-columns: minmax(160px, .75fr) minmax(0, 1.25fr); align-items: start; gap: 12px; }
+.ai-context-workspace .ai-context-task-controls .workbench-field { gap: 5px; }
+.ai-context-workspace .ai-context-task-actions { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 10px 18px; }
+.ai-context-workspace .ai-context-danger { padding-left: 14px; border-left: 1px solid var(--border-subtle); }
+.ai-context-workspace .ai-context-delete-confirm { padding: 12px; border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 7px; }
+.ai-context-workspace .ai-context-delete-confirm p { flex: 1 1 100%; overflow-wrap: anywhere; }
+.ai-context-workspace .ai-context-save-state { display: grid; gap: 8px; min-width: 0; }
+.ai-context-workspace .ai-context-save-state.workbench-warning .workbench-note { color: var(--warning); }
+.ai-context-workspace .ai-context-import-target { color: var(--text-secondary); font-size: 13px; overflow-wrap: anywhere; }
+.ai-context-workspace .ai-context-import-target strong { color: var(--text-primary); }
+.ai-context-workspace .ai-context-edit-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.ai-context-workspace .ai-context-description { gap: 12px; }
+.ai-context-workspace .ai-context-description h2, .ai-context-workspace .ai-context-materials h2, .ai-context-workspace .ai-context-output h2 { margin-bottom: 0; }
+.ai-context-workspace .ai-context-capacities { display: grid; gap: 5px; color: var(--text-faint); font-size: 11px; overflow-wrap: anywhere; }
+.ai-context-workspace .workbench-dropzone { padding: 16px; }
+.ai-context-workspace .ai-context-materials details.workbench-card { padding: 12px; background: var(--surface-panel); }
+.ai-context-workspace .ai-context-materials details summary { font-size: 12px; color: var(--text-primary); }
+.ai-context-workspace .ai-context-output-identity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.ai-context-workspace .ai-context-output-identity strong { min-width: 0; color: var(--text-primary); }
+.ai-context-workspace .ai-context-output textarea { background: var(--surface-panel); }
+.ai-context-workspace .ai-context-export-risk { padding-left: 10px; border-left: 2px solid var(--warning); color: var(--text-secondary); }
+.ai-context-workspace .ai-context-transfer { display: grid; gap: 10px; min-width: 0; padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+.ai-context-workspace .ai-context-help { padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: 8px; }
+.ai-context-workspace .ai-context-help summary { color: var(--text-secondary); font-size: 12px; }
+@media (max-width: 700px) {
+  .ai-context-workspace .ai-context-task-controls, .ai-context-workspace .ai-context-edit-grid { grid-template-columns: minmax(0, 1fr); }
+  .ai-context-workspace .ai-context-task-actions { align-items: stretch; }
+  .ai-context-workspace .ai-context-danger { padding-left: 0; border-left: 0; }
+  .ai-context-workspace .ai-context-task-identity { align-items: start; flex-direction: column; }
+}

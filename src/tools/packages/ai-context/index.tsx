@@ -193,10 +193,11 @@ export default function AiContextTool() {
   }
 
   return <ToolShell title="AI 任务上下文包" category="development" description="整理一次项目背景，让每次 AI 对话都能接上进度。">
-    <div className="tool-workbench">
-      {workflow && <section className="workbench-card" aria-label="工作流任务预览"><h2>{workflow.name}</h2><p>{workflow.description}</p><ol>{workflow.steps.map(step => <li key={step.title}>{step.title}</li>)}</ol><Button variant="primary" onClick={startWorkflow}>从工作流新建任务</Button></section>}
-      <section className="workbench-card" aria-label="AI 任务列表">
-        <div className="workbench-toolbar">
+    <div className="tool-workbench ai-context-workspace">
+      {workflow && <section className="workbench-card" aria-label="工作流任务预览"><h2>{workflow.name}</h2><p>{workflow.description}</p><p className="workbench-note">本地任务模板，不会运行模型或执行工作流步骤。</p><ol>{workflow.steps.map(step => <li key={step.title}>{step.title}</li>)}</ol><Button variant="primary" onClick={startWorkflow}>从工作流新建任务</Button></section>}
+      <section className="workbench-card ai-context-task-card" aria-label="AI 任务列表">
+        <div className="ai-context-task-identity"><strong>{activeTask.name}</strong><span className="workbench-note">{store.tasks.length} / {MAX_CONTEXT_TASKS} 个任务 · 全库内容上限 3 MiB</span></div>
+        <div className="ai-context-task-controls">
           <label className="workbench-field">当前 AI 任务<select aria-label="当前 AI 任务" value={store.activeId} onChange={event => { if (saveName() && commit({ ...storeRef.current, activeId: event.target.value })) cancelReads() }}>{store.tasks.map(task => <option key={task.id} value={task.id}>{task.name}</option>)}</select></label>
           <div className="workbench-field">
             <label htmlFor="ai-task-name">任务名称</label>
@@ -204,30 +205,33 @@ export default function AiContextTool() {
             <span id="ai-task-name-hint" className="workbench-note">离开输入框后保存，最多 120 个字符。</span>
             {nameError && <><span id="ai-task-name-error" className="error" role="alert">{nameError}</span><Button size="sm" onClick={resetName}>撤销名称修改</Button></>}
           </div>
-          <span className="workbench-stats">{store.tasks.length} / {MAX_CONTEXT_TASKS} 个任务</span>
         </div>
-        <div className="workbench-toolbar"><Button onClick={() => addTask()} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建任务</Button><Button onClick={() => addTask({ ...emptyContext(), project: '个人工具箱', goal: '为 JSON 工具增加一键载入示例，让第一次使用的人能立即看到格式化结果。', stack: 'React / TypeScript', constraints: '复用现有组件，保留现有格式化、压缩和错误提示，不新增依赖。', acceptance: '点击示例后可复制结果；修改输入后旧结果不再可复制；手机宽度下按钮可以正常操作。' }, '示例 · 改进工具体验')} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建示例任务</Button><Button onClick={() => { if (!saveName()) return; const current = storeRef.current.tasks.find(task => task.id === storeRef.current.activeId)!; addTask(current.draft, `${current.name.slice(0, 116)} 副本`) }} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>复制当前任务</Button><Button onClick={() => { if (saveName()) setDeletePending(true) }} disabled={store.tasks.length === 1}>删除当前任务</Button></div>
-        {deletePending && <div className="workbench-toolbar"><p>删除「{activeTask.name}」？建议先导出任务包。</p><Button onClick={() => { if (!saveName()) return; const tasks = storeRef.current.tasks.filter(task => task.id !== storeRef.current.activeId); if (commit({ ...storeRef.current, activeId: tasks[0].id, tasks })) cancelReads() }}>确认删除任务</Button><Button onClick={() => setDeletePending(false)}>保留任务</Button></div>}
-      </section>
+        <div className="ai-context-task-actions"><div className="workbench-toolbar"><Button onClick={() => addTask()} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建任务</Button><Button onClick={() => addTask({ ...emptyContext(), project: '个人工具箱', goal: '为 JSON 工具增加一键载入示例，让第一次使用的人能立即看到格式化结果。', stack: 'React / TypeScript', constraints: '复用现有组件，保留现有格式化、压缩和错误提示，不新增依赖。', acceptance: '点击示例后可复制结果；修改输入后旧结果不再可复制；手机宽度下按钮可以正常操作。' }, '示例 · 改进工具体验')} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>新建示例任务</Button><Button onClick={() => { if (!saveName()) return; const current = storeRef.current.tasks.find(task => task.id === storeRef.current.activeId)!; addTask(current.draft, `${current.name.slice(0, 116)} 副本`) }} disabled={store.tasks.length >= MAX_CONTEXT_TASKS}>复制当前任务</Button></div><div className="ai-context-danger"><Button onClick={() => { if (saveName()) setDeletePending(true) }} disabled={store.tasks.length === 1}>删除当前任务</Button></div></div>
+        {deletePending && <div className="workbench-toolbar ai-context-delete-confirm"><p>删除「{activeTask.name}」？建议先导出任务包。</p><Button onClick={() => { if (!saveName()) return; const tasks = storeRef.current.tasks.filter(task => task.id !== storeRef.current.activeId); if (commit({ ...storeRef.current, activeId: tasks[0].id, tasks })) cancelReads() }}>确认删除任务</Button><Button onClick={() => setDeletePending(false)}>保留任务</Button></div>}
+        <div className={`ai-context-save-state ${warning ? 'workbench-warning' : ''}`}>
       <p className="workbench-note" role="status" aria-live="polite">{warning || (nameChanged ? '任务名称尚未保存；其他内容仍会自动保存。' : saved ? '草稿已自动保存到此浏览器' : '填写即自动保存到此浏览器')}</p>
       {warning && <div className="workbench-toolbar"><Button onClick={backupStored}>下载已有草稿备份</Button><Button onClick={() => update(draftRef.current, true)}>保存当前草稿并替换本地记录</Button></div>}
+          {warning && <p className="workbench-note ai-context-recovery-note">已有草稿备份只含本机已存记录，不含当前未保存修改。替换操作会用本页任务列表覆盖本地记录，包括其他标签页的更改；可先在下方导出当前任务内容。</p>}
+        </div>
+      </section>
       {error && <p className="error" role="alert">{error}</p>}
       {notice && <p className="workbench-note" role="status">{notice}</p>}
-      {pendingImport && <section className="workbench-card" aria-label="任务包导入预览"><h2>任务包已就绪</h2><p>{pendingImport.project || '未命名项目'} · {pendingImport.materials.length} 份材料 · {(contextBytes(pendingImport) / 1024).toFixed(1)} KiB</p><p className="workbench-note">可作为新任务保存，也可替换当前任务的内容；其他任务保留。</p><div className="workbench-toolbar"><Button variant="primary" disabled={store.tasks.length >= MAX_CONTEXT_TASKS} onClick={() => addTask(pendingImport)}>作为新任务导入</Button><Button onClick={applyImport}>导入并替换当前内容</Button><Button onClick={() => { importRevision.current++; setPendingImport(null) }}>取消导入</Button></div></section>}
-      <div className="workbench-grid">
-        <section className="workbench-card" aria-labelledby="context-task-heading">
+      {pendingImport && <section className="workbench-card" aria-label="任务包导入预览"><div className="workbench-card-head"><h2>任务包已就绪</h2><span>预览 · 尚未应用</span></div><p>{pendingImport.project || '未命名项目'} · {pendingImport.materials.length} 份材料 · {(contextBytes(pendingImport) / 1024).toFixed(1)} KiB</p><p className="ai-context-import-target">替换目标：<strong>{activeTask.name}</strong></p><p className="workbench-note">作为新任务会保留现有任务；替换只更换上述任务的正文和材料，任务名称及其他任务保留。取消不应用此预览。</p><div className="workbench-toolbar"><Button variant="primary" disabled={store.tasks.length >= MAX_CONTEXT_TASKS} onClick={() => addTask(pendingImport)}>作为新任务导入</Button><Button onClick={applyImport}>导入并替换当前内容</Button><Button onClick={() => { importRevision.current++; setPendingImport(null) }}>取消导入</Button></div></section>}
+      <div className="workbench-grid ai-context-edit-grid">
+        <section className="workbench-card ai-context-description" aria-labelledby="context-task-heading">
           <h2 id="context-task-heading">01 / 任务说明</h2>
           <p className="workbench-note">先写任务目标，其余按需。</p>
           {contextFields.map(field => <label className="workbench-field" key={field.key}>{field.label}{field.key === 'project' || field.key === 'stack'
             ? <input aria-label={field.label} value={draft[field.key]} placeholder={field.placeholder} onChange={event => update({ ...draftRef.current, [field.key]: event.target.value })} />
             : <textarea aria-label={field.label} rows={3} value={draft[field.key]} placeholder={field.placeholder} onChange={event => update({ ...draftRef.current, [field.key]: event.target.value })} />}</label>)}
         </section>
-        <section className="workbench-card" aria-labelledby="context-material-heading">
+        <section className="workbench-card ai-context-materials" aria-labelledby="context-material-heading">
           <h2 id="context-material-heading">02 / 参考材料</h2>
-          <div className="workbench-toolbar"><Button icon={<Plus size={15} aria-hidden="true" />} disabled={draft.materials.length >= MAX_MATERIALS} onClick={() => update({ ...draftRef.current, materials: [...draftRef.current.materials, { id: crypto.randomUUID(), name: `文字片段 ${draftRef.current.materials.length + 1}`, content: '' }] })}>添加文字片段</Button><span className="workbench-stats">{draft.materials.length} / {MAX_MATERIALS} 份 · {(bytes / 1024).toFixed(1)} / 1024 KiB</span></div>
+          <div className="workbench-toolbar"><Button icon={<Plus size={15} aria-hidden="true" />} disabled={draft.materials.length >= MAX_MATERIALS} onClick={() => update({ ...draftRef.current, materials: [...draftRef.current.materials, { id: crypto.randomUUID(), name: `文字片段 ${draftRef.current.materials.length + 1}`, content: '' }] })}>添加文字片段</Button><span className="workbench-stats">{draft.materials.length} / {MAX_MATERIALS} 份材料</span></div>
+          <div className="ai-context-capacities"><span>每份材料 ≤ 256 KiB</span><span>当前任务（说明与材料）{(bytes / 1024).toFixed(1)} / 1024 KiB</span></div>
           <div className={`workbench-dropzone ${dragging ? 'is-dragging' : ''}`} onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); void addFiles(Array.from(event.dataTransfer.files)) }}>
             <FolderOpen size={22} aria-hidden="true" /><label className="workbench-file">添加文本文件<input type="file" multiple disabled={reading} onChange={event => { void addFiles(Array.from(event.target.files || [])); event.target.value = '' }} /></label>
-            <p className="workbench-note">{reading ? '正在读取材料…' : '选择或拖入源码、日志、Markdown 等 UTF-8 文本。单份最多 256 KiB，总量 1 MiB。'}</p>
+            <p className="workbench-note">{reading ? '正在读取材料…' : '选择或拖入 UTF-8 文本，仅在本机读取，不上传。'}</p>
           </div>
           {!draft.materials.length && <p className="workbench-note"><FilePlus2 size={16} aria-hidden="true" /> 按需选取与任务相关的材料，发送前检查其中的敏感信息。</p>}
           {draft.materials.map((item, index) => <details className="workbench-card" key={item.id} open>
@@ -240,17 +244,20 @@ export default function AiContextTool() {
           </details>)}
         </section>
       </div>
-      <section className="workbench-card" aria-labelledby="context-preview-heading">
+      <section className="workbench-card ai-context-output" aria-labelledby="context-preview-heading">
         <div className="workbench-toolbar"><h2 id="context-preview-heading">03 / Markdown 预览</h2><span className="workbench-stats">{markdown.length.toLocaleString()} 字符</span></div>
-        <p className="workbench-note">复制下方 Markdown，粘贴到你的 AI 对话即可开始；后续补充进展再复制，便于继续任务。</p>
+        <p className="ai-context-output-identity">当前任务：<strong>{activeTask.name}</strong><span className="workbench-note">只读 Markdown · 随正文与材料更新</span></p>
         <label className="workbench-field"><span className="sr-only">Markdown 任务包</span><textarea value={markdown} readOnly rows={14} spellCheck={false} /></label>
+        <p className="workbench-note ai-context-export-risk">复制或导出前检查敏感材料。内容仅在本机处理，不上传，也不会调用模型。</p>
         <div className="workbench-toolbar"><CopyButton value={hasContext(draft) ? markdown : ''} label="复制 Markdown" /><Button variant="primary" icon={<Download size={15} aria-hidden="true" />} disabled={!hasContext(draft)} onClick={() => downloadText('ai-context.md', markdown, 'text/markdown;charset=utf-8')}>下载 Markdown</Button></div>
-      </section>
+        <div className="ai-context-transfer"><h3>任务包 JSON</h3><p className="workbench-note">JSON 和 Markdown 只导出当前任务正文与材料，不含任务名称或其他任务；导入后需明确选择如何应用。</p>
       <div className="workbench-toolbar">
         <Button icon={<Download size={15} aria-hidden="true" />} onClick={() => downloadText('ai-context.json', JSON.stringify(draft, null, 2), 'application/json')} disabled={!hasContext(draft)}>导出任务包 JSON</Button>
         <label className="workbench-file"><FilePlus2 size={15} aria-hidden="true" />导入任务包 JSON<input type="file" accept=".json,application/json" onChange={event => { void importPackage(event.target.files?.[0]); event.target.value = '' }} /></label>
       </div>
-      <p className="workbench-note">最多保存 20 个任务，总材料 3 MiB。内容仅保存在此浏览器。下载 JSON 可在其他机器继续编辑；Markdown 可直接交给 AI。文件不上传，也不会调用模型。</p>
+        </div>
+      </section>
+      <details className="ai-context-help"><summary>使用与保存说明</summary><p className="workbench-note">先选择任务，再编辑说明或材料。名称离开输入框时保存；正文与材料沿用本机自动保存，遇到失败或冲突时以上方状态为准。Markdown 可手动粘贴到 AI 对话；任务包 JSON 用于继续编辑。此工作台只整理内容，不执行模板或模型。</p></details>
     </div>
   </ToolShell>
 }
