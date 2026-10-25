@@ -298,7 +298,42 @@ test('内容页说明和资源网格使用站点配置', async ({ page }) => {
     ['/ai', '按用途标签和资源类型定位 Skill、Agent、Prompt、模型配置与产品。'],
   ]) {
     await page.goto(`/#${path}`)
+    const toolsHelp = page.locator('details.tools-directory-help')
+    const helpToggle = toolsHelp.locator('summary')
+    if (path === '/tools') {
+      const search = page.getByRole('textbox', { name: '搜索工具', exact: true })
+      const status = page.getByRole('combobox', { name: '状态', exact: true })
+      const openJson = page.getByRole('link', { name: '打开 JSON 格式化', exact: true })
+      await expect(search).toBeVisible()
+      await expect(search).toBeEditable()
+      await expect(status).toBeVisible()
+      await expect(page.getByRole('combobox', { name: '排序', exact: true })).toBeVisible()
+      await expect(openJson).toBeVisible()
+      await expect(openJson).not.toHaveAttribute('aria-disabled', 'true')
+      await expect(openJson).not.toHaveAttribute('tabindex', '-1')
+      await search.click()
+      await page.keyboard.press('Tab')
+      await expect(status).toBeFocused()
+      await expect(toolsHelp).not.toHaveAttribute('open')
+      await expect(page.getByText(description, { exact: true })).toBeHidden()
+      await expect(helpToggle).toHaveAccessibleName('工具目录说明')
+      await helpToggle.click()
+    }
     await expect(page.getByText(description, { exact: true })).toBeVisible()
+    if (path === '/tools') {
+      await expect(toolsHelp).toHaveAttribute('open', '')
+      await helpToggle.press('Space')
+      await expect(toolsHelp).not.toHaveAttribute('open')
+      await expect(page.getByText(description, { exact: true })).toBeHidden()
+      await helpToggle.press('Shift+Tab')
+      await page.keyboard.press('Tab')
+      await expect(helpToggle).toBeFocused()
+      await page.keyboard.press('Enter')
+      await expect(page.getByText(description, { exact: true })).toBeVisible()
+      await page.keyboard.press('Space')
+      await expect(toolsHelp).not.toHaveAttribute('open')
+      await expect(page.getByText(description, { exact: true })).toBeHidden()
+    }
   }
 
   await page.goto('/#/nav')
