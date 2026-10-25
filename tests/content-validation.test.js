@@ -23,6 +23,28 @@ describe('project, runbook and workflow content validation', () => {
     for (const patch of [{ steps: [] }, { steps: [null] }, { category: 'unknown' }, { steps: [{ title: '', description: '', resourceId: '' }] }]) expect(() => assertAIWorkflows([{ ...workflow, ...patch }])).toThrow()
     expect(() => assertNoteRelations([{ kind: 'unknown' }])).toThrow()
   })
+  it.each([['LF', '\n'], ['CR', '\r'], ['TAB', '\t']])('rejects %s in workflow step titles without changing the input', (_label, separator) => {
+    const items = [{ ...workflow, steps: [{ title: `检查${separator}变更`, description: '', resourceId: '' }] }]
+    const before = JSON.stringify(items)
+    expect(() => assertAIWorkflows(items)).toThrow('AI 工作流步骤字段无效')
+    expect(JSON.stringify(items)).toBe(before)
+  })
+  it('accepts Chinese step titles with ordinary spaces, 120-character titles and 20 steps while preserving multiline descriptions', () => {
+    const description = '第一行\n第二行\r\n\t补充说明'
+    for (const steps of [
+      [{ title: '检查 代码 变更', description, resourceId: '' }],
+      Array.from({ length: 20 }, () => ({ title: '中'.repeat(120), description, resourceId: '' })),
+    ]) {
+      const items = [{ ...workflow, description, steps }], before = JSON.stringify(items)
+      expect(() => assertAIWorkflows(items)).not.toThrow()
+      expect(JSON.stringify(items)).toBe(before)
+    }
+  })
+  it('continues rejecting workflow titles longer than 120 characters and more than 20 steps', () => {
+    const step = { title: '检查变更', description: '', resourceId: '' }
+    expect(() => assertAIWorkflows([{ ...workflow, steps: [{ ...step, title: '中'.repeat(121) }] }])).toThrow('AI 工作流步骤字段无效')
+    expect(() => assertAIWorkflows([{ ...workflow, steps: Array.from({ length: 21 }, () => ({ ...step })) }])).toThrow('需 1–20 步')
+  })
   it('provides deployment, diagnosis and rollback templates with validation sections', () => {
     expect(runbookTemplates.deploy).toContain('## 验证结果')
     expect(runbookTemplates.incident).toContain('## 恢复验证')

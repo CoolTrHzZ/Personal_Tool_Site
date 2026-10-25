@@ -117,6 +117,26 @@ it('validates workflow fields and resource references and protects resources unt
   expect((await api('ai-workflows/api-workflow', 'DELETE')).status).toBe(200)
 })
 
+it.each(['POST', 'PUT'].flatMap(method => [['LF', '\n'], ['CR', '\r'], ['TAB', '\t']].map(([label, separator]) => [method, label, separator])))('rejects %s workflows with %s in step titles without changing data', async (method, label, separator) => {
+  const id = `${fixturePrefix}-title-${method.toLowerCase()}-${label.toLowerCase()}`
+  const valid = workflow({ id, steps: [{ title: '检查 代码 变更', description: '第一行\n第二行\r\n\t补充说明', resourceId: '' }] })
+  try {
+    if (method === 'PUT') expect((await api('ai-workflows', 'POST', valid)).status).toBe(201)
+    const dataDir = join(root, 'src/data'), paths = (await readdir(dataDir)).sort()
+    const before = await Promise.all(paths.map(path => readFile(join(dataDir, path))))
+    const records = await api('ai-workflows')
+    expect(records.status).toBe(200)
+    if (method === 'PUT') expect(records.data).toEqual(expect.arrayContaining([valid]))
+    const steps = [{ ...valid.steps[0], title: `检查${separator}变更` }]
+    const payload = method === 'POST' ? { ...valid, steps } : { steps }, input = JSON.stringify(payload)
+    expect((await api(`ai-workflows${method === 'PUT' ? `/${id}` : ''}`, method, payload)).status).toBe(400)
+    expect((await readdir(dataDir)).sort()).toEqual(paths)
+    expect(await Promise.all(paths.map(path => readFile(join(dataDir, path))))).toEqual(before)
+    expect(await api('ai-workflows')).toEqual(records)
+    expect(JSON.stringify(payload)).toBe(input)
+  } finally { await api(`ai-workflows/${id}`, 'DELETE') }
+})
+
 it('serves historic CFG bytes, rolls back as a new version and protects linked CFGs until unlinking', async () => {
   const original = '\ufeff// API 字节保留\r\nbind "SPACE" "+jump"\r\nbind F6 say \u0006颜色\u0007文本\u000b保留\u000e社区\u0010服\r\n'
   const payload = { filename: 'api-original.cfg', content: original, name: 'API CFG', description: '', category: '日常', tags: [], order: 10, changelog: '初始版本' }

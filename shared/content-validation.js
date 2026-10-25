@@ -57,7 +57,7 @@ export function assertAIWorkflows(items, resources) {
     common(item, 'AI 工作流')
     if (!['code-review', 'requirements', 'incident'].includes(item.category) || !Array.isArray(item.steps) || !item.steps.length || item.steps.length > 20) throw new Error(`AI 工作流分类或步骤无效（需 1–20 步）：${item.id}`)
     for (const step of item.steps) {
-      if (!step || !text(step.title, 120, true) || !text(step.description, 10000) || typeof step.resourceId !== 'string' || (step.resourceId && !slug.test(step.resourceId))) throw new Error('AI 工作流步骤字段无效')
+      if (!step || !text(step.title, 120, true) || /[\t\r\n]/.test(step.title) || !text(step.description, 10000) || typeof step.resourceId !== 'string' || (step.resourceId && !slug.test(step.resourceId))) throw new Error('AI 工作流步骤字段无效')
       if (step.resourceId && resources && !resources.some(resource => resource.id === step.resourceId)) throw new Error(`AI 工作流引用的资源不存在：${step.resourceId}`)
     }
   }
