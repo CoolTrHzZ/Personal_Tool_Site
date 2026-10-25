@@ -83,3 +83,39 @@
   .project-detail-grid:has(.project-release) > .md-article { grid-row: 2; }
   .project-related > .project-release { grid-row: 1; }
 }
+
+/* P09/P10 only: shared NotePage rules above remain unchanged. */
+.projects-page .page-hero { gap: 24px; padding-block: 0 20px; }
+.projects-page .page-hero-emblem { height: 150px; }
+.projects-page .project-filters { margin: 24px 0 16px; padding: 20px; border: 1px solid var(--border-default); border-radius: 14px; background: var(--surface-panel); }
+.projects-page .project-filters .content-toolbar { margin: 0; gap: 16px; }
+.projects-page .project-filters .project-search { flex: 1 1 260px; }
+.projects-page .project-search input { width: 100%; }
+.projects-page .project-filter-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.projects-page .project-card-content { padding: 24px; }
+.projects-page .project-card h2 { margin-top: 18px; }
+.projects-page .project-card footer { grid-column: 1 / -1; margin: 0; padding: 16px 24px; }
+.projects-page .project-card footer .ui-button-primary { margin-left: 0; }
+.projects-page .project-card footer a[download] { margin-left: auto; background: transparent; border-color: var(--border-default); color: var(--text-secondary); }
+.projects-page .project-detail-heading { margin-bottom: 24px; }
+.projects-page .project-detail-heading .project-actions { padding-top: 16px; border-top: 1px solid var(--border-subtle); }
+.projects-page .project-detail-release { margin-bottom: 24px; min-width: 0; }
+.projects-page .project-detail-release .project-release-meta { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.projects-page .project-detail-release .project-release-filename { margin-block: 18px; }
+.projects-page .project-release-action { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
+.projects-page .project-release-caution { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
+.projects-page .project-checksum .ui-button { max-width: 100%; }
+.projects-page .project-help { margin-top: 24px; color: var(--text-secondary); font-size: 12px; line-height: 1.8; }
+.projects-page .project-help summary { width: fit-content; cursor: pointer; }
+.projects-page .project-help summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 750px) {
+  .projects-page .project-filters { padding: 16px; }
+  .projects-page .project-card-content { padding: 20px; }
+  .projects-page .project-card footer { padding: 16px 20px; }
+  .projects-page .project-card footer .ui-button-primary { width: auto; }
+  .projects-page .project-card footer a[download] { margin-left: 0; }
+  .projects-page .project-detail-release .project-release-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (pointer: coarse) {
+  .projects-page .project-help summary { min-height: 44px; padding-block: 12px; }
+}

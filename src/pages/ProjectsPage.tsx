@@ -40,7 +40,7 @@ function DownloadLink({ item }: { item: ProjectItem }) {
 }
 function ReleaseInfo({ item, checksum = false }: { item: ProjectItem; checksum?: boolean }) {
   return <section className="project-release" aria-label={`${item.name} 发布文件`}>
-    <div className="project-release-heading"><Package size={24} /><span>RELEASE FILE<small>{item.download ? '可下载文件' : '文件准备中'}</small></span><b>.EXE</b></div>
+    <div className="project-release-heading"><Package size={24} /><span>RELEASE FILE<small>{item.download ? '可下载文件' : '暂无发布文件'}</small></span><b>.EXE</b></div>
     <p className="project-release-filename">{item.download?.filename || '暂未上传 EXE 文件'}</p>
     <dl className="project-release-meta">
       <div><dt>版本</dt><dd>{item.version || '待补充'}</dd></div>
@@ -49,6 +49,7 @@ function ReleaseInfo({ item, checksum = false }: { item: ProjectItem; checksum?:
       <div><dt>更新日期</dt><dd><time dateTime={item.updated}>{item.updated}</time></dd></div>
     </dl>
     {checksum && item.download && <div className="project-checksum"><span>SHA256 · 文件校验</span><code>{item.download.sha256}</code><CopyButton value={item.download.sha256} label="复制 SHA256" /></div>}
+    {checksum && <div className="project-release-action"><DownloadLink item={item} /><p className="project-release-caution">下载仅获取文件，不代表安装、运行验收或已部署。</p></div>}
   </section>
 }
 
@@ -93,12 +94,12 @@ export default function ProjectsPage() {
         <p className="atlas-kicker">{item.kind === 'desktop' ? 'DESKTOP / RELEASE' : item.kind === 'service' ? 'SERVICE' : 'PROJECT'} · {statuses[item.status]}</p>
         <h1>{item.name}</h1><p>{item.description}</p>
         <div className="project-tags">{item.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
-        <div className="project-actions"><DownloadLink item={item} />{pinButton(item)}{item.url && <a className="ui-button ui-button-ghost" href={item.url} target="_blank" rel="noreferrer">{item.kind === 'service' ? '打开服务' : '项目主页'}<ArrowUpRight size={14} /></a>}{item.repository && <a className="ui-button ui-button-ghost" href={item.repository} target="_blank" rel="noreferrer"><Github size={14} />代码仓库</a>}{item.docs && <a className="ui-button ui-button-ghost" href={item.docs} target="_blank" rel="noreferrer"><BookOpen size={14} />使用文档</a>}</div>{feedbackBlock}
+        <div className="project-actions" role="group" aria-label="项目链接与置顶">{pinButton(item)}{item.url && <a className="ui-button ui-button-ghost" href={item.url} target="_blank" rel="noreferrer">{item.kind === 'service' ? '打开服务' : '项目主页'}<ArrowUpRight size={14} /></a>}{item.repository && <a className="ui-button ui-button-ghost" href={item.repository} target="_blank" rel="noreferrer"><Github size={14} />代码仓库</a>}{item.docs && <a className="ui-button ui-button-ghost" href={item.docs} target="_blank" rel="noreferrer"><BookOpen size={14} />使用文档</a>}</div>{feedbackBlock}
       </section>
+      {(item.kind === 'desktop' || item.download) && <div className="project-detail-release"><ReleaseInfo item={item} checksum /></div>}
       <div className="project-detail-grid">
         <article className="project-panel md-article">{item.body ? <div dangerouslySetInnerHTML={{ __html: renderMarkdown(item.body) }} /> : <><h2>工具说明</h2><p>说明正在整理，可通过本页查看已发布的文件与相关资源。</p></>}</article>
         <aside className="project-related">
-          {(item.kind === 'desktop' || item.download) && <ReleaseInfo item={item} checksum />}
           {visiblePage('notes') && <section className="project-panel"><h2><BookOpen size={17} />关联手册 <small>{relatedNotes.length}</small></h2>{relatedNotes.length ? relatedNotes.map(note => <Link className="project-related-link" key={note.id} to={`/notes/${note.id}`}><span>{note.title}<small>{noteKinds[note.kind || 'note']}</small></span><ArrowUpRight size={14} /></Link>) : <p>暂无关联手册。</p>}</section>}
           {visiblePage('cfg') && <section className="project-panel"><h2><FileCode2 size={17} />配置文件 <small>{relatedCfgs.length}</small></h2>{relatedCfgs.length ? relatedCfgs.map(cfg => <Link className="project-related-link" key={cfg.id} to={`/cfg/${cfg.id}`}><span>{cfg.name}<small>{cfg.filename}</small></span><ArrowUpRight size={14} /></Link>) : <p>暂无关联 CFG。</p>}</section>}
           {item.kind !== 'desktop' && !item.download && <section className="project-panel"><h2>维护信息</h2><p>状态：{statuses[item.status]}</p><p>更新：<time dateTime={item.updated}>{item.updated}</time></p></section>}
@@ -109,18 +110,20 @@ export default function ProjectsPage() {
   const q = query.trim().toLocaleLowerCase()
   const shown = items.filter(project => (kind === 'all' || project.kind === kind) && (status === 'all' || project.status === status) && (!pinnedOnly || pins.includes(project.id)) && [project.name, project.description, project.version || '', project.platform || '', project.download?.filename || '', ...project.tags].join(' ').toLocaleLowerCase().includes(q)).sort((a, b) => Number(pins.includes(b.id)) - Number(pins.includes(a.id)) || a.order - b.order || a.name.localeCompare(b.name, 'zh'))
   return <main className="page projects-page">
-    <PageHero {...copy} stats={[{ value: items.length, label: '件作品' }, { value: items.filter(project => project.download).length, label: '份可下载文件' }]} icon={Monitor} code=".EXE" note={<><Download size={15} />版本信息 · 文件下载</>} />
-    <div className="content-toolbar"><Input aria-label="搜索桌面工具" placeholder="搜索工具、文件名或标签…" value={query} onChange={event => setFilter('q', event.target.value)} /><label>类型<Select aria-label="项目类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{kind !== 'all' && !Object.keys(kinds).includes(kind) && <option value={kind} disabled>已失效：{kind}</option>}{Object.entries(kinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>状态<Select aria-label="维护状态" value={status} onChange={event => setFilter('status', event.target.value)}><option value="all">全部状态</option>{status !== 'all' && !Object.keys(statuses).includes(status) && <option value={status} disabled>已失效：{status}</option>}{Object.entries(statuses).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</Select></label><Button type="button" aria-pressed={pinnedOnly} icon={<Pin size={14} />} onClick={() => setFilter('pinned', pinnedOnly ? '' : '1')}>我的置顶</Button>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
+    <PageHero {...copy} description="" stats={[{ value: items.length, label: '件作品' }, { value: items.filter(project => project.download).length, label: '份可下载文件' }]} icon={Monitor} code=".EXE" note={<><Download size={15} />版本信息 · 文件下载</>} />
+    <section className="project-filters" aria-label="筛选项目"><div className="content-toolbar"><label className="project-search">搜索桌面工具<Input aria-label="搜索桌面工具" placeholder="搜索工具、文件名或标签…" value={query} onChange={event => setFilter('q', event.target.value)} /></label><label>类型<Select aria-label="项目类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{kind !== 'all' && !Object.keys(kinds).includes(kind) && <option value={kind} disabled>已失效：{kind}</option>}{Object.entries(kinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>状态<Select aria-label="维护状态" value={status} onChange={event => setFilter('status', event.target.value)}><option value="all">全部状态</option>{status !== 'all' && !Object.keys(statuses).includes(status) && <option value={status} disabled>已失效：{status}</option>}{Object.entries(statuses).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</Select></label><div className="project-filter-actions"><Button type="button" aria-pressed={pinnedOnly} icon={<Pin size={14} />} onClick={() => setFilter('pinned', pinnedOnly ? '' : '1')}>我的置顶</Button>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div></div></section>
     {feedbackBlock}<div className="project-list-heading"><h2>作品与发布</h2><p className="content-count" role="status">{shown.length} 个结果 · 置顶仅保存在你的浏览器</p></div>
+    <p className="project-release-caution">下载仅获取文件，不代表安装、运行验收或已部署。</p>
     {shown.length ? <div className="project-grid">{shown.map((project, index) => <article className={`project-card${project.kind === 'desktop' && index === 0 ? ' project-card-featured' : ''}`} key={project.id}>
       <div className="project-card-content">
         <div className="project-card-top"><span className="project-symbol">{project.kind === 'desktop' ? <Monitor size={23} /> : project.kind === 'service' ? <Server size={21} /> : <FolderGit2 size={21} />}</span><span className="project-kind">{kinds[project.kind]}</span><span className={`project-status status-${project.status}`}>{statuses[project.status]}</span></div>
         <h2><Link to={`/projects/${project.id}${listSuffix}`}>{project.name}<ArrowUpRight size={18} /></Link></h2>
         <p>{project.description || '查看详情与相关资源。'}</p>
         <div className="project-tags">{project.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
-        <footer>{pinButton(project)}<Link className="ui-button ui-button-ghost ui-button-sm" to={`/projects/${project.id}${listSuffix}`}>查看详情<ArrowUpRight size={14} /></Link><DownloadLink item={project} /></footer>
       </div>
       {project.kind === 'desktop' || project.download ? <ReleaseInfo item={project} /> : <p className="project-card-updated">更新于 <time dateTime={project.updated}>{project.updated}</time></p>}
+      <footer><Link className="ui-button ui-button-primary ui-button-sm" to={`/projects/${project.id}${listSuffix}`}>查看详情<ArrowUpRight size={14} /></Link>{pinButton(project)}<DownloadLink item={project} /></footer>
     </article>)}</div> : <div className="project-empty"><EmptyState title={items.length ? '没有匹配的工具或项目' : '第一件作品，正在路上'} />{!items.length && <><p>这里将展示自己的桌面工具、使用说明与下载文件。</p>{import.meta.env.DEV && <a className="ui-button ui-button-primary" href={`${site.adminUrl.replace(/#.*$/, '')}#projects`} target="_blank" rel="noreferrer">在 Admin 添加桌面工具</a>}</>}</div>}
+    <details className="project-help"><summary>目录说明</summary>{copy.description && <p>{copy.description}</p>}<p>先按类型、维护状态或关键词筛选，再查看详情中的发布文件和关联资料。置顶仅保存在当前浏览器。</p></details>
   </main>
 }
