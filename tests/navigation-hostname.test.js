@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import NavigationCard from '../src/components/navigation/NavigationCard'
 import { navigationHostnameSourceChecks } from './helpers/navigation-hostname-source-contract.mjs'
 
-const card = readFileSync(new URL('../src/components/navigation/NavigationCard.tsx', import.meta.url), 'utf8')
-const css = readFileSync(new URL('../src/styles/pages/navigation.css', import.meta.url), 'utf8')
+const card = readFileSync(resolve('src/components/navigation/NavigationCard.tsx'), 'utf8')
+const css = readFileSync(resolve('src/styles/pages/navigation.css'), 'utf8')
 const item = (id, url, overrides = {}) => ({ id, url, name: 'Portal', description: '', category: 'dev', icon: 'letter', tags: [], enabled: true, order: 1, ...overrides })
 let host, root, previousActEnvironment
 function render(items) {
