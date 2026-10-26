@@ -268,7 +268,7 @@ test('首页资源行显示完整标识与 AI 类型图标', async ({ page }, te
       state.sample('instant-scroll-after', element)
       state.sampleFirstFrame() // Observe the next frame without awaiting it or settling scroll.
     }, diagnostics)
-    await favorite.hover()
+    await favorite.hover({ scroll: 'none' })
     await capture('space-post-hover')
     expect(await favorite.evaluate(element => element.matches(':hover'))).toBe(true)
     await expect(favorite).toHaveCSS('color', hoverColor)
