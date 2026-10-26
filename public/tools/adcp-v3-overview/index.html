@@ -772,13 +772,14 @@
     });
 
     document.getElementById('copyCode').addEventListener('click', async (e) => {
+      const button = e.currentTarget;
       const text = term.innerText;
       try{
         await navigator.clipboard.writeText(text);
-        e.currentTarget.textContent='COPIED';
-        setTimeout(()=>e.currentTarget.textContent='COPY',1200);
+        button.textContent='COPIED';
+        setTimeout(()=>button.textContent='COPY',1200);
       }catch{
-        e.currentTarget.textContent='SELECT';
+        button.textContent='SELECT';
       }
     });
   </script>
