@@ -12,16 +12,26 @@ export async function loadToolManifests() {
     remote.forEach(manifest => {
       migrateManifest(manifest)
       if ([manifest.id, manifest.name, manifest.entry].some(value => typeof value !== 'string' || !value.trim())
-        || [manifest.description, manifest.category, manifest.version, manifest.icon].some(value => typeof value !== 'string')
-        || !['react', 'html', 'iframe'].includes(manifest.type)
-        || typeof manifest.enabled !== 'boolean' || !Number.isFinite(manifest.order)
+        || typeof manifest.version !== 'string'
+        || (manifest.type === undefined
+          ? !['react', 'static', 'iframe'].includes(manifest.runtime ?? '')
+          : !['react', 'html', 'iframe'].includes(manifest.type))
+        || (manifest.enabled !== undefined && typeof manifest.enabled !== 'boolean')
+        || (manifest.order !== undefined && !Number.isFinite(manifest.order))
         || [manifest.keywords, manifest.tags].some(value => value !== undefined && (!Array.isArray(value) || !value.every(item => typeof item === 'string')))
-        || [manifest.status, manifest.readme, manifest.author, manifest.updated, manifest.license].some(value => value !== undefined && typeof value !== 'string')) {
+        || [manifest.description, manifest.category, manifest.icon, manifest.status, manifest.readme, manifest.author, manifest.updated, manifest.license].some(value => value !== undefined && typeof value !== 'string')) {
         throw new Error('manifest record invalid')
       }
     })
-    // Legacy input may omit keywords; match the producer's tags/empty fallback without mutating it.
-    if (remote.some(manifest => manifest.keywords === undefined)) return remote.map(manifest => manifest.keywords === undefined ? { ...manifest, keywords: manifest.tags ?? [] } : manifest)
+    // Fill only missing consumer fields; leave icon/order to their existing fallbacks.
+    const needsDefaults = (manifest: ToolManifest) => [manifest.description, manifest.category, manifest.enabled, manifest.keywords].some(value => value === undefined)
+    if (remote.some(needsDefaults)) return remote.map(manifest => needsDefaults(manifest) ? {
+      ...manifest,
+      description: manifest.description ?? '',
+      category: manifest.category ?? '',
+      enabled: manifest.enabled ?? (manifest.status !== 'disabled'),
+      keywords: manifest.keywords ?? manifest.tags ?? [],
+    } : manifest)
     return remote
   } catch { return coreManifests as ToolManifest[] }
 }
