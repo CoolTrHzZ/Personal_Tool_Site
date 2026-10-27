@@ -9,7 +9,19 @@ export async function loadToolManifests() {
     if (!response.ok) throw new Error('manifest request failed')
     const remote = await response.json() as ToolManifest[]
     if (!Array.isArray(remote)) throw new Error('manifest list invalid')
-    remote.forEach(migrateManifest)
+    remote.forEach(manifest => {
+      migrateManifest(manifest)
+      if ([manifest.id, manifest.name, manifest.entry].some(value => typeof value !== 'string' || !value.trim())
+        || [manifest.description, manifest.category, manifest.version, manifest.icon].some(value => typeof value !== 'string')
+        || !['react', 'html', 'iframe'].includes(manifest.type)
+        || typeof manifest.enabled !== 'boolean' || !Number.isFinite(manifest.order)
+        || [manifest.keywords, manifest.tags].some(value => value !== undefined && (!Array.isArray(value) || !value.every(item => typeof item === 'string')))
+        || [manifest.status, manifest.readme, manifest.author, manifest.updated, manifest.license].some(value => value !== undefined && typeof value !== 'string')) {
+        throw new Error('manifest record invalid')
+      }
+    })
+    // Legacy input may omit keywords; match the producer's tags/empty fallback without mutating it.
+    if (remote.some(manifest => manifest.keywords === undefined)) return remote.map(manifest => manifest.keywords === undefined ? { ...manifest, keywords: manifest.tags ?? [] } : manifest)
     return remote
   } catch { return coreManifests as ToolManifest[] }
 }
