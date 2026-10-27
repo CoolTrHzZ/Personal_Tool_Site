@@ -29,8 +29,8 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const navigate = useNavigate()
   const location = useLocation()
   const [query, setQuery] = useState('')
-  const [index, setIndex] = useState(0)
-  useEffect(() => { if (open) { setQuery(''); setIndex(0) } }, [open])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  useEffect(() => { if (open) { setQuery(''); setSelectedId(null) } }, [open])
   const listId = useId()
   const listRef = useRef<HTMLDivElement>(null)
   const q = query.trim().toLowerCase()
@@ -72,19 +72,19 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       ].filter(item => visiblePath(item.path) && matches([item.name, item.hint])).map(item => ({ ...item, group: '命令', run: () => navigate(item.path) })),
     ]
   }, [tools, q, navigate, location.pathname, location.search])
-  const selectedIndex = Math.min(index, Math.max(0, items.length - 1))
+  const selectedIndex = selectedId === null ? 0 : items.findIndex(item => item.id === selectedId)
   useEffect(() => {
     if (open) listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
-  }, [open, selectedIndex, q])
+  }, [open, selectedIndex, q, items])
   const run = (offset = selectedIndex) => { const item = items[offset]; if (!item) return; saveSearch(query); item.run(); onClose() }
   return (
     <Modal open={open} title="命令面板" onClose={onClose} className="command-palette" hideActions>
       <div className="command-palette-search">
         <Search size={16} aria-hidden="true" />
-        <Input value={query} onChange={event => { setQuery(event.target.value); setIndex(0) }} placeholder="搜索工具、网站、笔记、AI 资源…" aria-label="命令面板搜索" role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={listId} aria-activedescendant={items.length ? `${listId}-${selectedIndex}` : undefined} autoComplete="off" onKeyDown={event => {
+        <Input value={query} onChange={event => { setQuery(event.target.value); setSelectedId(null) }} placeholder="搜索工具、网站、笔记、AI 资源…" aria-label="命令面板搜索" role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={listId} aria-activedescendant={items[selectedIndex] ? `${listId}-${selectedIndex}` : undefined} autoComplete="off" onKeyDown={event => {
           if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
-          if (event.key === 'ArrowDown') { event.preventDefault(); setIndex(Math.min(Math.max(0, items.length - 1), selectedIndex + 1)) }
-          if (event.key === 'ArrowUp') { event.preventDefault(); setIndex(Math.max(0, selectedIndex - 1)) }
+          if (event.key === 'ArrowDown') { event.preventDefault(); setSelectedId(items[Math.min(Math.max(0, items.length - 1), selectedIndex + 1)]?.id ?? null) }
+          if (event.key === 'ArrowUp') { event.preventDefault(); setSelectedId(items[Math.max(0, selectedIndex - 1)]?.id ?? null) }
           if (event.key === 'Enter') { event.preventDefault(); run() }
         }} />
         <button type="button" className="ui-button ui-button-ghost ui-button-sm" aria-label="关闭命令面板" onClick={onClose}><X size={16} aria-hidden="true" /></button>
@@ -97,7 +97,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         </Fragment>)}
         {!items.length && <p className="empty">{visiblePage('tools') && !toolsLoaded ? '当前已加载内容无匹配，工具仍在加载' : '没有匹配内容'}</p>}
       </div>
-      <p className="command-hint" role="status">{items.length} 项结果 · 使用 ↑↓ 移动，↵ 确认，Esc 退出</p>
+      <p className="command-hint" role="status">{items.length} 项结果 · {selectedIndex < 0 && '原选中结果已不可用，请用 ↑↓ 重新选择 · '}使用 ↑↓ 移动，↵ 确认，Esc 退出</p>
     </Modal>
   )
 }
