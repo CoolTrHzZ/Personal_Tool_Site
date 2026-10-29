@@ -31,21 +31,24 @@ export default function NotesPage() {
     <main className="page notes-page">
       <PageHero
         {...displayCopy('notes', { eyebrow: 'KNOWLEDGE / OPERATIONS MANUAL', title: '笔记与运维手册', subtitle: '经验归档，遇事有据。', description: siteConfig.notesDescription, caption: 'KNOWLEDGE AT HAND' })}
-        stats={[{ value: items.filter(item => !item.kind || item.kind === 'note').length, label: '篇笔记' }, { value: items.filter(item => item.kind && item.kind !== 'note').length, label: '份运维手册' }]}
+        stats={[{ value: items.filter(item => !item.kind || item.kind === 'note').length, label: '全库笔记' }, { value: items.filter(item => item.kind && item.kind !== 'note').length, label: '全库手册' }]}
         icon={BookOpen}
         code=".MD"
       />
-      <div className="content-toolbar"><Input aria-label="搜索笔记" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索手册、故障现象或标签…" /><label>手册类型<Select aria-label="手册类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{kind !== 'all' && !Object.keys(noteKinds).includes(kind) && <option value={kind} disabled>已失效：{kind}</option>}{Object.entries(noteKinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>关联项目<Select aria-label="笔记关联项目" value={project} onChange={event => setFilter('project', event.target.value)}><option value="">全部项目</option>{project && !projectItems.some(item => item.id === project) && <option value={project} disabled>已失效：{project}</option>}{projectItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
-      <p className="content-count" role="status">{shown.length} 篇笔记与手册</p>
+      <section className="notes-filters" aria-label="筛选笔记与手册">
+        <div className="content-toolbar"><label className="notes-search">全文搜索<Input aria-label="搜索笔记" value={query} onChange={event => setFilter('q', event.target.value)} placeholder="搜索手册、故障现象或标签…" /></label><label>手册类型<Select aria-label="手册类型" value={kind} onChange={event => setFilter('kind', event.target.value)}><option value="all">全部类型</option>{kind !== 'all' && !Object.keys(noteKinds).includes(kind) && <option value={kind} disabled>已失效：{kind}</option>}{Object.entries(noteKinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label><label>关联项目<Select aria-label="笔记关联项目" value={project} onChange={event => setFilter('project', event.target.value)}><option value="">全部项目</option>{project && !projectItems.some(item => item.id === project) && <option value={project} disabled>已失效：{project}</option>}{projectItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label>{hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}</div>
+      </section>
+      <div className="notes-results-heading"><h2>当前筛选结果</h2><p className="content-count" role="status">{shown.length} 篇笔记与手册</p></div>
       {shown.length ? (
         <div className="note-list">
           {shown.map(item => (
             <Link className="note-card" key={item.id} to={`/notes/${item.id}${params.size ? `?${params}` : ''}`}>
-              <strong>{item.title}</strong>
-              <span className="runbook-kind">{noteKinds[item.kind || 'note']}</span>
+              <div className="notes-card-heading"><strong>{item.title}</strong><span className="runbook-kind">{noteKinds[item.kind || 'note']}</span></div>
+              <span className="notes-card-id">记录 ID <code>{item.id}</code></span>
               <small>{item.summary}</small>
-              {item.updated && <em>{item.updated}</em>}
+              <dl className="notes-card-meta"><div><dt>关联项目 ID</dt><dd>{item.projectId || '未关联项目'}</dd></div><div><dt>更新时间（原记录）</dt><dd>{item.updated?.trim() ? item.updated : '未知'}</dd></div></dl>
               <span className="project-tags">{item.tags.map(tag => <span key={tag}>{tag}</span>)}</span>
+              <span className="notes-read-action">阅读记录 →</span>
             </Link>
           ))}
         </div>

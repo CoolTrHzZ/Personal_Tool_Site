@@ -67,5 +67,20 @@ it('reopens pending AI tasks even when browser storage reads and writes are deni
   act(() => root.render(null)); render(AiContextTool)
   expect(host.querySelector('[aria-label="任务目标"]').value).toBe('不能丢失的 AI 任务')
   expect(readPersonalRaw(CONTEXT_TASKS_KEY)).toBe(pending)
+  expect(exportPersonalData().entries[CONTEXT_TASKS_KEY]).toBe(pending)
+  expect(exportPersonalData().unavailableKeys).toContain('favoriteTools')
   expect(host.textContent).toContain('尚未保存')
+})
+
+it('exports the full pending CFG draft and versions even when unrelated storage reads are denied', () => {
+  const original = { draft: { name: 'autoexec', content: 'echo original' }, versions: [{ id: 'v1', name: 'saved', content: '\ufeffecho "\u0006color"\r\n', savedAt: '2026-09-01' }] }
+  localStorage.setItem(CFG_STORAGE_KEY, JSON.stringify(original))
+  render()
+  const storage = Object.getPrototypeOf(localStorage)
+  vi.spyOn(storage, 'setItem').mockImplementation(() => { throw new Error('storage denied') })
+  edit('echo rescue')
+  vi.spyOn(storage, 'getItem').mockImplementation(() => { throw new Error('storage denied') })
+  const exported = exportPersonalData()
+  expect(JSON.parse(exported.entries[CFG_STORAGE_KEY])).toEqual({ ...original, draft: { ...original.draft, content: 'echo rescue' } })
+  expect(exported.unavailableKeys).not.toContain(CFG_STORAGE_KEY)
 })

@@ -1,0 +1,67 @@
+{
+  "state": [
+    {
+      "id": "runtime-state-fixture",
+      "name": "运行状态检查",
+      "runtime": "static",
+      "format": "single-html",
+      "entry": "index.html",
+      "version": "1.0.0",
+      "category": "development",
+      "description": "模式切换检查",
+      "keywords": [],
+      "enabled": true,
+      "display": {
+        "mode": "embedded",
+        "height": 480
+      },
+      "permissions": {}
+    }
+  ],
+  "overlay": [
+    {
+      "id": "e2e-toast",
+      "name": "提示测试工具",
+      "description": "Bridge 回归",
+      "runtime": "static",
+      "format": "single-html",
+      "entry": "index.html",
+      "category": "development",
+      "version": "1.0.0",
+      "enabled": true,
+      "icon": "Code2",
+      "keywords": [],
+      "tags": [],
+      "author": "test",
+      "status": "active",
+      "display": {
+        "mode": "embedded",
+        "height": 180
+      },
+      "permissions": {}
+    }
+  ],
+  "fullscreen": [
+    {
+      "id": "e2e-toast",
+      "name": "提示测试工具",
+      "description": "Bridge 回归",
+      "runtime": "static",
+      "format": "single-html",
+      "entry": "index.html",
+      "category": "development",
+      "version": "1.0.0",
+      "enabled": true,
+      "icon": "Code2",
+      "keywords": [],
+      "tags": [],
+      "author": "test",
+      "status": "active",
+      "display": {
+        "mode": "fullscreen",
+        "height": 180
+      },
+      "permissions": {}
+    }
+  ]
+}

@@ -317,6 +317,7 @@ function generate(){
   let dbg="";
   let html="";
   let controlCount=0;
+  const generatedControls=[];
 
   for(const ch of graphemes){
     const space=/\s/u.test(ch);
@@ -325,6 +326,7 @@ function generate(){
     if(colorThis){
       const color=colors[(offset+Math.floor(idx/repeat))%colors.length];
       const ctrl=String.fromCharCode(color.code);
+      generatedControls.push({offset:raw.length,value:ctrl});
       raw += ctrl + ch;
       dbg += "["+hx(color.code)+"]"+ch;
       html += `<span style="color:${color.css}">${esc(ch)}</span>`;
@@ -333,6 +335,7 @@ function generate(){
     }else{
       if(space && $("controlBeforeSpace").checked){
         const color=colors[(offset+Math.floor(idx/repeat))%colors.length];
+        generatedControls.push({offset:raw.length,value:String.fromCharCode(color.code)});
         raw += String.fromCharCode(color.code)+ch;
         dbg += "["+hx(color.code)+"]"+ch;
         html += `<span style="color:${color.css}">${esc(ch)}</span>`;
@@ -351,19 +354,19 @@ function generate(){
   $("commandDebug").textContent=$("prefix").value+(dbg||"");
   $("chars").textContent="可见字素："+graphemes.length;
   $("codepoints").textContent="Unicode码点："+Array.from(text).length;
-  $("integrity").textContent="文本完整性："+(rebuildPlain(raw, COLORS)===text ? "通过 ✓" : "异常 ✗");
+  $("integrity").textContent="文本完整性："+(rebuildPlain(raw, generatedControls)===text ? "通过 ✓" : "异常 ✗");
   $("controls").textContent="颜色控制符："+controlCount;
   updateHex();
 }
-function rebuildPlain(raw, palette){
-  const colorCodes=new Set(palette.map(c=>c.code));
+function rebuildPlain(raw, generatedControls){
   let out="";
-  for(const cp of Array.from(raw)){
-    const code=cp.codePointAt(0);
-    if(colorCodes.has(code)) continue;
-    out+=cp;
+  let cursor=0;
+  for(const {offset,value} of generatedControls){
+    if(!Number.isInteger(offset) || offset<cursor || typeof value!=="string" || value.length!==1 || raw[offset]!==value) return null;
+    out+=raw.slice(cursor,offset);
+    cursor=offset+1;
   }
-  return out;
+  return out+raw.slice(cursor);
 }
 
 function updateHex(){

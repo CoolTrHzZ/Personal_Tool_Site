@@ -1,4 +1,4 @@
-import { ArrowUpRight, TerminalSquare } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { useTools, useToolsLoaded } from '../tools/runtime/ToolCatalog'
 import ToolCard from '../components/tools/ToolCard'
 import { useMemo } from 'react'
@@ -9,10 +9,10 @@ import Button from '../components/ui/Button'
 import Select from '../components/ui/Select'
 import FormField from '../components/ui/FormField'
 import EmptyState from '../components/ui/EmptyState'
-import PageHero from '../components/ui/PageHero'
 import site from '../data/site.json'
 import type { SiteConfig } from '../types'
 import { displayCopy } from '../utils/page-display'
+import '../styles/pages/tools-json-layout.css'
 
 const blob = (tool: { name: string; description: string; keywords: string[]; tags?: string[] }) => [tool.name, tool.description, ...tool.keywords, ...(tool.tags || [])].join(' ').toLowerCase()
 const categoryLabel = (value: string) => value === 'development' ? '开发' : value === 'game' ? '游戏' : value
@@ -30,6 +30,7 @@ export default function ToolsPage() {
   const setFilter = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || (key === 'status' && value === 'all') || (key === 'sort' && value === 'recommended')) next.delete(key); else next.set(key, value); setParams(next, { replace: true }) }
   const categories = useMemo(() => [...new Set(tools.map(tool => tool.category))], [tools])
   const quickstart = tools.find(tool => tool.id === 'json' && tool.enabled && tool.status !== 'disabled')
+  const copy = displayCopy('tools', { eyebrow: 'WORKBENCH / TOOL DIRECTORY', title: '全部工具', subtitle: '趁手工具，即开即用。', description: siteConfig.toolsDescription, caption: 'READY FOR YOUR NEXT TASK' })
   const filtered = tools.filter(tool => {
     const toolStatus = tool.status || (tool.enabled ? 'active' : 'disabled')
     return (!category || tool.category === category) && (status === 'all' || toolStatus === status) && blob(tool).includes(query.trim().toLowerCase())
@@ -39,24 +40,23 @@ export default function ToolsPage() {
     return a.name.localeCompare(b.name, 'zh')
   })
   return (
-    <main className="page tools-marketplace">
-      <PageHero
-        {...displayCopy('tools', { eyebrow: 'WORKBENCH / TOOL DIRECTORY', title: '全部工具', subtitle: '趁手工具，即开即用。', description: siteConfig.toolsDescription, caption: 'READY FOR YOUR NEXT TASK' })}
-        stats={[{ value: loaded ? tools.length : '—', label: '个工具' }, { value: loaded ? categories.length : '—', label: '个分类' }]}
-        icon={TerminalSquare}
-        code=".TOOLS"
-        note={<><span role="status">{loaded ? `${filtered.length} 个匹配工具` : '正在加载工具目录…'}</span>{loaded && quickstart && !hasFilters && <Link className="tools-quickstart" to={quickstart.path} onClick={() => addRecentTool(quickstart.id)}>第一次使用？打开 JSON 示例<ArrowUpRight size={13} /></Link>}</>}
-      />
-      <div className="tool-filters">
-        <nav className="category-route" aria-label="工具类别">
-          <button type="button" className={!category ? 'active' : ''} aria-pressed={!category} onClick={() => setFilter('category', '')}>全部</button>
-          {categories.map(item => (
-            <button type="button" className={item === category ? 'active' : ''} aria-pressed={item === category} onClick={() => setFilter('category', item)} key={item}>{categoryLabel(item)}<span>{tools.filter(tool => tool.category === item).length}</span></button>
-          ))}
-          {loaded && category && !categories.includes(category) && <button type="button" className="active" aria-pressed="true" disabled>已失效：{category}</button>}
-        </nav>
-        <Input glass aria-label="搜索工具" value={query} onChange={event => setFilter('q', event.target.value)} onKeyDown={event => event.key === 'Enter' && saveSearch(query)} placeholder="搜索可用工具..." />
-        <div className="market-toolbar">
+    <main className="page tools-marketplace tools-directory-page">
+      <header className="tools-directory-heading">
+        <div>
+          {copy.eyebrow && <p className="atlas-kicker">{copy.eyebrow}</p>}
+          <h1>{copy.title}</h1>
+          {copy.subtitle && <p className="tools-directory-subtitle">{copy.subtitle}</p>}
+        </div>
+        <dl className="tools-directory-totals" aria-label="工具概览">
+          <div><dt>工具</dt><dd>{loaded ? tools.length : '—'}</dd></div>
+          <div><dt>分类</dt><dd>{loaded ? categories.length : '—'}</dd></div>
+        </dl>
+      </header>
+      <section className="tools-directory-filters" aria-label="工具筛选">
+        <div className="tools-directory-controls">
+          <FormField label="搜索工具">
+            <Input glass aria-label="搜索工具" value={query} onChange={event => setFilter('q', event.target.value)} onKeyDown={event => event.key === 'Enter' && saveSearch(query)} placeholder="搜索可用工具..." />
+          </FormField>
           <FormField label="状态">
             <Select aria-label="状态" value={status} onChange={event => setFilter('status', event.target.value)}>
               <option value="all">全部状态</option>
@@ -76,14 +76,29 @@ export default function ToolsPage() {
           </FormField>
           {hasFilters && <Button onClick={() => setParams({}, { replace: true })}>清除筛选</Button>}
         </div>
+        <nav className="category-route" aria-label="工具类别">
+          <button type="button" className={!category ? 'active' : ''} aria-pressed={!category} onClick={() => setFilter('category', '')}>全部</button>
+          {categories.map(item => (
+            <button type="button" className={item === category ? 'active' : ''} aria-pressed={item === category} onClick={() => setFilter('category', item)} key={item}>{categoryLabel(item)}<span>{tools.filter(tool => tool.category === item).length}</span></button>
+          ))}
+          {loaded && category && !categories.includes(category) && <button type="button" className="active" aria-pressed="true" disabled>已失效：{category}</button>}
+        </nav>
+      </section>
+      <div className="tools-directory-results-bar">
+        <p role="status">{loaded ? `${filtered.length} 个匹配工具` : '正在加载工具目录…'}</p>
+        {loaded && quickstart && !hasFilters && <Link className="tools-quickstart" to={quickstart.path} onClick={() => addRecentTool(quickstart.id)}>第一次使用？打开 JSON 示例<ArrowUpRight size={13} /></Link>}
       </div>
       {!loaded && (
         <div className="tool-grid tool-grid-large marketplace-grid" aria-busy="true" data-testid="tools-skeleton">
           {Array.from({ length: 8 }, (_, index) => <div className="ui-skeleton-card" key={index} />)}
         </div>
       )}
-      {tools.length > 0 && <div className="directory" aria-label="工具目录">{filtered.map(tool => <ToolCard key={tool.id} tool={tool} />)}</div>}
-      {loaded && !filtered.length && <EmptyState title={tools.length ? '没有匹配工具' : '暂无可用工具'} />}
+      {tools.length > 0 && <section className="directory" aria-label="工具目录">{filtered.map(tool => <ToolCard key={tool.id} tool={tool} />)}</section>}
+      {loaded && !filtered.length && <EmptyState title={tools.length ? '没有匹配工具' : '暂无可用工具'}>
+        <p>{hasFilters ? '试试其他关键词或分类，也可以清除筛选查看全部工具。' : '工具会在启用后显示在这里。'}</p>
+        {hasFilters && <Button variant="primary" onClick={() => setParams({}, { replace: true })}>查看全部工具</Button>}
+      </EmptyState>}
+      {(copy.description || copy.caption) && <details className="tools-directory-help"><summary>工具目录说明</summary>{copy.description && <p>{copy.description}</p>}{copy.caption && <p>{copy.caption}</p>}</details>}
     </main>
   )
 }

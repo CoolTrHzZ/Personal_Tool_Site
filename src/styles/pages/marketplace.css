@@ -20,23 +20,23 @@
 .tool-badges { display: flex; flex-wrap: wrap; gap: 5px; }
 .tool-card .favorite-button { flex: 0 0 36px; width: 36px; min-width: 36px; min-height: 36px; height: 36px; padding: 0; border-color: transparent; border-radius: 8px; background: transparent; color: var(--text-faint); }
 .favorite-button > span { display: flex; }
-.tool-card .favorite-button:hover { border-color: var(--border-default); background: var(--surface-raised); color: var(--text-primary); box-shadow: none; }
-.tool-card .favorite-button[aria-pressed="true"] { color: var(--accent-secondary, var(--accent)); background: color-mix(in srgb, var(--accent-secondary, var(--accent)) 9%, transparent); }
+.tool-card .favorite-button:not(:disabled):hover { border-color: var(--border-default); background: var(--surface-raised); color: var(--text-primary); box-shadow: none; }
+.tool-card .favorite-button[aria-pressed="true"], .tool-card .favorite-button[aria-pressed="true"]:is(:hover, :focus-visible) { color: var(--accent-secondary, var(--accent)); background: color-mix(in srgb, var(--accent-secondary, var(--accent)) 9%, transparent); }
 .tool-card .favorite-button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 .resource-list .tool-card { border: 0; border-bottom: 1px solid var(--border-subtle); border-radius: 0; }
-.tool-filters { display: grid; grid-template-columns: minmax(240px, 1fr) auto; gap: 14px; margin-top: 24px; }
-.market-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
-.market-toolbar .ui-field { min-width: 160px; }
+.tool-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, auto); align-items: end; gap: 16px; margin-top: 24px; }
+.market-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; min-width: 0; }
+.market-toolbar .ui-field { flex: 1 1 140px; min-width: 0; }
 .tool-filters > .ui-input { width: 100%; min-height: 42px; }
 .empty, .not-found { padding: 90px 0; color: var(--text-secondary); text-align: center; }
 .empty h2, .not-found h1 { margin-top: 16px; color: var(--text-primary); font-size: 24px; }
 .page-heading h1 small { color: var(--text-faint); font: 14px var(--font-mono); }
 .category-route { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid var(--border-default); border-bottom: 1px solid var(--border-default); }
-.category-route button { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border: 0; border-right: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); cursor: pointer; transition: color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease); }
-.category-route button:hover { transform: translateY(-1px); }
-.category-route button:active { transform: scale(.98); }
+.category-route button { display: flex; flex-shrink: 0; align-items: center; gap: 8px; min-height: 42px; padding: 11px 16px; border: 0; border-right: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); cursor: pointer; transition: color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease); }
+.category-route button:not(:disabled):hover { transform: translateY(-1px); }
+.category-route button:not(:disabled):active { transform: scale(.98); }
 .category-route button:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); }
-.category-route button:hover, .category-route button.active { color: var(--text-primary); background: var(--accent-soft); }
+.category-route button:not(:disabled):hover, .category-route button.active { color: var(--text-primary); background: var(--accent-soft); }
 .category-route span { color: var(--text-faint); font: 10px var(--font-mono); }
 .directory { display: grid; gap: 8px; margin-top: 28px; }
 .directory .tool-card-copy { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(180px, 2fr) auto; align-items: center; gap: 14px; }
@@ -53,6 +53,10 @@
   .tool-open > span { display: none; }
   .tool-card .favorite-button { flex-basis: 40px; width: 40px; height: 40px; }
   .directory .tool-card-copy small { display: -webkit-box; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+}
+@media (pointer: coarse) {
+  .tool-card .favorite-button { flex-basis: 44px; width: 44px; min-width: 44px; min-height: 44px; height: 44px; }
+  .category-route button, .tool-filters > .ui-input { min-height: 44px; }
 }
 
 :root[data-motion="off"] .tool-card::before, :root[data-motion="off"] .tool-card-link .card-arrow { transition: none; transform: none; }

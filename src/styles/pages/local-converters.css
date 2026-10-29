@@ -1,0 +1,20 @@
+.base64-workbench .workbench-card-head { align-items: flex-start; }
+.base64-workbench .workbench-card-head h2, .timestamp-workbench .workbench-card > h2 { margin: 6px 0; font-size: 18px; }
+.base64-workbench .converter-help { color: var(--text-secondary); font-size: 12px; }
+.base64-workbench .converter-help summary { width: fit-content; cursor: pointer; }
+.base64-workbench .converter-help summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.timestamp-workbench .converter-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.timestamp-workbench .timestamp-number-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(76px, 90px); gap: 12px; align-items: end; }
+.timestamp-workbench .timestamp-facts { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 0 0 14px; }
+.timestamp-workbench .timestamp-facts > div { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.timestamp-workbench .timestamp-facts dt { color: var(--text-secondary); }
+.timestamp-workbench .timestamp-facts dd { margin: 0; overflow-wrap: anywhere; }
+.timestamp-workbench .timestamp-instant { display: grid; gap: 6px; overflow-wrap: anywhere; }
+.timestamp-workbench .timestamp-instant code { color: var(--text-secondary); font-family: var(--font-mono); }
+.timestamp-workbench input[type="datetime-local"] { width: 100%; }
+@media (max-width: 420px) {
+  .timestamp-workbench .timestamp-number-fields { grid-template-columns: minmax(0, 1fr); }
+}
+@media (pointer: coarse) {
+  .base64-workbench .converter-help summary { min-height: 44px; padding-block: 12px; }
+}

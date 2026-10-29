@@ -38,12 +38,33 @@ export default function NotePage() {
   return (
     <main className="page note-page">
       <p className="note-back"><Link to={`/notes${params.size ? `?${params}` : ''}`}>← 全部笔记</Link></p>
-      <div className="project-actions"><span className="runbook-kind">{noteKinds[note.kind || 'note']}</span><Button size="sm" onClick={copy}>复制 Markdown</Button><Button size="sm" onClick={() => downloadText(`${note.id}.md`, note.body, 'text/markdown;charset=utf-8')}>下载手册</Button><span role="status">{message}</span></div>
-      <nav className="note-related-bar" aria-label="手册关联资料">{visiblePage('projects') && project && <Link to={`/projects/${project.id}`}>项目：{project.name}</Link>}{visiblePage('cfg') && relatedCfgs.map(cfg => <Link key={cfg.id} to={`/cfg/${cfg.id}`}>CFG：{cfg.name}</Link>)}</nav>
-      <article className="md-article">
-        {note.updated && <p className="note-meta">{note.updated}</p>}
-        <div dangerouslySetInnerHTML={{ __html: renderMarkdown(note.body) }} />
-      </article>
+      <header className="note-reading-header">
+        <h1>{note.title}</h1>
+        {note.summary && <p className="note-summary">{note.summary}</p>}
+        <dl className="note-record-meta">
+          <div><dt>记录 ID</dt><dd><code>{note.id}</code></dd></div>
+          <div><dt>类型</dt><dd><span className="runbook-kind">{noteKinds[note.kind || 'note']}</span></dd></div>
+          <div><dt>关联项目 ID</dt><dd>{note.projectId || '未关联项目'}</dd></div>
+          <div><dt>更新时间（原记录）</dt><dd>{note.updated?.trim() ? note.updated : '未知'}</dd></div>
+        </dl>
+        <p className="note-reading-cue">文档步骤与关联配置仅供阅读，不代表已经执行、部署或验证。</p>
+      </header>
+      <div className="note-reading-layout">
+        <article className="md-article">
+          <div dangerouslySetInnerHTML={{ __html: renderMarkdown(note.body) }} />
+        </article>
+        <aside className="note-reading-tools" aria-label="笔记操作与关联资料">
+          <section className="note-export-panel">
+            <h2>保存这份记录</h2>
+            <p className="note-export-risk">复制或下载前检查正文中的敏感信息；操作仅处理当前记录，不执行文档步骤。</p>
+            <div className="project-actions note-actions"><Button size="sm" onClick={copy}>复制 Markdown</Button><Button size="sm" onClick={() => downloadText(`${note.id}.md`, note.body, 'text/markdown;charset=utf-8')}>下载手册</Button><span className="note-copy-feedback" role="status">{message}</span></div>
+          </section>
+          <section className="note-related-panel">
+            <h2>关联资料</h2>
+            <nav className="note-related-bar" aria-label="手册关联资料">{visiblePage('projects') && project && <Link to={`/projects/${project.id}`}>项目：{project.name}</Link>}{visiblePage('cfg') && relatedCfgs.map(cfg => <Link key={cfg.id} to={`/cfg/${cfg.id}`}>CFG：{cfg.name}</Link>)}</nav>
+          </section>
+        </aside>
+      </div>
     </main>
   )
 }

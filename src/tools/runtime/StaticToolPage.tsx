@@ -42,6 +42,10 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
     return `${import.meta.env.BASE_URL}tools/${encodeURIComponent(tool.id)}/${entry}`
   }, [tool])
   const sandbox = useMemo(() => buildSandbox(tool.permissions), [tool.permissions])
+  const frameIdentity = JSON.stringify([tool.id, src, frameKey])
+  const loadGeneration = useMemo(() => Symbol('iframe-load'), [frameIdentity])
+  const [loadedGeneration, setLoadedGeneration] = useState<symbol | null>(null)
+  const loading = loadedGeneration !== loadGeneration
 
   const pushToast = useCallback((message: string, level: ToastItem['level'] = 'info') => {
     const id = ++toastSeq.current
@@ -159,13 +163,15 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
   const frameStyle = mode === 'embedded' ? { height } : undefined
   const frame = (
     <iframe
-      key={frameKey}
+      key={frameIdentity}
       ref={iframeRef}
       className="tool-frame"
       data-testid="tool-frame"
       src={src}
       sandbox={sandbox}
       title={tool.name}
+      aria-busy={loading}
+      onLoad={event => { if (event.currentTarget === iframeRef.current) setLoadedGeneration(loadGeneration) }}
       style={frameStyle}
       allow={[tool.permissions.clipboard && 'clipboard-read; clipboard-write', tool.permissions.download && 'downloads'].filter(Boolean).join('; ') || undefined}
     />
@@ -206,7 +212,10 @@ export default function StaticToolPage({ tool }: { tool: ToolDefinition }) {
         {mode === 'fullscreen' && <button type="button" className="tool-exit-fullscreen" aria-label="退出全屏 (Esc)" title="退出全屏 (Esc)" onClick={() => setMode('embedded')}>退出</button>}
       </header>
       {mode === 'embedded' && <details className="tool-docs"><summary>使用说明</summary><p>{tool.readme || '在浏览器中完成操作；数据只保存在当前浏览器。'}</p></details>}
-      <div key="frame-stage" className={mode === 'fullscreen' ? 'tool-fullscreen-stage' : mode === 'workspace' ? 'tool-workspace-frame' : 'tool-panel'}>{frame}</div>
+      <div key="frame-stage" className={mode === 'fullscreen' ? 'tool-fullscreen-stage' : mode === 'workspace' ? 'tool-workspace-frame' : 'tool-panel'} style={{ position: 'relative' }}>
+        {frame}
+        {loading && <span role="status" className="hint" style={{ position: 'absolute', top: 8, right: 12, zIndex: 1, padding: '2px 6px', background: 'var(--surface-panel)', pointerEvents: 'none' }}>正在加载…</span>}
+      </div>
       {toastsView}
     </main>
   )

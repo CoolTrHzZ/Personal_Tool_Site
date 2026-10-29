@@ -5,6 +5,7 @@ import Button from '../../../components/ui/Button'
 import { downloadText, readTextFile } from '../../../utils/tool-files'
 import { createDiffReport, diffLines, FORMAT_LABELS, FORMAT_NOTES, inspectConfig, MAX_BYTES } from './diff'
 import type { ConfigFormat, ConfigIssue, DiffLine } from './diff'
+import '../../../styles/pages/config-diff-workbench.css'
 
 type Comparison = { lines: DiffLine[]; beforeIssues: ConfigIssue[]; afterIssues: ConfigIssue[] }
 const example = { before: '{\n  "name": "toolbox",\n  "theme": "dark"\n}', after: '{\n  "name": "toolbox",\n  "theme": "light",\n  "autosave": true\n}' }
@@ -28,10 +29,15 @@ export default function ConfigDiffTool() {
     else setAfter(value)
     setComparison(null); setError('')
   }
+  const updateFormat = (value: ConfigFormat) => {
+    // Pending imports belong to the format in which they started, even on a round trip.
+    revisions.current.before++; revisions.current.after++
+    setFormat(value); setComparison(null)
+  }
   const importFile = async (side: 'before' | 'after', file?: File) => {
     if (!file) return
     const revision = ++revisions.current[side]
-    try { const text = await readTextFile(file, MAX_BYTES); if (revisions.current[side] === revision) updateText(side, text) }
+    try { const text = await readTextFile(file, MAX_BYTES, format === 'cfg' ? 'cfg' : 'text'); if (revisions.current[side] === revision) updateText(side, text) }
     catch (error) { if (revisions.current[side] === revision) setError(error instanceof Error ? error.message : '无法读取文件，原有内容已保留。') }
   }
   const compare = (left = before, right = after, selectedFormat = format) => {
@@ -48,12 +54,14 @@ export default function ConfigDiffTool() {
   const report = comparison ? createDiffReport(lines, format, ignoreTrailingSpace, comparison.beforeIssues, comparison.afterIssues) : ''
 
   return <ToolShell title="配置差异对比" category="development" description="找到每一处变更，检查配置，再带走一份清晰的报告。">
-    <div className="tool-workbench">
+    <div className="tool-workbench config-diff-workbench">
       <p className="workbench-note">内容仅在当前浏览器处理，不上传、不自动保存。每侧最多 256 KiB / 2000 行。</p>
-      <div className="workbench-toolbar">
+      <div className="config-diff-setup">
+        <div className="config-diff-options" role="group" aria-label="比较设置">
+          <div className="workbench-field"><label htmlFor="config-diff-format">配置格式</label><select id="config-diff-format" value={format} onChange={event => updateFormat(event.target.value as ConfigFormat)}>{Object.entries(FORMAT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+          <label className="workbench-check"><input type="checkbox" checked={ignoreTrailingSpace} onChange={event => { setIgnoreTrailingSpace(event.target.checked); setComparison(null) }} />忽略行尾空白</label>
+        </div>
         <Button onClick={() => { updateText('before', example.before); updateText('after', example.after); setFormat('json'); compare(example.before, example.after, 'json') }}>填入示例并对比</Button>
-        <div className="workbench-field"><label htmlFor="config-diff-format">配置格式</label><select id="config-diff-format" value={format} onChange={event => { setFormat(event.target.value as ConfigFormat); setComparison(null) }}>{Object.entries(FORMAT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-        <label className="workbench-check"><input type="checkbox" checked={ignoreTrailingSpace} onChange={event => { setIgnoreTrailingSpace(event.target.checked); setComparison(null) }} />忽略行尾空白</label>
       </div>
       <p className="workbench-note">{FORMAT_NOTES[format]}CRLF / LF 统一比较。</p>
       <div className="workbench-grid">
@@ -66,22 +74,29 @@ export default function ConfigDiffTool() {
           </section>
         })}
       </div>
-      <div className="workbench-toolbar">
+      <div className="config-diff-actions">
         <Button variant="primary" icon={<GitCompareArrows size={16} />} onClick={() => compare()}>开始对比</Button>
-        <Button icon={<ArrowLeftRight size={16} />} onClick={() => { updateText('before', after); updateText('after', before) }}>左右交换</Button>
-        <Button icon={<RotateCcw size={16} />} onClick={() => { updateText('before', ''); updateText('after', '') }}>清空内容</Button>
+        <div className="workbench-toolbar" role="group" aria-label="编辑辅助">
+          <Button icon={<ArrowLeftRight size={16} />} onClick={() => { updateText('before', after); updateText('after', before) }}>左右交换</Button>
+          <Button icon={<RotateCcw size={16} />} onClick={() => { updateText('before', ''); updateText('after', '') }}>清空内容</Button>
+        </div>
       </div>
       {error && <p className="error" role="alert">{error}</p>}
-      {comparison && <>
+      {comparison && <section className="config-diff-results" aria-labelledby="config-diff-results-heading">
+        <h2 id="config-diff-results-heading">比较结果</h2>
         <div className="workbench-stats" role="status"><span>新增 <strong>{added}</strong> 行</span><span>删除 <strong>{removed}</strong> 行</span><span>未变 <strong>{lines.length - added - removed}</strong> 行</span>{!added && !removed && <span>没有检测到变更</span>}</div>
         <div className="workbench-grid"><Issues label="修改前" issues={comparison.beforeIssues} format={format} /><Issues label="修改后" issues={comparison.afterIssues} format={format} /></div>
-        <div className="workbench-toolbar">
-          <label className="workbench-check"><input type="checkbox" checked={onlyChanges} onChange={event => setOnlyChanges(event.target.checked)} />只显示变更</label>
+        <div className="config-diff-lines">
+          <div className="config-diff-lines-heading"><h3>逐行对照</h3><label className="workbench-check"><input type="checkbox" checked={onlyChanges} onChange={event => setOnlyChanges(event.target.checked)} />只显示变更</label></div>
+          {visible.length ? <div className="workbench-diff" role="region" aria-label="逐行差异" tabIndex={0}><table><thead><tr><th scope="col">原行</th><th scope="col">新行</th><th scope="col">变更</th><th scope="col">内容</th></tr></thead><tbody>{visible.map((line, index) => <tr key={`${line.before ?? ''}-${line.after ?? ''}-${index}`} className={`diff-${line.type}`}><td>{line.before ?? '—'}</td><td>{line.after ?? '—'}</td><td>{line.type === 'add' ? '+ 新增' : line.type === 'remove' ? '− 删除' : '未变'}</td><td className="diff-code">{line.text || '\u00a0'}</td></tr>)}</tbody></table></div> : <p className="workbench-note">{onlyChanges ? '当前没有变更行。' : '两侧均为空文本。'}</p>}
+        </div>
+        <div className="workbench-toolbar config-diff-report" role="group" aria-label="报告操作">
+          <h3>变更报告</h3>
           <CopyButton value={report} label="复制变更报告" />
           <Button icon={<Download size={16} />} onClick={() => downloadText('config-diff-report.md', report, 'text/markdown;charset=utf-8')}>下载变更报告</Button>
         </div>
-        {visible.length ? <div className="workbench-diff" role="region" aria-label="逐行差异" tabIndex={0}><table><thead><tr><th scope="col">原行</th><th scope="col">新行</th><th scope="col">变更</th><th scope="col">内容</th></tr></thead><tbody>{visible.map((line, index) => <tr key={`${line.before ?? ''}-${line.after ?? ''}-${index}`} className={`diff-${line.type}`}><td>{line.before ?? '—'}</td><td>{line.after ?? '—'}</td><td>{line.type === 'add' ? '+ 新增' : line.type === 'remove' ? '− 删除' : '未变'}</td><td className="diff-code">{line.text || '\u00a0'}</td></tr>)}</tbody></table></div> : <p className="workbench-note">{onlyChanges ? '当前没有变更行。' : '两侧均为空文本。'}</p>}
-      </>}
+      </section>}
+      <details className="config-diff-help"><summary>使用与报告说明</summary><p>准备两侧内容后点击“开始对比”。“只显示变更”仅筛选表格，报告始终包含变更行与双侧检查结果。</p></details>
     </div>
   </ToolShell>
 }

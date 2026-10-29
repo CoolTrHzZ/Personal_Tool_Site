@@ -79,3 +79,6 @@
 .intro-actions .station-launch { margin-top: 0; }
 .intro-all-tools { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; color: var(--text-secondary); font-size: 11px; }
 .intro-all-tools:hover { color: var(--accent); }
+
+.command-palette .command-result-label { display: grid; gap: 4px; min-width: 0; }
+.command-palette .command-result-id { overflow-wrap: anywhere; white-space: normal; }

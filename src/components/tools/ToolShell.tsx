@@ -9,6 +9,7 @@ export function CopyButton({ value, label = '复制结果' }: { value: string; l
   useEffect(() => { revision.current++; setMessage(''); return () => { revision.current++ } }, [value])
   const copy = async () => {
     const request = ++revision.current
+    setMessage('')
     try { await navigator.clipboard.writeText(value); if (request === revision.current) setMessage('已复制') }
     catch { if (request === revision.current) setMessage('复制失败，请手动选择结果复制') }
   }

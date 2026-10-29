@@ -116,7 +116,8 @@ try {
       assert.deepEqual(await readFile(await exeDownload.path()), executableContent)
       assert(paths.has(`${mount}downloads/${projectFixture.id}/${projectFixture.download.sha256}.exe`), 'EXE files must download below the deployment base')
       await page.getByRole('link', { name: /Pages 部署手册/ }).click()
-      await expect(page.getByRole('heading', { name: noteFixture.title, exact: true })).toBeVisible()
+      await expect(page.getByRole('article').getByRole('heading', { name: noteFixture.title, exact: true })).toBeVisible()
+      await expect(page.locator('header.note-reading-header').getByRole('heading', { name: noteFixture.title, exact: true })).toBeVisible()
       await page.getByRole('navigation', { name: '手册关联资料' }).getByRole('link', { name: /CFG/ }).click()
       await expect(page.locator('.cfg-library-code')).toContainText('跨机器原文')
       for (const [id, name] of [['ai-context', 'AI 任务上下文包'], ['config-diff', '配置差异对比'], ['cs2-cfg', 'CS2 CFG 工作台']]) {

@@ -69,11 +69,12 @@ test('Base64 Unicode 往返、无效 UTF-8 与非法编码', async ({ page }) =>
 test('URL 编解码保留查询值并区分错误与结果', async ({ page }) => {
   await page.goto('/#/tools/url')
   const input = page.getByLabel('文本')
-  const result = page.getByLabel('结果')
+  const result = page.getByRole('textbox', { name: '结果', exact: true })
   await input.fill('工作站 & a+b/🚀')
   await page.getByRole('button', { name: '编码', exact: true }).click()
   await expect(result).toHaveValue('%E5%B7%A5%E4%BD%9C%E7%AB%99%20%26%20a%2Bb%2F%F0%9F%9A%80')
   await input.fill(await result.inputValue())
+  await page.getByRole('tab', { name: '解码', exact: true }).click()
   await page.getByRole('button', { name: '解码', exact: true }).click()
   await expect(result).toHaveValue('工作站 & a+b/🚀')
   await input.fill('%E0%A4%A')
